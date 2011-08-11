@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# A download files making script.
+#
+# The script makes two ".tar.gz" archives, one is for the autonomous
+# Perl scripts built by the "fatpack" (App::FatPacker) tool and
+# another is for the source files, and puts them into the destination
+# directory.
+#
+# The TAG argument is required. The script is assumed to be run at the
+# repository root.
+#
+# Sergey Konoplev <sergey.konoplev@postgresql-consulting.com>
+# Copyright 2010-2011 postgresql-consulting.com
+
+# List of scripts to fatpack
+SCRIPTLIST='pg_compactor'
+DESTDIR=files
+SRCDIR=bin
+
+if [ $# -eq 1 ]; then
+    SOURCECODETARGZ=pgpack-$1-sourcecode.tar.gz
+    FATSCRIPTSTARGZ=pgpack-$1-fatscripts.tar.gz
+    echo $DESTDIR/$FATSCRIPTSTARGZ
+    echo $DESTDIR/$SOURCECODETARGZ
+else
+    echo "Usage: make_files TAG" >&2
+    exit 1
+fi
+
+test -e $DESTDIR || mkdir $DESTDIR
+
+# Fatpack the scripts
+mkdir fatlib
+for SCRIPT in $SCRIPTLIST; do
+    (echo "#!/usr/bin/perl"; fatpack file; cat $SRCDIR/$SCRIPT) \
+	> $DESTDIR/$SCRIPT 2> /dev/null
+    chmod 755 $DESTDIR/$SCRIPT
+done
+rm -rf fatlib
+
+# Archive the fatpacked scripts and remove them
+(
+    cd $DESTDIR/
+    tar -czf $FATSCRIPTSTARGZ $SCRIPTLIST
+    rm $SCRIPTLIST
+)
+
+# Make the source code archive
+tar --exclude .svn --exclude files -czf $DESTDIR/$SOURCECODETARGZ .

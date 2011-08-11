@@ -1,0 +1,30 @@
+PgToolkit from Postgresql-consulting.com
+========================================
+
+PgToolkit is a set of scripts for PostgreSQL database
+management. Initially it was an internal set of tools and instructions
+in the postgresql-consulting.com but we decided to share our
+experience with public some times ago and created this project.
+
+There are two ways to deploy and use the tools.
+
+The first and the easiest one is to get the last version of the
+autonomous scripts archive from the project's site on Google Code
+http://code.google.com/p/pgtoolkit/. Unpack it on the destination
+machine and simply use. This scripts are packed with all the
+dependencies so you need the Perl interpreter installed only.
+
+Another way is to checkout the source code from the project's
+site. All the scripts you will find in the "bin" directory. Before
+using any of them the the PERL5LIB environment variable must be set to
+point to the "lib" directory.
+
+To get more information about any tool just run it with the "--help"
+option.
+
+There is the only tool ready for publishing currently:
+
+pg_compactor - a PostgreSQL table bloat reducing tool.
+
+Also we have not adapted any instructions to the publication yet but
+they are comming soon.

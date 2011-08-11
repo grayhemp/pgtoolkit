@@ -1,0 +1,295 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Pc::Registry::Compactor;
+
+=head1 NAME
+
+B<pg_compactor> - a PostgreSQL table bloat reducing tool.
+
+=head1 SYNOPSIS
+
+pg_compactor [connection] [target] [behaviour] [misc]
+
+=over 4
+
+=item I<connection>
+
+[-h host] [-p port] [-U user] [-W passwd] [-P path]
+
+=item I<target>
+
+[(-d | -D) dbname...] [(-n | -N) schema...] [(-t | -T) table...]
+
+=item I<behaviour>
+
+[-IRrsf] [-c pages] [-e seconds] [-E ratio] [-m count] [-x pages]
+[-y ratio] [-z seconds]
+
+=item I<misc>
+
+-? | [-q] | [-v level]
+
+=back
+
+=head1 DESCRIPTION
+
+B<pg_compactor> is a maintenance tool for PostgreSQL to reduce
+bloat for tables without heavily locking them.
+
+The tool is an automation of the solutions described on the pages:
+
+=over 4
+
+=item L<Reducing bloat without locking|http://blog.endpoint.com/2010/09/reducing-bloat-without-locking.html>
+
+by Joshua Tolley (on End Point's blog)
+
+=item L<Reduce bloat of table without long/exclusive locks|http://depesz.com/index.php/2010/10/17/reduce-bloat-of-table-without-longexclusive-locks>
+
+by Hubert Lubaczewski (aka Depesz).
+
+=back
+
+If pgstattuple is installed B<pg_compactor> uses it to gather a better
+statistics. It is highly recommended if there are a lot of toast data
+in the database.
+
+=head1 OPTIONS
+
+=head2 I<connection>
+
+The B<pg_compactor> tries to connect to the database with the DBI
+Perl module using either DBD::Pg or DBD::PgPP driver first. If it
+fails the utility tries to work via psql.
+
+=over 4
+
+=item B<-h> I<host>
+
+=item B<--host> I<host>
+
+A database host. By default C<localhost>.
+
+=item B<-p> I<port>
+
+=item B<--port> I<port>
+
+A database port. By default C<5432>.
+
+=item B<-U> I<user>
+
+=item B<--user> I<user>
+
+A database user. By default current system user is used (as returned
+by B<whoami>).
+
+=item B<-W> I<passwd>
+
+=item B<--password> I<passwd>
+
+A password for the user.
+
+=item B<-P> I<path>
+
+=item B<--path-to-psql> I<path>
+
+A path to the B<psql> program. By default C<psql>.
+
+=back
+
+=head2 I<target>
+
+With no target options specified all the content of the instance is
+processed. Note that if you specified a database, a schema or a table
+that is not in the cluster it will be ignored. Rdeundant exclusions
+are ignored too.
+
+=over 4
+
+=item B<-d> I<dbname>
+
+=item B<--dbname> I<dbname>
+
+A database to process. By default all the user databses of the
+instance are processed.
+
+=item B<-D> I<dbname>
+
+=item B<--exclude-dbname> I<dbname>
+
+A database to exclude from processing.
+
+=item B<-n> I<schema>
+
+=item B<--schema> I<schema>
+
+A schema to process. By default all the schemas of the specified
+database are processed.
+
+=item B<-N> I<schema>
+
+=item B<--exclude-schema> I<schema>
+
+A schema to exclude from processing.
+
+=item B<-t> I<table>
+
+=item B<--table> I<table>
+
+A table to process. By default all the tables of the specified schema
+are processed.
+
+=item B<-T> I<table>
+
+=item B<--exclude-table> I<table>
+
+A table to exclude from processing.
+
+=back
+
+=head2 I<behaviour>
+
+Bahavioral options.
+
+=over 4
+
+=item B<-I>
+
+=item B<--no-initial-vacuum>
+
+=item B<-R>
+
+=item B<--no-routine-vacuum>
+
+Turn of performing of initial/routine vacuum. By default all the
+vacuums are performed.
+
+=item B<-r>
+
+=item B<--reindex>
+
+Reindex tables after processing.
+
+=item B<-s>
+
+=item B<--print-reindex-queries>
+
+Print reindex queries. Useful if you want to perform manual
+reindex later.
+
+=item B<-f>
+
+=item B<--force>
+
+Try to compact even those tables that do not meet minimal bloat
+requirements.
+
+=item B<-c> I<pages>
+
+=item B<--pages-per-round> I<pages>
+
+Number of pages to process per round. By default it is 5.
+
+=item B<-e> I<seconds>
+
+=item B<--delay-constant> I<seconds>
+
+A constant part of the delay between rounds in seconds. By default it
+is 0.
+
+=item B<-E> I<ratio>
+
+=item B<--delay-ratio> I<ratio>
+
+A dynamic part of the delay between rounds is calculated as
+previous-round-time * delay-ratio. By default 2.
+
+=item B<-m> I<count>
+
+=item B<--max-retry-count> I<count>
+
+A maximum number of retries in case of unsuccessful processing. By
+default 10.
+
+=item B<-x> I<count>
+
+=item B<--min-page-count> I<count>
+
+A minumum pages number required to be in the table to process it. By
+default it is 100.
+
+=item B<-y> I<ratio>
+
+=item B<--min-free-percent> I<ratio>
+
+A minimum free space percent required to be in the table to process
+it. By default it is 5.
+
+=item B<-z> I<seconds>
+
+=item B<--progress-report-period> I<seconds>
+
+An interval in seconds to report the progress of processing
+with. Default is 60 seconds.
+
+=back
+
+=head2 I<misc>
+
+Miscellaneous options.
+
+=over 4
+
+=item B<-?>
+
+=item B<--help>
+
+Display this help and exit.
+
+=item B<-q>
+
+=item B<--quiet>
+
+Do not display progress messages. The same as B<-v> I<warning>.
+
+=item B<-v> I<level>
+
+=item B<--verbosity> I<level>
+
+A verbosity level. One of C<error>, C<warning>, C<notice>, C<info>. By
+default C<notice>.
+
+=back
+
+=cut
+
+sub main {
+	Pc::Registry::Compactor->new()->get_cluster_compactor()->process();;
+}
+
+if (__PACKAGE__ eq 'main') {
+	main();
+}
+
+1;
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2010-2011 postgresql-consulting.com
+
+TODO Licence boilerplate
+
+=head1 AUTHOR
+
+=over 4
+
+=item L<Maxim Boguk|mailto:maxim.boguk@postgresql-consulting.com>
+
+=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+
+=back
+
+=cut
