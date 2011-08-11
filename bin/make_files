@@ -19,8 +19,8 @@ DESTDIR=files
 SRCDIR=bin
 
 if [ $# -eq 1 ]; then
-    SOURCECODETARGZ=pgpack-$1-sourcecode.tar.gz
-    FATSCRIPTSTARGZ=pgpack-$1-fatscripts.tar.gz
+    SOURCECODETARGZ=pgtoolkit-$1-sourcecode.tar.gz
+    FATSCRIPTSTARGZ=pgtoolkit-$1-fatscripts.tar.gz
     echo $DESTDIR/$FATSCRIPTSTARGZ
     echo $DESTDIR/$SOURCECODETARGZ
 else
