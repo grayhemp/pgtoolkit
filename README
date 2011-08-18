@@ -1,30 +1,28 @@
-PgToolkit from Postgresql-consulting.com
+PgToolkit from Postgresql-Consulting.com
 ========================================
 
-PgToolkit is a set of scripts for PostgreSQL database
-management. Initially it was an internal set of tools and instructions
-in the postgresql-consulting.com but we decided to share our
-experience with public some times ago and created this project.
+PgToolkit is a set of scripts and instructions for PostgreSQL database
+management. Initially it was an internal stuff of the
+Postgresql-Consulting.com community. However, some time ago we decided
+to share our experience with public and started to make a box version
+from this.
 
-There are two ways to deploy and use the tools.
-
-The first and the easiest one is to get the last version of the
-autonomous scripts archive from the project's site on Google Code
+There are two ways of deploying and using the tools. The first and the
+easiest one is to get the latest version of the autonomous scripts
+archive from the PgToolkit project's site on Google Code
 http://code.google.com/p/pgtoolkit/. Unpack it on the destination
-machine and simply use. This scripts are packed with all the
-dependencies so you need the Perl interpreter installed only.
+machine and just use. These scripts are packed with all the required
+dependencies so you need the Perl interpreter installed only. Another
+way is to checkout the source code from the mentioned above site. All
+the scripts you will find in the bin/ directory. Before using any of
+them the PERL5LIB environment variable must be set to point to the
+lib/ directory.
 
-Another way is to checkout the source code from the project's
-site. All the scripts you will find in the "bin" directory. Before
-using any of them the the PERL5LIB environment variable must be set to
-point to the "lib" directory.
+To get more information about any tool run it with the --help option.
 
-To get more information about any tool just run it with the "--help"
-option.
+Currently there is the only tool we have prepared for publishing:
 
-There is the only tool ready for publishing currently:
+- pg_compactor - a PostgreSQL table bloat reducing tool.
 
-pg_compactor - a PostgreSQL table bloat reducing tool.
-
-Also we have not adapted any instructions to the publication yet but
-they are comming soon.
+We have not adapted any instructions to the publication yet but they
+are comming soon.

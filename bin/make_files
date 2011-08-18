@@ -2,9 +2,9 @@
 #
 # A download files making script.
 #
-# The script makes two ".tar.gz" archives, one is for the autonomous
-# Perl scripts built by the "fatpack" (App::FatPacker) tool and
-# another is for the source files, and puts them into the destination
+# The script makes two .tar.gz archives, one is for the autonomous
+# Perl scripts built by the fatpack (App::FatPacker) tool and another
+# is for the source files, and puts them into the destination
 # directory.
 #
 # The TAG argument is required. The script is assumed to be run at the
