@@ -13,8 +13,6 @@ use Pc::DatabaseStub;
 
 use Pc::Logger;
 
-use Pc::Compactor::Table;
-
 sub setup : Test(setup) {
 	my $self = shift;
 
