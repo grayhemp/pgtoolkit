@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Pc::Registry::Compactor;
+use PgToolkit::Registry::Compactor;
 
 =head1 NAME
 
@@ -267,7 +267,7 @@ default C<notice>.
 =cut
 
 sub main {
-	Pc::Registry::Compactor->new()->get_cluster_compactor()->process();;
+	PgToolkit::Registry::Compactor->new()->get_cluster_compactor()->process();;
 }
 
 if (__PACKAGE__ eq 'main') {
