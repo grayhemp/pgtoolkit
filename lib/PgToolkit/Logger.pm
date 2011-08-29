@@ -84,7 +84,11 @@ Loggs a message.
 =item C<level>
 
 the level of the message, allowed symbols are C<error>, C<warning>,
-C<notice> and C<info>.
+C<notice> and C<info>
+
+=item C<target>
+
+an name related to the log entry, empty by default.
 
 =back
 
@@ -113,7 +117,9 @@ sub write {
 	if ($level_code <= $self->{'_level_code'}) {
 		print(
 			{$level_code > 0 ? $self->{'_out_handle'} : $self->{'_err_handle'}}
-			scalar(localtime()).' '.uc($arg_hash{'level'}).' '.
+			scalar(localtime()).' '.
+			(defined $arg_hash{'target'} ? $arg_hash{'target'}.' ' : '').
+			uc($arg_hash{'level'}).' '.
 			$arg_hash{'message'}."\n");
 	}
 
