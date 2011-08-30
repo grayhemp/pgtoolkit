@@ -70,6 +70,17 @@ sub init {
 		message => 'Scanning the cluster.',
 		level => 'info');
 
+	eval {
+		$self->{'_postgres_database'} = $self->{'_database_constructor'}->
+			(dbname => 'postgres');
+	};
+	if ($@) {
+		$self->{'_logger'}->write(
+			message => ('Can not connect to the cluster, '.
+						'the following error has occured:'."\n".$@),
+			level => 'error');
+	}
+
 	my $dbname_list = [];
 	if (@{$arg_hash{'dbname_list'}}) {
 		$dbname_list = $arg_hash{'dbname_list'};
@@ -101,8 +112,11 @@ sub init {
 		if ($@) {
 			$self->{'_logger'}->write(
 				message => (
-					'Can not prepare the "'.$dbname.'" database to '.
-					'compacting, the following error has occured:'."\n".$@),
+					'Can not prepare the '.
+					$self->{'_postgres_database'}->quote_ident(
+						string => $dbname).
+					' database to compacting, the following error has occured:'.
+					"\n".$@),
 				level => 'error');
 		} else {
 			push(@{$self->{'_database_compactor_list'}}, $database_compactor);
@@ -153,18 +167,19 @@ sub process {
 			message => (
 				'Finished processing the cluster after '.$attempt.
 				' attempt(s).'),
-			level => 'info');
+			level => 'notice');
 
 		if (not $self->is_processed()) {
 			$self->{'_logger'}->write(
-				message => 'Processing of the cluster has not been completed.',
+				message => ('Processing of the cluster has not been '.
+							'completed after '.$attempt.' attempt(s).'),
 				level => 'warning');
 		}
 	} else {
 		$self->{'_logger'}->write(
 			message => (
 				'Processing of the cluster has been cancelled as no '.
-				'databases has been chosen.'),
+				'appropriate databases has been found.'),
 			level => 'warning');
 	}
 
@@ -194,9 +209,9 @@ sub is_processed {
 sub _get_dbname_list {
 	my $self = shift;
 
-	my $result = $self->{'_database_constructor'}->(dbname => 'postgres')
-		->execute(
-		sql => <<SQL
+	my $result = $self->{'_postgres_database'}->
+		execute(
+			sql => <<SQL
 SELECT datname FROM pg_database
 WHERE datname NOT IN ('postgres', 'template0', 'template1')
 ORDER BY 1

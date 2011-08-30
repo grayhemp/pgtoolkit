@@ -78,12 +78,12 @@ sub init {
 		'has_special_triggers' => {
 			'sql_pattern' => (
 				qr/SELECT count\(1\) FROM pg_trigger.+/s.
-				qr/tgrelid = '"schema"\."table"'::regclass/),
+				qr/tgrelid = 'schema\.table'::regclass/),
 			'row_list' => [[0]]},
 		'get_statistics' => {
 			'sql_pattern' => (
 				qr/SELECT\s+page_count, total_page_count.+/s.
-				qr/pg_class\.oid = '"schema"\."table"'::regclass/),
+				qr/pg_class\.oid = 'schema\.table'::regclass/),
 			'row_list_sequence' => [
 				[[100, 120, undef, undef, undef]],
 				[[100, 120, 85, 15, 5000]],
@@ -91,21 +91,21 @@ sub init {
 				[[85, 102, 85, 0, 0]]]},
 		'get_column' => {
 			'sql_pattern' => (
-				qr/SELECT attname.+attrelid = '"schema"\."table"'::regclass.+/s.
-				qr/indrelid = '"schema"\."table"'::regclass/),
+				qr/SELECT attname.+attrelid = 'schema\.table'::regclass.+/s.
+				qr/indrelid = 'schema\.table'::regclass/),
 			'row_list' => [['column']]},
 		'clean_pages' => {
 			'sql_pattern' => (
-				qr/SELECT _clean_pages\(.+'"schema"."table"', '"column"'.+/s.
+				qr/SELECT _clean_pages\(.+'schema.table', 'column'.+/s.
 				qr/<to_page>, 5/),
 			'row_list_sequence' => [
 				[[94]], [[89]], [[84]],
 				'No more free space left in the table']},
 		'vacuum' => {
-			'sql_pattern' => qr/VACUUM "schema"\."table"/,
+			'sql_pattern' => qr/VACUUM schema\.table/,
 			'row_list' => [[undef]]},
 		'vacuum_analyze' => {
-			'sql_pattern' => qr/VACUUM ANALYZE "schema"\."table"/,
+			'sql_pattern' => qr/VACUUM ANALYZE schema\.table/,
 			'row_list' => [[undef]]},
 		'reindex_select' => {
 			'sql_pattern' => (
@@ -130,20 +130,20 @@ sub init {
 				qr/WHERE column2 = 1/,
 			'row_list' => []},
 		'reindex_drop1' => {
-			'sql_pattern' => qr/DROP INDEX "schema"\."i_table__idx1"/,
+			'sql_pattern' => qr/DROP INDEX schema\.i_table__idx1/,
 			'row_list' => []},
 		'reindex_drop2' => {
-			'sql_pattern' => qr/DROP INDEX "schema"\."i_table__idx2"/,
+			'sql_pattern' => qr/DROP INDEX schema\.i_table__idx2/,
 			'row_list' => []},
 		'reindex_alter1' => {
 			'sql_pattern' =>
-				qr/ALTER INDEX "schema"\.i_compactor_$$ /.
-				qr/RENAME TO "i_table__idx1"/,
+				qr/ALTER INDEX schema\.i_compactor_$$ /.
+				qr/RENAME TO i_table__idx1/,
 			'row_list' => []},
 		'reindex_alter2' => {
 			'sql_pattern' =>
-				qr/ALTER INDEX "schema"\.i_compactor_$$ /.
-				qr/RENAME TO "i_table__idx2"/,
+				qr/ALTER INDEX schema\.i_compactor_$$ /.
+				qr/RENAME TO i_table__idx2/,
 			'row_list' => []},
 		'get_table_name_list' => {
 			'sql_pattern' =>
@@ -179,7 +179,7 @@ sub init {
 		'get_pgstattuple_statistics' => {
 			'sql_pattern' => (
 				qr/free_percent, free_space.+/s.
-				qr/FROM pgstattuple\('"schema"\."table"'\)/),
+				qr/FROM pgstattuple\('schema\.table'\)/),
 			'row_list_sequence' => [
 				[[100, 120, undef, undef, undef]],
 				[[100, 120, 85, 15, 5000]],

@@ -139,7 +139,7 @@ sub test_init_raises_error_when_no_schema : Test(1) {
 
 	throws_ok(
 		sub { $self->{'schema_compactor_constructor'}->()->process(); },
-		qr/SchemaCompactorError There is no schema "schema"\./);
+		qr/SchemaCompactorError There is no schema schema\./);
 }
 
 sub test_init_skips_table_if_cannot_create_its_compactor : Test {
