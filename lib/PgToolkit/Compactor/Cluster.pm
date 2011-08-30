@@ -67,7 +67,7 @@ sub init {
 	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
 
 	$self->{'_logger'}->write(
-		message => 'Scanning the cluster.',
+		message => 'Preparing the cluster.',
 		level => 'info');
 
 	eval {
@@ -98,26 +98,23 @@ sub init {
 	}
 
 	my %dbname_hash = map(($_ => 1), @{$dbname_list});
-
 	delete @dbname_hash{@{$arg_hash{'excluded_dbname_list'}}};
 
 	$self->{'_database_compactor_list'} = [];
 	for my $dbname (sort keys %dbname_hash) {
 		my $database_compactor;
 		eval {
-			$database_compactor = $arg_hash{'database_compactor_constructor'}->(
-				database => $self->{'_database_constructor'}->(
-					dbname => $dbname));
+			$database_compactor = $arg_hash{'database_compactor_constructor'}->
+				(database => $self->{'_database_constructor'}->(
+					 dbname => $dbname));
 		};
 		if ($@) {
 			$self->{'_logger'}->write(
-				message => (
-					'Can not prepare the '.
-					$self->{'_postgres_database'}->quote_ident(
-						string => $dbname).
-					' database to compacting, the following error has occured:'.
-					"\n".$@),
-				level => 'error');
+				message => ('Can not prepare the database, the following '.
+							'error has occured:'."\n".$@),
+				level => 'error',
+				target => $self->{'_postgres_database'}->quote_ident(
+					string => $dbname));
 		} else {
 			push(@{$self->{'_database_compactor_list'}}, $database_compactor);
 		}
@@ -165,9 +162,9 @@ sub process {
 
 		$self->{'_logger'}->write(
 			message => (
-				'Finished processing the cluster after '.$attempt.
-				' attempt(s).'),
-			level => 'notice');
+				'Finished processing the cluster'.
+				(($attempt > 1) ? 'after '.$attempt.' attempt' : '').'.'),
+			level => ($attempt > 1) ? 'notice' : 'info');
 
 		if (not $self->is_processed()) {
 			$self->{'_logger'}->write(
@@ -179,7 +176,7 @@ sub process {
 		$self->{'_logger'}->write(
 			message => (
 				'Processing of the cluster has been cancelled as no '.
-				'appropriate databases has been found.'),
+				'appropriate databases have been found.'),
 			level => 'warning');
 	}
 

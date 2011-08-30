@@ -64,14 +64,14 @@ sub init {
 		string => $self->{'_database'}->get_dbname());
 
 	$self->{'_logger'}->write(
-		message => 'Scanning the '.$self->{'_ident'}.' database.',
-		level => 'info');
+		message => 'Scanning the database.',
+		level => 'info',
+		target => $self->{'_ident'});
 
 	$self->{'_logger'}->write(
-		message => (
-			'Creating the processing stored function in the '.$self->{'_ident'}.
-			' database.'),
-		level => 'info');
+		message => 'Creating the processing stored function in the database.',
+		level => 'info',
+		target => $self->{'_ident'});
 
 	$self->_create_clean_pages_function();
 
@@ -82,6 +82,20 @@ sub init {
 	delete @schema_name_hash{@{$arg_hash{'excluded_schema_name_list'}}};
 
 	my $use_pgstattuple = $self->_has_pgstattuple();
+
+	if ($use_pgstattuple) {
+		$self->{'_logger'}->write(
+			message => ('The pgstattuple contrib is installed in the database '.
+						'so it will be used to calculate statistics.'),
+			level => 'info',
+			target => $self->{'_log_ident'});
+	} else {
+		$self->{'_logger'}->write(
+			message => (
+				'Approximate methods will be used to calculate statistics.'),
+			level => 'info',
+			target => $self->{'_log_ident'});
+	}
 
 	$self->{'_schema_compactor_list'} = [];
 	for my $schema_name (sort keys %schema_name_hash) {
@@ -94,12 +108,12 @@ sub init {
 		};
 		if ($@) {
 			$self->{'_logger'}->write(
-				message => (
-					'Can not prepare the '.
-					$self->{'_database'}->quote_ident(string => $schema_name).
-					' schema to compacting, the following error has occured:'.
-					"\n".$@),
-				level => 'error');
+				message => ('Can not prepare the schema to compacting, the '.
+							'following error has occured:'."\n".$@),
+				level => 'error',
+				target => (
+					$self->{'_ident'}.'/'.$self->{'_database'}->quote_ident(
+						string => $schema_name)));
 		} else {
 			push(@{$self->{'_schema_compactor_list'}}, $schema_compactor);
 		}
@@ -120,8 +134,9 @@ sub process {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'Processing the '.$self->{'_ident'}.' database.',
-		level => 'info');
+		message => 'Processing the database.',
+		level => 'info',
+		target => $self->{'_ident'});
 
 	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
 		if (not $schema_compactor->is_processed()) {
@@ -130,15 +145,15 @@ sub process {
 	}
 
 	$self->{'_logger'}->write(
-		message => 'Finished processing the '.$self->{'_ident'}.' database.',
-		level => 'info');
+		message => 'Finished processing the database.',
+		level => 'info',
+		target => $self->{'_ident'});
 
 	if (not $self->is_processed()) {
 		$self->{'_logger'}->write(
-			message => (
-				'Processing of the '.$self->{'_ident'}.' database has not '.
-				'been completed.'),
-			level => 'warning');
+			message => 'Processing of the database has not been completed.',
+			level => 'warning',
+			target => $self->{'_ident'});
 	}
 
 	return;
@@ -158,8 +173,7 @@ sub is_processed {
 	my $self = shift;
 
 	my $result = 1;
-	map(($result &&= $_->is_processed()),
-		@{$self->{'_schema_compactor_list'}});
+	map(($result &&= $_->is_processed()), @{$self->{'_schema_compactor_list'}});
 
 	return $result;
 }
@@ -168,10 +182,9 @@ sub DESTROY {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Dropping the cleaning stored function in the '.$self->{'_ident'}.
-			' database.'),
-		level => 'info');
+		message => 'Dropping the cleaning stored function in the database.',
+		level => 'info',
+		target => $self->{'_ident'});
 
 	$self->_drop_clean_pages_function();
 }

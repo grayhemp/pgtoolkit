@@ -49,8 +49,9 @@ sub create_table_compactor_mock {
 	$mock->set_true('process');
 	$mock->set_false('-is_processed');
 	$mock->set_always(
-		'-get_ident',
-		$self->{'database'}->quote_ident(string => $arg_hash{'table_name'}));
+		'-get_log_ident',
+		'dbname/schema.'.$self->{'database'}->quote_ident(
+			string => $arg_hash{'table_name'}));
 
 	$mock->init(@arg_list);
 	push(@{$self->{'table_compactor_mock_list'}}, $mock);

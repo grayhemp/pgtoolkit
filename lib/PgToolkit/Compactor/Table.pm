@@ -136,10 +136,14 @@ sub init {
 			string => $self->{'_schema_name'}).'.'.
 		$self->{'_database'}->quote_ident(
 			string => $self->{'_table_name'});
+	$self->{'_log_ident'} =
+		$self->{'_database'}->quote_ident(
+			string => $self->{'_database'}->get_dbname()).'/'.$self->{'_ident'};
 
 	$self->{'_logger'}->write(
-		message => 'Scanning the '.$self->{'_ident'}.' table.',
-		level => 'info');
+		message => 'Scanning the table.',
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	$self->{'_is_processed'} = 0;
 
@@ -327,19 +331,20 @@ A string representing the ident.
 
 =cut
 
-sub get_ident {
+sub get_log_ident {
 	my $self = shift;
 
-	return $self->{'_ident'};
+	return $self->{'_log_ident'};
 }
 
 sub _log_has_special_triggers {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => ('Can not process the '.$self->{'_ident'}.' table'.
-					' as it has "always" and/or "replica" triggers.'),
-		level => 'warning');
+		message => ('Can not process the table as it has "always" and/or '.
+					'"replica" triggers.'),
+		level => 'warning',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -348,9 +353,9 @@ sub _log_force {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Forcing processing of the '.$self->{'_ident'}.' table.'),
-		level => 'notice');
+		message => 'Forcing processing of the table.',
+		level => 'notice',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -360,10 +365,11 @@ sub _log_min_page_count {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping the '.$self->{'_ident'}.' table as it has '.
+			'Skipping the table as it has '.
 			$self->{'_stat'}->{'_page_count'}.' pages and minimum '.
 			$self->{'_min_page_count'}.' pages are required.'),
-		level => 'notice');
+		level => 'notice',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -372,9 +378,9 @@ sub _log_vacuum {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Performing vacuum '.$arg_hash{'type'}.' for the '.
-					$self->{'_ident'}.' table.'),
-		level => 'info');
+		message => 'Performing vacuum '.$arg_hash{'type'}.' for the table.',
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -384,11 +390,12 @@ sub _log_min_free_percent {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping the '.$self->{'_ident'}.' table as it '.
+			'Skipping the table as it '.
 			'has '.$self->{'_stat'}->{'_free_percent'}.'% of its '.
 			'space to compact and the minimum required is '.
 			$self->{'_min_free_percent'}.'%.'),
-		level => 'notice');
+		level => 'notice',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -398,8 +405,8 @@ sub _log_statistics {
 
 	$self->{'_logger'}->write(
 		message => (
-			ucfirst($arg_hash{'type'}).' the '.$self->{'_ident'}.
-			' table has '.$self->{'_stat'}->{'_page_count'}.' pages ('.
+			ucfirst($arg_hash{'type'}).' the table has '.
+			$self->{'_stat'}->{'_page_count'}.' pages ('.
 			$self->{'_stat'}->{'_total_page_count'}.
 			' pages including toasts and indexes)'.
 			(defined $self->{'_stat'}->{'_free_space'} ? ', approximately '.
@@ -409,13 +416,8 @@ sub _log_statistics {
 			 ($self->{'_stat'}->{'_page_count'} -
 			  $self->{'_stat'}->{'_effective_page_count'}).
 			 ' pages less.' : '.')),
-		level => 'notice');
-
-	if ($self->{'_use_pgstattuple'}) {
-		$self->{'_logger'}->write(
-			message => 'pgstattuple is used to calculate statistics.',
-			level => 'info');
-	}
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -425,10 +427,10 @@ sub _log_start_compacting {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Compacting the '.$self->{'_ident'}.' table using the '.
-			$self->{'_column_ident'}.' column by '.$self->{'_pages_per_round'}.
-			' pages per round.'),
-		level => 'info');
+			'Compacting the table using the '.$self->{'_column_ident'}.
+			' column by '.$self->{'_pages_per_round'}.' pages per round.'),
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -438,7 +440,7 @@ sub _log_progress {
 
 	$self->{'_logger'}->write(
 		message => (
-			'The '.$self->{'_ident'}.' table '.
+			'The table '.
 			(defined $self->{'_initial_stat'}->{'_effective_page_count'} ?
 			 'compacting progress is '.
 			 int(
@@ -452,7 +454,8 @@ sub _log_progress {
 			 ).'% with ' : 'has ').
 			($self->{'_initial_stat'}->{'_page_count'} -
 			 $arg_hash{'to_page'} - 1).' pages completed.'),
-		level => 'notice');
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -465,18 +468,19 @@ sub _log_vacuum_state {
 	{
 		$self->{'_logger'}->write(
 			message => (
-				ucfirst($arg_hash{'type'}).' vacuum of the '.$self->{'_ident'}.
-				' has not managed to clean '.
+				ucfirst($arg_hash{'type'}).' vacuum of the table '.
+				'has not managed to clean '.
 				($self->{'_stat'}->{'_page_count'} - $arg_hash{'to_page'} - 1).
 				' pages.'),
-			level => 'warning');
+			level => 'warning',
+			target => $self->{'_log_ident'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
 				'There are '.$self->{'_stat'}->{'_page_count'}.
-				' pages left in the '.$self->{'_ident'}.' table after '.
-				$arg_hash{'type'}.' vacuum.'),
-			level => 'info');
+				' pages left in the table after '.$arg_hash{'type'}.' vacuum.'),
+			level => 'info',
+			target => $self->{'_log_ident'});
 	}
 
 	return;
@@ -486,10 +490,9 @@ sub _log_max_loops {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => (
-			'The maximum compacting loops are exceeded for the '.
-			$self->{'_ident'}.' table.'),
-		level => 'warning');
+		message => 'The maximum compacting loops are exceeded for the table.',
+		level => 'warning',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -498,8 +501,9 @@ sub _log_reindex {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'Performing reindexing for the '.$self->{'_ident'}.' table.',
-		level => 'notice');
+		message => 'Performing reindexing for the table.',
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -509,9 +513,10 @@ sub _log_reindex_queries {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Reindex queries for the '.$self->{'_ident'}." table:\n".
+			'Reindex queries for the table:'."\n".
 			join("\n", @{$self->_get_reindex_queries()})),
-		level => 'notice');
+		level => 'notice',
+		target => $self->{'_log_ident'});
 
 	return;
 }
@@ -520,10 +525,9 @@ sub _log_not_processed {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Processing of the '.$self->{'_ident'}.' table has not '.
-			'been completed.'),
-		level => 'warning');
+		message => 'Processing of the table has not been completed.',
+		level => 'warning',
+		target => $self->{'_log_ident'});
 
 	return;
 }

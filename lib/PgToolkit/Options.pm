@@ -104,7 +104,7 @@ sub init {
 	if (defined $arg_hash{'error_check_code'} and
 		$arg_hash{'error_check_code'}->($option_hash))
 	{
-		$error = 'Not allowed option combination.';
+		$error = 'Wrong options combination or values specified.';
 	}
 
 	if (defined $arg_hash{'transform_code'}) {

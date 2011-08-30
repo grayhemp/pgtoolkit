@@ -82,10 +82,13 @@ sub init {
 
 	$self->{'_ident'} = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
+	$self->{'_log_ident'} = $self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname()).'/'.$self->{'_ident'};
 
 	$self->{'_logger'}->write(
-		message => 'Scanning the '.$self->{'_ident'}.' schema.',
-		level => 'info');
+		message => 'Scanning the schema.',
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	if (not $self->_has_schema()) {
 		die('SchemaCompactorError There is no schema '.$self->{'_ident'}.'.');
@@ -110,11 +113,12 @@ sub init {
 		if ($@) {
 			$self->{'_logger'}->write(
 				message => (
-					'Can not prepare the '.
-					$self->{'_database'}->quote_ident(string => $table_name).
-					' table in the '.$self->{'_ident'}.' schema to '.
-					"compacting, the following error has occured:\n".$@),
-				level => 'error');
+					'Can not prepare the table to compacting, the following '.
+					"error has occured:\n".$@),
+				level => 'error',
+				target => (
+					$self->{'_log_ident'}.'.'.$self->{'_database'}->quote_ident(
+						string => $table_name)));
 		} else {
 			push(@{$self->{'_table_compactor_list'}}, $table_compactor);
 		}
@@ -135,8 +139,9 @@ sub process {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'Processing the '.$self->{'_ident'}.' schema.',
-		level => 'info');
+		message => 'Processing the schema.',
+		level => 'info',
+		target => $self->{'_log_ident'});
 
 	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
 		if (not $table_compactor->is_processed()) {
@@ -146,24 +151,25 @@ sub process {
 			if ($@) {
 				$self->{'_logger'}->write(
 					message => (
-						'Can not process the '.$table_compactor->get_ident().
-						' table in the '.$self->{'_ident'}.' schema, '.
+						'Can not process the table, '.
 						'the following error has occured:'."\n".$@),
-					level => 'error');
+					level => 'error',
+					target => $table_compactor->get_log_ident());
 			}
 		}
 	}
 
 	$self->{'_logger'}->write(
-		message => 'Finished processing the '.$self->{'_ident'}.' schema.',
-		level => 'info');
+		message => 'Finished processing the schema.',
+		level => 'info',
+		target => $self->{'_log_ident'});
+
 
 	if (not $self->is_processed()) {
 		$self->{'_logger'}->write(
-			message => (
-				'Processing of the '.$self->{'_ident'}.' schema has not '.
-				'been completed.'),
-			level => 'warning');
+			message => 'Processing of the schema has not been completed.',
+			level => 'warning',
+			target => $self->{'_log_ident'});
 	}
 
 	return;
@@ -187,22 +193,6 @@ sub is_processed {
 		@{$self->{'_table_compactor_list'}});
 
 	return $result;
-}
-
-=head2 B<get_ident()>
-
-Returns a schema ident.
-
-=head3 Returns
-
-A string representing the ident.
-
-=cut
-
-sub get_ident {
-	my $self = shift;
-
-	return $self->{'_ident'};
 }
 
 sub _get_table_name_list {
