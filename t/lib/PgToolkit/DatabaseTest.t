@@ -20,11 +20,12 @@ sub test_init : Test(2) {
 	   'anotherdb');
 }
 
-sub test_quote_ident : Test(2) {
+sub test_quote_ident : Test(3) {
 	my $db = PgToolkit::DatabaseTest::Database->new(dbname => 'somedb');
 
-	is($db->quote_ident(string => 'some_ident'), '"some_ident"');
+	is($db->quote_ident(string => 'some-ident'), '"some-ident"');
 	is($db->quote_ident(string => 'some"ident'), '"some""ident"');
+	is($db->quote_ident(string => 'some_ident'), 'some_ident');
 }
 
 sub test_escaped_dbname : Test(2) {

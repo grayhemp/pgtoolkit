@@ -120,10 +120,10 @@ A database name string with all the non-word characters escaped.
 sub _get_escaped_dbname {
 	my $self = shift;
 
-	my $string = $self->{'_dbname'};
-	$string =~ s/(\W)/\\$1/g;
+	my $result = $self->{'_dbname'};
+	$result =~ s/(\W)/\\$1/g;
 
-	return $string;
+	return $result;
 }
 
 =head2 B<quote_ident()>
@@ -145,10 +145,13 @@ A quoted indentifier string.
 sub quote_ident {
 	my ($self, %arg_hash) = @_;
 
-	my $string = $arg_hash{'string'};
-	$string =~ s/"/""/g;
+	my $result = $arg_hash{'string'};
+	if (not $result =~ m/^[\w][\w\d]*$/) {
+		$result =~ s/"/""/g;
+		$result = '"'.$result.'"';
+	}
 
-	return '"'.$string.'"';
+	return $result;
 }
 
 =head1 SEE ALSO
