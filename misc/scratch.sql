@@ -114,6 +114,7 @@ SELECT
         ELSE NULL END AS partially_null_column
 FROM generate_series(1, 100000) i;
 DELETE FROM test_table WHERE random() < 0.5;
+CREATE INDEX i_test_table__index1 ON test_table (text_column, float_column);
 
 VACUUM ANALYZE test_table;
 

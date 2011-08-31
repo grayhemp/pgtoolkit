@@ -752,15 +752,17 @@ SQL
 			$definition =~ s/(WHERE .*)?$/TABLESPACE $tablespace $1/;
 		}
 
-		my $index_ident = $schema_ident.'.'.$self->{'_database'}->quote_ident(
+		my $index_ident = $self->{'_database'}->quote_ident(
 			string => $indexname);
 
 		push(@{$query_list}, $definition);
-		push(@{$query_list}, 'DROP INDEX '.$index_ident);
-		push(@{$query_list},
-			 ('ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.
-			  ' RENAME TO '.$self->{'_database'}->quote_ident(
-				  string => $indexname)));
+		push(
+			@{$query_list},
+			'BEGIN; '.
+			'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
+			'ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.' '.
+			'RENAME TO '.$index_ident.'; '.
+			'END;');
 	}
 
 	return $query_list;

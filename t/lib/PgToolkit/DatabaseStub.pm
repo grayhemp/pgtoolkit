@@ -129,21 +129,17 @@ sub init {
 				qr/USING btree \(column2\) TABLESPACE tablespace /.
 				qr/WHERE column2 = 1/,
 			'row_list' => []},
-		'reindex_drop1' => {
-			'sql_pattern' => qr/DROP INDEX schema\.i_table__idx1/,
-			'row_list' => []},
-		'reindex_drop2' => {
-			'sql_pattern' => qr/DROP INDEX schema\.i_table__idx2/,
-			'row_list' => []},
-		'reindex_alter1' => {
+		'reindex_drop_alter1' => {
 			'sql_pattern' =>
+				qr/BEGIN; DROP INDEX schema\.i_table__idx1; /.
 				qr/ALTER INDEX schema\.i_compactor_$$ /.
-				qr/RENAME TO i_table__idx1/,
+				qr/RENAME TO i_table__idx1; END;/,
 			'row_list' => []},
-		'reindex_alter2' => {
+		'reindex_drop_alter2' => {
 			'sql_pattern' =>
+				qr/BEGIN; DROP INDEX schema\.i_table__idx2; /.
 				qr/ALTER INDEX schema\.i_compactor_$$ /.
-				qr/RENAME TO i_table__idx2/,
+				qr/RENAME TO i_table__idx2; END;/,
 			'row_list' => []},
 		'get_table_name_list' => {
 			'sql_pattern' =>
