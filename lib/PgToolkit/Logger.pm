@@ -61,6 +61,16 @@ sub init {
 	$self->{'_level_code'} = $self->_get_level_code(
 		level => $arg_hash{'level'});
 
+	# Setting autoflush
+	{
+		my $default = select();
+		select($self->{'_out_handle'});
+		$| = 1;
+		select($self->{'_err_handle'});
+		$| = 1;
+		select($default);
+	}
+
 	if (not defined $self->{'_level_code'}) {
 		die('LoggerError Wrong logging level "'.$arg_hash{'level'}.
 			'" is specified in initialization.');
