@@ -88,13 +88,13 @@ sub init {
 			message => ('The pgstattuple contrib is installed in the database '.
 						'so it will be used to calculate statistics.'),
 			level => 'info',
-			target => $self->{'_log_ident'});
+			target => $self->{'_ident'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
 				'Approximate methods will be used to calculate statistics.'),
 			level => 'info',
-			target => $self->{'_log_ident'});
+			target => $self->{'_ident'});
 	}
 
 	$self->{'_schema_compactor_list'} = [];
