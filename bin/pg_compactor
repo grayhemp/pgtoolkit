@@ -11,33 +11,33 @@ B<pg_compactor> - a PostgreSQL table bloat reducing tool.
 
 =head1 SYNOPSIS
 
-pg_compactor [connection] [target] [behaviour] [misc]
+pg_compactor [OPTION...]
 
 =over 4
 
-=item I<connection>
+=item General options:
 
-[-h host] [-p port] [-U user] [-W passwd] [-P path]
+[-?mq] [-v LEVEL]
 
-=item I<target>
+=item Connection options:
 
-[(-d | -D) dbname...] [(-n | -N) schema...] [(-t | -T) table...]
+[-h HOST] [-p PORT] [-U USER] [-W PASSWD] [-P PATH]
 
-=item I<behaviour>
+=item Targeting options:
 
-[-IRrsf] [-c pages] [-e seconds] [-E ratio] [-m count] [-x pages]
-[-y ratio] [-z seconds]
+[-a] [(-d | -D) DBNAME...] [(-n | -N) SCHEMA...] [(-t | -T) TABLE...]
 
-=item I<misc>
+=item Options controlling the behaviour:
 
--? | [-q] | [-v level]
+[-IRrsf] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
+[-y RATIO] [-z SECONDS]
 
 =back
 
 =head1 DESCRIPTION
 
-B<pg_compactor> is a maintenance tool for PostgreSQL to reduce
-bloat for tables without heavily locking them.
+B<pg_compactor> is a maintenance tool for PostgreSQL to reduce bloat
+for tables without heavily locking them.
 
 The tool is an automation of the solutions described on the pages:
 
@@ -59,7 +59,38 @@ in the database.
 
 =head1 OPTIONS
 
-=head2 I<connection>
+=head2 General options
+
+=over 4
+
+=item B<-?>
+
+=item B<--help>
+
+Display short help.
+
+=item B<-m>
+
+=item B<--man>
+
+Display full manual.
+
+=item B<-q>
+
+=item B<--quiet>
+
+Do not display progress messages. The same as C<-v warning>.
+
+=item B<-v> LEVEL
+
+=item B<--verbosity> LEVEL
+
+A verbosity level. One of C<error>, C<warning>, C<notice>, C<info>. By
+default C<notice>.
+
+=back
+
+=head2 Connection options
 
 The B<pg_compactor> tries to connect to the database with the DBI
 Perl module using either DBD::Pg or DBD::PgPP driver first. If it
@@ -67,92 +98,96 @@ fails the utility tries to work via psql.
 
 =over 4
 
-=item B<-h> I<host>
+=item B<-h> HOST
 
-=item B<--host> I<host>
+=item B<--host> HOST
 
 A database host. By default C<localhost>.
 
-=item B<-p> I<port>
+=item B<-p> PORT
 
-=item B<--port> I<port>
+=item B<--port> PORT
 
 A database port. By default C<5432>.
 
-=item B<-U> I<user>
+=item B<-U> USER
 
-=item B<--user> I<user>
+=item B<--user> USER
 
 A database user. By default current system user is used (as returned
-by B<whoami>).
+by whoami).
 
-=item B<-W> I<passwd>
+=item B<-W> PASSWD
 
-=item B<--password> I<passwd>
+=item B<--password> PASSWD
 
 A password for the user.
 
-=item B<-P> I<path>
+=item B<-P> PATH
 
-=item B<--path-to-psql> I<path>
+=item B<--path-to-psql> PATH
 
-A path to the B<psql> program. By default C<psql>.
+A path to the psql program. By default C<psql>.
 
 =back
 
-=head2 I<target>
+=head2 Targeting options
 
 With no target options specified all the content of the instance is
-processed. Note that if you specified a database, a schema or a table
-that is not in the cluster it will be ignored. Rdeundant exclusions
-are ignored too.
+processed. Note that if you specified a database, schema or table that
+is not in the cluster it will be ignored. Redundant exclusions will be
+ignored too. All this options can be specified several times.
 
 =over 4
 
-=item B<-d> I<dbname>
+=item B<-a>
 
-=item B<--dbname> I<dbname>
+=item B<--all>
+
+Process all the cluster.
+
+=item B<-d> DBNAME
+
+=item B<--dbname> DBNAME
 
 A database to process. By default all the user databses of the
 instance are processed.
 
-=item B<-D> I<dbname>
+=item B<-D> DBNAME
 
-=item B<--exclude-dbname> I<dbname>
+=item B<--exclude-dbname> DBNAME
 
 A database to exclude from processing.
 
-=item B<-n> I<schema>
+=item B<-n> SCHEMA
 
-=item B<--schema> I<schema>
+=item B<--schema> SCHEMA
 
 A schema to process. By default all the schemas of the specified
 database are processed.
 
-=item B<-N> I<schema>
+=item B<-N> SCHEMA
 
-=item B<--exclude-schema> I<schema>
+=item B<--exclude-schema> SCHEMA
 
 A schema to exclude from processing.
 
-=item B<-t> I<table>
+=item B<-t> TABLE
 
-=item B<--table> I<table>
+=item B<--table> TABLE
 
 A table to process. By default all the tables of the specified schema
 are processed.
 
-=item B<-T> I<table>
+=item B<-T> TABLE
 
-=item B<--exclude-table> I<table>
+=item B<--exclude-table> TABLE
 
 A table to exclude from processing.
 
 =back
 
-=head2 I<behaviour>
-
-Bahavioral options.
+=head2 Options controlling the behaviour
 
 =over 4
 
@@ -187,80 +222,53 @@ reindex later.
 Try to compact even those tables that do not meet minimal bloat
 requirements.
 
-=item B<-c> I<pages>
+=item B<-c> PAGES
 
-=item B<--pages-per-round> I<pages>
+=item B<--pages-per-round> PAGES
 
 Number of pages to process per round. By default it is 5.
 
-=item B<-e> I<seconds>
+=item B<-e> SECONDS
 
-=item B<--delay-constant> I<seconds>
+=item B<--delay-constant> SECONDS
 
 A constant part of the delay between rounds in seconds. By default it
 is 0.
 
-=item B<-E> I<ratio>
+=item B<-E> RATIO
 
-=item B<--delay-ratio> I<ratio>
+=item B<--delay-ratio> RATIO
 
 A dynamic part of the delay between rounds is calculated as
 previous-round-time * delay-ratio. By default 2.
 
-=item B<-m> I<count>
+=item B<-o> COUNT
 
-=item B<--max-retry-count> I<count>
+=item B<--max-retry-count> COUNT
 
 A maximum number of retries in case of unsuccessful processing. By
 default 10.
 
-=item B<-x> I<count>
+=item B<-x> COUNT
 
-=item B<--min-page-count> I<count>
+=item B<--min-page-count> COUNT
 
 A minumum pages number required to be in the table to process it. By
 default it is 100.
 
-=item B<-y> I<ratio>
+=item B<-y> RATIO
 
-=item B<--min-free-percent> I<ratio>
+=item B<--min-free-percent> RATIO
 
 A minimum free space percent required to be in the table to process
 it. By default it is 5.
 
-=item B<-z> I<seconds>
+=item B<-z> SECONDS
 
-=item B<--progress-report-period> I<seconds>
+=item B<--progress-report-period> SECONDS
 
 An interval in seconds to report the progress of processing
 with. Default is 60 seconds.
-
-=back
-
-=head2 I<misc>
-
-Miscellaneous options.
-
-=over 4
-
-=item B<-?>
-
-=item B<--help>
-
-Display this help and exit.
-
-=item B<-q>
-
-=item B<--quiet>
-
-Do not display progress messages. The same as B<-v> I<warning>.
-
-=item B<-v> I<level>
-
-=item B<--verbosity> I<level>
-
-A verbosity level. One of C<error>, C<warning>, C<notice>, C<info>. By
-default C<notice>.
 
 =back
 
@@ -275,6 +283,10 @@ if (__PACKAGE__ eq 'main') {
 }
 
 1;
+
+=head1 VERSION
+
+1.0alpha1
 
 =head1 LICENSE AND COPYRIGHT
 

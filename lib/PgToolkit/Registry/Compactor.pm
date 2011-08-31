@@ -218,15 +218,15 @@ sub get_options {
 				'user|U:s' => do { `whoami` =~ /(.*?)\n/; $1 },
 				'password|W:s' => undef, 'path-to-psql|P:s' => 'psql',
 				# target
-				'dbname|d:s@' => [], 'schema|n:s@' => [], 'table|t:s@' => [],
-				'exclude-dbname|D:s@' => [], 'exclude-schema|N:s@' => [],
-				'exclude-table|T:s@' => [],
+				'all|a:i' => 1, 'dbname|d:s@' => [], 'schema|n:s@' => [],
+				'table|t:s@' => [], 'exclude-dbname|D:s@' => [],
+				'exclude-schema|N:s@' => [], 'exclude-table|T:s@' => [],
 				# behaviour
 				'no-initial-vacuum|I' => 0, 'no-routine-vacuum|R' => 0,
 				'reindex|r' => 0, 'print-reindex-queries|s' => 0,
 				'force|f' => 0, 'pages-per-round|c:i' => 5,
 				'delay-constant|e:i' => 0, 'delay-ratio|E:i' => 2,
-				'max-retry-count|m:i' => 10, 'min-page-count|x:i' => 100,
+				'max-retry-count|o:i' => 10, 'min-page-count|x:i' => 100,
 				'min-free-percent|y:i' => 5, 'progress-report-period|z:i' => 60,
 				# misc
 				'quiet|q' => 0, 'verbosity|v:s' => 'notice'},

@@ -29,40 +29,42 @@ Some options
 
 =cut
 
-sub test_print_usage : Test(3) {
+sub test_print_usage : Test(5) {
 	my $data_hash_list = [
 		{'argv' => [],
-		 'out' => ''},
-		#{'argv' => ['--wrong-option'],
-		# 'out' => "Usage:\n    Some synopsis\n\n"},
+		 'out' => "Usage:\n    Some synopsis\n\n"},
 		{'argv' => ['-?'],
+		 'out' => "Usage:\n    Some synopsis\n\n"},
+		{'argv' => ['--help'],
+		 'out' => "Usage:\n    Some synopsis\n\n"},
+		{'argv' => ['-m'],
 		 'out' => <<EOF
-NAME
+Name:
     Some name
 
-SYNOPSIS
+Usage:
     Some synopsis
 
-DESCRIPTION
+Description:
     Some description
 
-OPTIONS
+Options:
     Some options
 
 EOF
 		},
-		{'argv' => ['--help'],
+		{'argv' => ['--man'],
 		 'out' => <<EOF
-NAME
+Name:
     Some name
 
-SYNOPSIS
+Usage:
     Some synopsis
 
-DESCRIPTION
+Description:
     Some description
 
-OPTIONS
+Options:
     Some options
 
 EOF
@@ -82,7 +84,7 @@ EOF
 
 sub test_extract_options : Test(6) {
 	my $data_list = [
-		{'argv' => [''],
+		{'argv' => ['-a'],
 		 'values' => {'option1' => 'some', 'option2' => 1234}},
 		{'argv' => ['-o', 'another', '-p', '4321'],
 		 'values' => {'option1' => 'another', 'option2' => 4321}},
@@ -93,7 +95,7 @@ sub test_extract_options : Test(6) {
 		my $options = PgToolkit::Options->new(
 			argv => $data->{'argv'},
 			definition_hash => {
-				'option1|o:s' => 'some', 'option2|p:i' => 1234},
+				'a|i' => 1, 'option1|o:s' => 'some', 'option2|p:i' => 1234},
 			transform_code => sub {
 				my $option_hash = shift;
 				if (defined $option_hash->{'option1'} and
@@ -112,7 +114,9 @@ sub test_extract_options : Test(6) {
 sub test_get_wrong_name : Test {
 	throws_ok(
 		sub {
-			PgToolkit::Options->new()->get(name => 'wrong-name');
+			PgToolkit::Options->new(
+				argv => ['-a'], definition_hash => {'a|i' => 1})->
+				get(name => 'wrong-name');
 		},
 		qr/OptionsError Wrong name "wrong-name" is supplied in get\./);
 }

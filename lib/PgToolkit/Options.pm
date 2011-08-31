@@ -97,7 +97,7 @@ sub init {
 
 	my $option_hash = {};
 	my $result = Getopt::Long::GetOptionsFromArray(
-		$self->{'_argv'}, $option_hash, 'help|?',
+		$self->{'_argv'}, $option_hash, 'help|?', 'man|m',
 		(keys %{$arg_hash{'definition_hash'}}));
 
 	my $error;
@@ -111,17 +111,21 @@ sub init {
 		$arg_hash{'transform_code'}->($option_hash);
 	}
 
-	if (not $result or $option_hash->{'help'} or $error) {
+	if (not $result or $option_hash->{'help'} or
+		$option_hash->{'man'} or $error or not keys %{$option_hash})
+	{
 		my ($output, $exitval) =
 			exists $arg_hash{'out_handle'} ?
 			($self->{'_out_handle'}, 'NOEXIT') :
-			(undef, ($result ? 1 : 2));
+			(undef, ($result ? 0 : 1));
 
 		Pod::Usage::pod2usage(
 			-message => $error,
-			-verbose => exists $option_hash->{'help'} ? 2 : 0,
+			-verbose => exists $option_hash->{'man'} ? 99 : 0,
 			-output => $output,
-			-exitval => $exitval);
+			-exitval => $exitval,
+			-sections => ['NAME', 'SYNOPSIS', 'DESCRIPTION', 'OPTIONS',
+						  'LICENSE AND COPYRIGHT', 'VERSION', 'AUTHOR']);
 	}
 
 	$self->{'_option_hash'} = {'help' => 0, %{$default_hash}, %{$option_hash}};
