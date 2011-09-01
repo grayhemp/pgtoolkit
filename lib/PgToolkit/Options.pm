@@ -117,7 +117,7 @@ sub init {
 		my ($output, $exitval) =
 			exists $arg_hash{'out_handle'} ?
 			($self->{'_out_handle'}, 'NOEXIT') :
-			(undef, ($result ? 0 : 1));
+			(undef, ($result ? 1 : 2));
 
 		Pod::Usage::pod2usage(
 			-message => $error,
@@ -128,7 +128,8 @@ sub init {
 						  'LICENSE AND COPYRIGHT', 'VERSION', 'AUTHOR']);
 	}
 
-	$self->{'_option_hash'} = {'help' => 0, %{$default_hash}, %{$option_hash}};
+	$self->{'_option_hash'} = {
+		'help' => 0, 'man' => 0, %{$default_hash}, %{$option_hash}};
 
 	return;
 }

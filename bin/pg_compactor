@@ -17,7 +17,7 @@ pg_compactor [OPTION...]
 
 =item General options:
 
-[-?mq] [-v LEVEL]
+[-?m] [(-q | -v LEVEL)]
 
 =item Connection options:
 
@@ -25,7 +25,9 @@ pg_compactor [OPTION...]
 
 =item Targeting options:
 
-[-a] [(-d | -D) DBNAME...] [(-n | -N) SCHEMA...] [(-t | -T) TABLE...]
+(-a | -d DBNAME...) [-n SCHEMA...] [-t TABLE...] [-D DBNAME...]
+[-N SCHEMA...] [-T TABLE...]
+
 
 =item Options controlling the behaviour:
 
@@ -133,10 +135,9 @@ A path to the psql program. By default C<psql>.
 
 =head2 Targeting options
 
-With no target options specified all the content of the instance is
-processed. Note that if you specified a database, schema or table that
-is not in the cluster it will be ignored. Redundant exclusions will be
-ignored too. All this options can be specified several times.
+Note that if you specified a database, schema or table that is not in
+the cluster it will be ignored. Redundant exclusions will be ignored
+too. All this options except C<--all> can be specified several times.
 
 =over 4
 
@@ -144,7 +145,7 @@ ignored too. All this options can be specified several times.
 
 =item B<--all>
 
-Process all the cluster.
+Process all databases of the cluster.
 
 =item B<-d> DBNAME
 

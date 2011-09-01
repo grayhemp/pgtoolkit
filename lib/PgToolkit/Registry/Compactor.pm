@@ -235,12 +235,9 @@ sub get_options {
 				return (
 					(exists $option_hash->{'quiet'} and
 					 exists $option_hash->{'verbosity'}) or
-					(exists $option_hash->{'dbname'} and
-					 exists $option_hash->{'exclude-dbname'}) or
-					(exists $option_hash->{'schema'} and
-					 exists $option_hash->{'exclude-schema'}) or
-					(exists $option_hash->{'table'} and
-					 exists $option_hash->{'exclude-table'}));
+					(not
+					 (exists $option_hash->{'all'} or
+					  exists $option_hash->{'dbname'})));
 			},
 			transform_code => sub {
 				my $option_hash = shift;
