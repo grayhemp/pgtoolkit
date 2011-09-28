@@ -255,7 +255,7 @@ default 10.
 =item B<--min-page-count> COUNT
 
 A minumum pages number required to be in the table to process it. By
-default it is 100.
+default it is 10.
 
 =item B<-y> RATIO
 
@@ -276,7 +276,7 @@ with. Default is 60 seconds.
 =cut
 
 sub main {
-	PgToolkit::Registry::Compactor->new()->get_cluster_compactor()->process();;
+	PgToolkit::Registry::Compactor->new()->get_cluster_compactor()->process();
 }
 
 if (__PACKAGE__ eq 'main') {

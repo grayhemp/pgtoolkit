@@ -101,7 +101,8 @@ sub init {
 		(keys %{$arg_hash{'definition_hash'}}));
 
 	my $error;
-	if (defined $arg_hash{'error_check_code'} and
+	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'}) and
+		defined $arg_hash{'error_check_code'} and
 		$arg_hash{'error_check_code'}->($option_hash))
 	{
 		$error = 'Wrong options combination or values specified.';
