@@ -170,63 +170,64 @@ sub process {
 		$self->_log_force();
 	}
 
+	my $statistics;
 	if (not $self->{'_is_processed'}) {
-		$self->{'_stat'} = $self->_get_statistics();
+		$statistics = $self->_get_statistics();
 
 		if (not $self->{'_force'} and
-			$self->{'_stat'}->{'_page_count'} < $self->{'_min_page_count'})
+			$statistics->{'page_count'} < $self->{'_min_page_count'})
 		{
-			$self->_log_min_page_count();
+			$self->_log_min_page_count(statistics => $statistics);
 			$self->{'_is_processed'} = 1;
 		}
 	}
 
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
-		$self->_log_vacuum(type => 'analyze initially');
+		$self->_log_vacuum(phrase => 'analyze initially');
 		$self->_do_vacuum(analyze => 1);
-		$self->{'_stat'} = $self->_get_statistics();
+		$statistics = $self->_get_statistics();
 
 		if (not $self->{'_force'}) {
-			if ($self->{'_stat'}->{'_page_count'} < $self->{'_min_page_count'})
+			if ($statistics->{'page_count'} < $self->{'_min_page_count'})
 			{
-				$self->_log_min_page_count();
+				$self->_log_min_page_count(statistics => $statistics);
 				$self->{'_is_processed'} = 1;
 			}
 
-			if ($self->{'_stat'}->{'_free_percent'} <
+			if ($statistics->{'free_percent'} <
 				$self->{'_min_free_percent'} and not $self->{'_is_processed'})
 			{
-				$self->_log_min_free_percent();
+				$self->_log_min_free_percent(statistics => $statistics);
 				$self->{'_is_processed'} = 1;
 			}
 		}
 	}
 
 	if (not $self->{'_is_processed'}) {
-		$self->_log_statistics(type => 'initially');
+		$self->_log_statistics(
+			statistics => $statistics,
+			phrase => 'initially');
 
-		if (not defined $self->{'_column_ident'}) {
-			$self->{'_column_ident'} = $self->{'_database'}->quote_ident(
-				string => $self->_get_update_column());
-		}
+		my $column_ident = $self->{'_database'}->quote_ident(
+			string => $self->_get_update_column());
 
-		$self->_log_start_compacting();
+		$self->_log_start_compacting(column_ident => $column_ident);
 
 		my $progress_report_time = $self->_time();
 		my $vacuum_page_count = 0;
-		my $to_page = $self->{'_stat'}->{'_page_count'} - 1;
-		my $expected_page_count = $self->{'_stat'}->{'_page_count'};
-		$self->{'_initial_stat'} = {%{$self->{'_stat'}}};
+		my $expected_page_count = $statistics->{'page_count'};
+		my $initial_statistics = {%{$statistics}};
+		my $to_page = $statistics->{'page_count'} - 1;
 
 		my $loop;
-		for ($loop = $self->{'_initial_stat'}->{'_page_count'};
-			 $loop > 0 ; $loop--)
-		{
+		for ($loop = $statistics->{'page_count'}; $loop > 0 ; $loop--) {
 			my $start_time = $self->_time();
 
 			my $last_to_page = $to_page;
 			eval {
-				$to_page = $self->_clean_pages('to_page' => $last_to_page);
+				$to_page = $self->_clean_pages(
+					column_ident => $column_ident,
+					to_page => $last_to_page);
 			};
 			if ($@) {
 				if ($@ =~ 'No more free space left in the table') {
@@ -237,14 +238,16 @@ sub process {
 			}
 
 			$self->_sleep(
-				$self->{'_delay_constant'} +
-				$self->{'_delay_ratio'} * ($self->_time() - $start_time));
+				$self->{'_delay_constant'} + $self->{'_delay_ratio'} *
+				($self->_time() - $start_time));
 
 			if ($self->_time() - $progress_report_time >=
 				$self->{'_progress_report_period'} and
 				$last_to_page != $to_page)
 			{
-				$self->_log_progress(to_page => $to_page);
+				$self->_log_progress(
+					initial_statistics => $initial_statistics,
+					to_page => $to_page);
 				$progress_report_time = $self->_time();
 			}
 
@@ -253,22 +256,24 @@ sub process {
 
 			if (not $self->{'_no_routine_vacuum'} and
 				$vacuum_page_count >= $self->_get_pages_before_vacuum(
-					expected_page_count => $expected_page_count))
+					expected_page_count => $expected_page_count,
+					statistics => $statistics))
 			{
-				$self->_log_vacuum(type => 'routinely');
+				$self->_log_vacuum(phrase => 'routinely');
 				$self->_do_vacuum();
 
-				$self->{'_stat'} = $self->_get_statistics();
+				$statistics = $self->_get_statistics();
 
 				$self->_log_vacuum_state(
 					expected_page_count => $expected_page_count,
+					statistics => $statistics,
 					to_page => $to_page,
-					type => 'routine');
+					phrase => 'routine');
 
 				$vacuum_page_count = 0;
 
-				if ($to_page > $self->{'_stat'}->{'_page_count'} - 1) {
-					$to_page = $self->{'_stat'}->{'_page_count'} - 1;
+				if ($to_page > $statistics->{'page_count'} - 1) {
+					$to_page = $statistics->{'page_count'} - 1;
 				}
 			}
 		}
@@ -277,17 +282,20 @@ sub process {
 			$self->_log_max_loops();
 		}
 
-		$self->_log_vacuum(type => 'analyze finally');
+		$self->_log_vacuum(phrase => 'analyze finally');
 
 		$self->_do_vacuum(analyze => 1);
-		$self->{'_stat'} = $self->_get_statistics();
+		$statistics = $self->_get_statistics();
 
 		$self->_log_vacuum_state(
 			expected_page_count => $expected_page_count,
+			statistics => $statistics,
 			to_page => $to_page,
-			type => 'final');
+			phrase => 'final');
 
-		$self->_log_statistics(type => 'finally');
+		$self->_log_statistics(
+			statistics => $statistics,
+			phrase => 'finally');
 
 		if ($self->{'_reindex'}) {
 			$self->_log_reindex();
@@ -299,9 +307,10 @@ sub process {
 		}
 
 		$self->{'_is_processed'} =
-			$self->{'_stat'}->{'_page_count'} < $to_page + 1 +
+			$statistics->{'page_count'} < $to_page + 1 +
 			$self->_get_pages_before_vacuum(
-				expected_page_count => $expected_page_count);
+				expected_page_count => $expected_page_count,
+				statistics => $statistics);
 	}
 
 	if (not $self->{'_is_processed'}) {
@@ -367,12 +376,12 @@ sub _log_force {
 }
 
 sub _log_min_page_count {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
 			'Skipping the table as it has '.
-			$self->{'_stat'}->{'_page_count'}.' pages and minimum '.
+			$arg_hash{'statistics'}->{'page_count'}.' pages and minimum '.
 			$self->{'_min_page_count'}.' pages are required.'),
 		level => 'notice',
 		target => $self->{'_log_ident'});
@@ -384,7 +393,7 @@ sub _log_vacuum {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Performing vacuum '.$arg_hash{'type'}.' for the table.',
+		message => 'Performing vacuum '.$arg_hash{'phrase'}.' for the table.',
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -392,12 +401,12 @@ sub _log_vacuum {
 }
 
 sub _log_min_free_percent {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping the table as it '.
-			'has '.$self->{'_stat'}->{'_free_percent'}.'% of its '.
+			'Skipping the table as it has '.
+			$arg_hash{'statistics'}->{'free_percent'}.'% of its '.
 			'space to compact and the minimum required is '.
 			$self->{'_min_free_percent'}.'%.'),
 		level => 'notice',
@@ -411,16 +420,16 @@ sub _log_statistics {
 
 	$self->{'_logger'}->write(
 		message => (
-			ucfirst($arg_hash{'type'}).' the table has '.
-			$self->{'_stat'}->{'_page_count'}.' pages ('.
-			$self->{'_stat'}->{'_total_page_count'}.
+			ucfirst($arg_hash{'phrase'}).' the table has '.
+			$arg_hash{'statistics'}->{'page_count'}.' pages ('.
+			$arg_hash{'statistics'}->{'total_page_count'}.
 			' pages including toasts and indexes)'.
-			(defined $self->{'_stat'}->{'_free_space'} ? ', approximately '.
-			 $self->{'_stat'}->{'_free_percent'}.'% of its space that is '.
-			 $self->{'_stat'}->{'_free_space'}.' bytes can be potentially '.
-			 'released making it '.
-			 ($self->{'_stat'}->{'_page_count'} -
-			  $self->{'_stat'}->{'_effective_page_count'}).
+			(defined $arg_hash{'statistics'}->{'free_space'} ?
+			 ', approximately '.$arg_hash{'statistics'}->{'free_percent'}.
+			 '% of its space that is '.$arg_hash{'statistics'}->{'free_space'}.
+			 ' bytes can be potentially released making it '.
+			 ($arg_hash{'statistics'}->{'page_count'} -
+			  $arg_hash{'statistics'}->{'effective_page_count'}).
 			 ' pages less.' : '.')),
 		level => 'info',
 		target => $self->{'_log_ident'});
@@ -429,11 +438,11 @@ sub _log_statistics {
 }
 
 sub _log_start_compacting {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
-			'Compacting the table using the '.$self->{'_column_ident'}.
+			'Compacting the table using the '.$arg_hash{'column_ident'}.
 			' column by '.$self->{'_pages_per_round'}.' pages per round.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
@@ -447,18 +456,18 @@ sub _log_progress {
 	$self->{'_logger'}->write(
 		message => (
 			'The table '.
-			(defined $self->{'_initial_stat'}->{'_effective_page_count'} ?
+			(defined $arg_hash{'initial_statistics'}->{'effective_page_count'} ?
 			 'compacting progress is '.
 			 int(
 				 100 *
 				 ($arg_hash{'to_page'} ?
-				  ($self->{'_initial_stat'}->{'_page_count'} -
+				  ($arg_hash{'initial_statistics'}->{'page_count'} -
 				   $arg_hash{'to_page'} - 1) /
-				  ($self->{'_initial_stat'}->{'_page_count'} -
-				   $self->{'_initial_stat'}->{'_effective_page_count'}) :
+				  ($arg_hash{'initial_statistics'}->{'page_count'} -
+				   $arg_hash{'initial_statistics'}->{'effective_page_count'}) :
 				  1)
 			 ).'% with ' : 'has ').
-			($self->{'_initial_stat'}->{'_page_count'} -
+			($arg_hash{'initial_statistics'}->{'page_count'} -
 			 $arg_hash{'to_page'} - 1).' pages completed.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
@@ -469,23 +478,25 @@ sub _log_progress {
 sub _log_vacuum_state {
 	my ($self, %arg_hash) = @_;
 
-	if ($self->{'_stat'}->{'_page_count'} >= $arg_hash{'to_page'} + 1 +
+	if ($arg_hash{'statistics'}->{'page_count'} >= $arg_hash{'to_page'} + 1 +
 		$self->_get_pages_before_vacuum(
-			expected_page_count => $arg_hash{'expected_page_count'}))
+			expected_page_count => $arg_hash{'expected_page_count'},
+			statistics => $arg_hash{'statistics'}))
 	{
 		$self->{'_logger'}->write(
 			message => (
-				ucfirst($arg_hash{'type'}).' vacuum of the table '.
+				ucfirst($arg_hash{'phrase'}).' vacuum of the table '.
 				'has not managed to clean '.
-				($self->{'_stat'}->{'_page_count'} - $arg_hash{'to_page'} - 1).
-				' pages.'),
+				($arg_hash{'statistics'}->{'page_count'} -
+				 $arg_hash{'to_page'} - 1).' pages.'),
 			level => 'warning',
 			target => $self->{'_log_ident'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
-				'There are '.$self->{'_stat'}->{'_page_count'}.
-				' pages left in the table after '.$arg_hash{'type'}.' vacuum.'),
+				'There are '.$arg_hash{'statistics'}->{'page_count'}.
+				' pages left in the table after '.$arg_hash{'phrase'}.
+				' vacuum.'),
 			level => 'info',
 			target => $self->{'_log_ident'});
 	}
@@ -661,11 +672,11 @@ SQL
 	}
 
 	return {
-		'_page_count' => $result->[0]->[0],
-		'_total_page_count' => $result->[0]->[1],
-		'_effective_page_count' => $result->[0]->[2],
-		'_free_percent' => $result->[0]->[3],
-		'_free_space' => $result->[0]->[4]};
+		'page_count' => $result->[0]->[0],
+		'total_page_count' => $result->[0]->[1],
+		'effective_page_count' => $result->[0]->[2],
+		'free_percent' => $result->[0]->[3],
+		'free_space' => $result->[0]->[4]};
 }
 
 sub _do_vacuum {
@@ -714,7 +725,7 @@ sub _clean_pages {
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT _clean_pages(
-    '$self->{'_ident'}', '$self->{'_column_ident'}',
+    '$self->{'_ident'}', '$arg_hash{'column_ident'}',
     $arg_hash{'to_page'}, $self->{'_pages_per_round'})
 SQL
 		);
@@ -792,7 +803,7 @@ sub _get_pages_before_vacuum {
 	return
 		(sort {$b <=> $a}
 		 (sort {$a <=> $b}
-		  $self->{'_stat'}->{'_page_count'} / 16,
+		  $arg_hash{'statistics'}->{'page_count'} / 16,
 		  1000)[0],
 		 $arg_hash{'expected_page_count'} / 50,
 		 1)[0];
