@@ -82,41 +82,41 @@ sub init {
 	}
 
 	my $dbname_list = [];
-	if (@{$arg_hash{'dbname_list'}}) {
-		$dbname_list = $arg_hash{'dbname_list'};
-	} else {
-		eval {
-			$dbname_list = $self->_get_dbname_list();
-		};
-		if ($@) {
-			$self->{'_logger'}->write(
-				message => (
-					'Can not get a database name list for the cluster, '.
-					'the following error has occured:'."\n".$@),
-				level => 'error');
-		}
+	eval {
+		$dbname_list = $self->_get_dbname_list(
+			dbname_list => $arg_hash{'dbname_list'});
+	};
+	if ($@) {
+		$self->{'_logger'}->write(
+			message => (
+				'Can not get a database name list for the cluster, '.
+				'the following error has occured:'."\n".$@),
+			level => 'error');
 	}
 
-	my %dbname_hash = map(($_ => 1), @{$dbname_list});
-	delete @dbname_hash{@{$arg_hash{'excluded_dbname_list'}}};
-
 	$self->{'_database_compactor_list'} = [];
-	for my $dbname (sort keys %dbname_hash) {
-		my $database_compactor;
-		eval {
-			$database_compactor = $arg_hash{'database_compactor_constructor'}->
-				(database => $self->{'_database_constructor'}->(
-					 dbname => $dbname));
-		};
-		if ($@) {
-			$self->{'_logger'}->write(
-				message => ('Can not prepare the database, the following '.
-							'error has occured:'."\n".$@),
-				level => 'error',
-				target => $self->{'_postgres_database'}->quote_ident(
-					string => $dbname));
-		} else {
-			push(@{$self->{'_database_compactor_list'}}, $database_compactor);
+	for my $dbname (@{$dbname_list}) {
+		if (not grep(
+				$_ eq $dbname, @{$arg_hash{'excluded_dbname_list'}}))
+		{
+			my $database_compactor;
+			eval {
+				$database_compactor =
+					$arg_hash{'database_compactor_constructor'}->
+					(database => $self->{'_database_constructor'}->(
+						 dbname => $dbname));
+			};
+			if ($@) {
+				$self->{'_logger'}->write(
+					message => ('Can not prepare the database, the following '.
+								'error has occured:'."\n".$@),
+					level => 'error',
+					target => $self->{'_postgres_database'}->quote_ident(
+						string => $dbname));
+			} else {
+				push(@{$self->{'_database_compactor_list'}},
+					 $database_compactor);
+			}
 		}
 	}
 
@@ -204,14 +204,22 @@ sub is_processed {
 }
 
 sub _get_dbname_list {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
+
+	my $datname_in = '';
+	if (@{$arg_hash{'dbname_list'}}) {
+		$datname_in =
+			'AND datname IN (\''.
+			join('\', \'', @{$arg_hash{'dbname_list'}}).
+			'\')';
+	}
 
 	my $result = $self->{'_postgres_database'}->
 		execute(
 			sql => <<SQL
 SELECT datname FROM pg_database
-WHERE datname NOT IN ('postgres', 'template0', 'template1')
-ORDER BY 1
+WHERE datname NOT IN ('postgres', 'template0', 'template1') $datname_in
+ORDER BY pg_database_size(datname), datname
 SQL
 		);
 

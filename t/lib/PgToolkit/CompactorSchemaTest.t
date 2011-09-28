@@ -24,6 +24,7 @@ sub setup : Test(setup) {
 
 	$self->{'schema_compactor_constructor'} = sub {
 		$self->{'table_compactor_mock_list'} = [];
+		$self->{'table_compactor_mock_process_counter'} = 0;
 
 		PgToolkit::Compactor::Schema->new(
 			database => $self->{'database'},
@@ -46,7 +47,16 @@ sub create_table_compactor_mock {
 
 	my $mock = Test::MockObject->new();
 	$mock->set_true('init');
-	$mock->set_true('process');
+	$mock->mock(
+		'process',
+		sub {
+			$mock->set_always(
+				'-process_order',
+				$self->{'table_compactor_mock_process_counter'});
+			$self->{'table_compactor_mock_process_counter'}++;
+
+			return;
+		});
 	$mock->set_false('-is_processed');
 	$mock->set_always(
 		'-get_log_ident',
@@ -59,32 +69,37 @@ sub create_table_compactor_mock {
 	return $mock;
 }
 
-sub test_init_creates_table_compactors : Test(12) {
+sub test_init_creates_table_compactors_in_returning_order : Test(16) {
 	my $self = shift;
 
-	$self->{'table_name_list'} = [
+	my $table_name_list1 = [
 		map(
 			$_->[0],
 			@{$self->{'database'}->{'mock'}->{'data_hash'}
-			  ->{'get_table_name_list'}->{'row_list'}})];
+			  ->{'get_table_name_list1'}->{'row_list'}})];
+	my $table_name_list2 = [
+		map(
+			$_->[0],
+			@{$self->{'database'}->{'mock'}->{'data_hash'}
+			  ->{'get_table_name_list2'}->{'row_list'}})];
 
 	my $data_hash_list = [
 		{'arg' => {
-			'table_name_list' => $self->{'table_name_list'},
+			'table_name_list' => [reverse @{$table_name_list2}],
 			'excluded_table_name_list' => []},
-		 'expected' => $self->{'table_name_list'}},
+		 'expected' => $table_name_list2},
 		{'arg' => {
 			'table_name_list' => [],
 			'excluded_table_name_list' => []},
-		 'expected' => $self->{'table_name_list'}},
+		 'expected' => $table_name_list1},
 		{'arg' => {
-			'table_name_list' => $self->{'table_name_list'},
-			'excluded_table_name_list' => [$self->{'table_name_list'}->[0]]},
-		 'expected' => [$self->{'table_name_list'}->[1]]},
+			'table_name_list' => [reverse @{$table_name_list2}],
+			'excluded_table_name_list' => [$table_name_list2->[0]]},
+		 'expected' => [$table_name_list2->[1]]},
 		{'arg' => {
 			'table_name_list' => [],
-			'excluded_table_name_list' => [$self->{'table_name_list'}->[1]]},
-		 'expected' => [$self->{'table_name_list'}->[0]]}];
+			'excluded_table_name_list' => [$table_name_list1->[1]]},
+		 'expected' => [$table_name_list1->[0]]}];
 
 	for my $data_hash (@{$data_hash_list}) {
 		$self->{'schema_compactor_constructor'}->(
@@ -92,6 +107,8 @@ sub test_init_creates_table_compactors : Test(12) {
 			excluded_table_name_list => (
 				$data_hash->{'arg'}->{'excluded_table_name_list'}));
 
+		is(@{$self->{'table_compactor_mock_list'}},
+		   @{$data_hash->{'expected'}});
 		for my $i (0 .. @{$self->{'table_compactor_mock_list'}} - 1) {
 			my $mock = $self->{'table_compactor_mock_list'}->[$i];
 			is($mock->call_pos(1), 'init');
@@ -105,13 +122,14 @@ sub test_init_creates_table_compactors : Test(12) {
 	}
 }
 
-sub test_process_procecces_table_compactors : Test(2) {
+sub test_process_procecces_table_compactors_in_their_order  : Test(4) {
 	my $self = shift;
 
 	$self->{'schema_compactor_constructor'}->()->process();
 
 	for my $i (0 .. @{$self->{'table_compactor_mock_list'}} - 1) {
 		is($self->{'table_compactor_mock_list'}->[$i]->call_pos(2), 'process');
+		is($self->{'table_compactor_mock_list'}->[$i]->process_order(), $i);
 	}
 }
 

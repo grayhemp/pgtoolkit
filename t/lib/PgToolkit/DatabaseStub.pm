@@ -141,10 +141,18 @@ sub init {
 				qr/ALTER INDEX schema\.i_compactor_$$ /.
 				qr/RENAME TO i_table__idx2; END;/,
 			'row_list' => []},
-		'get_table_name_list' => {
+		'get_table_name_list1' => {
 			'sql_pattern' =>
 				qr/SELECT tablename FROM pg_tables\n/.
-				qr/WHERE schemaname = 'schema\d?'/,
+				qr/WHERE schemaname = 'schema\d?' \n/.
+				qr/ORDER BY\n    pg_relation_size/,
+			'row_list' => [['table1'],['table2']]},
+		'get_table_name_list2' => {
+			'sql_pattern' =>
+				qr/SELECT tablename FROM pg_tables\n/.
+				qr/WHERE schemaname = 'schema\d?' /.
+				qr/AND tablename IN \('table2', 'table1'\)\n/.
+				qr/ORDER BY\n    pg_relation_size/,
 			'row_list' => [['table1'],['table2']]},
 		'has_schema' => {
 			'sql_pattern' =>
@@ -163,10 +171,19 @@ sub init {
 			'sql_pattern' =>
 				qr/DROP FUNCTION _clean_pages/,
 			'row_list' => []},
-		'get_dbname_list' => {
+		'get_dbname_list1' => {
 			'sql_pattern' =>
-				qr/SELECT datname FROM pg_database/,
-			'row_list' => [['dbname1'],['dbname2']]},
+				qr/SELECT datname FROM pg_database\n/.
+				qr/WHERE datname NOT IN \([^\(]*\) \n/.
+				qr/ORDER BY pg_database_size/,
+			'row_list' => [['dbname1'], ['dbname2']]},
+		'get_dbname_list2' => {
+			'sql_pattern' =>
+				qr/SELECT datname FROM pg_database\n/.
+				qr/WHERE datname NOT IN \([^\(]*\) /.
+				qr/AND datname IN \('dbname2', 'dbname1'\)\n/.
+				qr/ORDER BY pg_database_size/,
+			'row_list' => [['dbname1'], ['dbname2']]},
 		'has_pgstattuple' => {
 			'sql_pattern' =>
 				qr/SELECT sign\(count\(1\)\) FROM pg_proc /.

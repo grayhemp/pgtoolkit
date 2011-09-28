@@ -24,6 +24,7 @@ sub setup : Test(setup) {
 	$self->{'cluster_compactor_constructor'} = sub {
 		$self->{'database_mock_list'} = [];
 		$self->{'database_compactor_mock_list'} = [];
+		$self->{'database_compactor_mock_process_counter'} = 0;
 
 		PgToolkit::Compactor::Cluster->new(
 			database_constructor => sub {
@@ -47,7 +48,16 @@ sub create_database_compactor_mock {
 
 	my $mock = Test::MockObject->new();
 	$mock->set_true('init');
-	$mock->set_true('process');
+	$mock->mock(
+		'process',
+		sub {
+			$mock->set_always(
+				'-process_order',
+				$self->{'database_compactor_mock_process_counter'});
+			$self->{'database_compactor_mock_process_counter'}++;
+
+			return;
+		});
 	$mock->set_false('-is_processed');
 	$mock->set_always('-get_dbname', $arg_hash{'dbname'});
 
@@ -57,39 +67,41 @@ sub create_database_compactor_mock {
 	return $mock;
 }
 
-sub test_init_creates_database_compactors : Test(12) {
+sub test_init_creates_database_compactors_in_the_returning_order : Test(16) {
 	my $self = shift;
 
-	$self->{'dbname_list'} = [
-		map(
-			$_->[0],
-			@{$self->{'database'}->{'mock'}->{'data_hash'}
-			  ->{'get_dbname_list'}->{'row_list'}})];
+	my $dbname_list1 = [
+		map($_->[0],
+			@{$self->{'database'}->{'mock'}->{'data_hash'}->
+			  {'get_dbname_list1'}->{'row_list'}})];
+	my $dbname_list2 = [
+		map($_->[0],
+			@{$self->{'database'}->{'mock'}->{'data_hash'}->
+			  {'get_dbname_list2'}->{'row_list'}})];
 
 	my $data_hash_list = [
-		{'arg' => {
-			'dbname_list' => $self->{'dbname_list'},
+		{'args' => {
+			'dbname_list' => [reverse @{$dbname_list2}],
 			'excluded_dbname_list' => []},
-		 'expected' => $self->{'dbname_list'}},
-		{'arg' => {
+		 'expected' => $dbname_list2},
+		{'args' => {
 			'dbname_list' => [],
 			'excluded_dbname_list' => []},
-		 'expected' => $self->{'dbname_list'}},
-		{'arg' => {
-			'dbname_list' => $self->{'dbname_list'},
-			'excluded_dbname_list' => [$self->{'dbname_list'}->[0]]},
-		 'expected' => [$self->{'dbname_list'}->[1]]},
-		{'arg' => {
+		 'expected' => $dbname_list1},
+		{'args' => {
+			'dbname_list' => [reverse @{$dbname_list2}],
+			'excluded_dbname_list' => [$dbname_list2->[0]]},
+		 'expected' => [$dbname_list2->[1]]},
+		{'args' => {
 			'dbname_list' => [],
-			'excluded_dbname_list' => [$self->{'dbname_list'}->[1]]},
-		 'expected' => [$self->{'dbname_list'}->[0]]}];
+			'excluded_dbname_list' => [$dbname_list1->[1]]},
+		 'expected' => [$dbname_list1->[0]]}];
 
 	for my $data_hash (@{$data_hash_list}) {
-		$self->{'cluster_compactor_constructor'}->(
-			dbname_list => $data_hash->{'arg'}->{'dbname_list'},
-			excluded_dbname_list => (
-				$data_hash->{'arg'}->{'excluded_dbname_list'}));
+		$self->{'cluster_compactor_constructor'}->(%{$data_hash->{'args'}});
 
+		is(@{$self->{'database_compactor_mock_list'}},
+		   @{$data_hash->{'expected'}});
 		for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
 			my $mock = $self->{'database_compactor_mock_list'}->[$i];
 			is($mock->call_pos(1), 'init');
@@ -99,7 +111,7 @@ sub test_init_creates_database_compactors : Test(12) {
 	}
 }
 
-sub test_process_processes_database_compactors : Test(2) {
+sub test_process_processes_database_compactors_in_their_order : Test(4) {
 	my $self = shift;
 
 	$self->{'cluster_compactor_constructor'}->()->process();
@@ -107,6 +119,7 @@ sub test_process_processes_database_compactors : Test(2) {
 	for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
 		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(2),
 		   'process');
+		is($self->{'database_compactor_mock_list'}->[$i]->process_order(), $i);
 	}
 }
 

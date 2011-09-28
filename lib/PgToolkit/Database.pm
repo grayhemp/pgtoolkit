@@ -107,7 +107,7 @@ sub get_dbname {
 	return $self->{'_dbname'};
 }
 
-=head2 B<get_dbname()>
+=head2 B<_get_escaped_dbname()>
 
 Returns an escaped database name.
 

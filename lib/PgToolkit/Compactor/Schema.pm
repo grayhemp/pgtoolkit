@@ -94,33 +94,35 @@ sub init {
 		die('SchemaCompactorError There is no schema '.$self->{'_ident'}.'.');
 	}
 
-	my %table_name_hash = map(
-		($_ => 1), @{$arg_hash{'table_name_list'}} ?
-		@{$arg_hash{'table_name_list'}} : @{$self->_get_table_name_list()});
-
-	delete @table_name_hash{@{$arg_hash{'excluded_table_name_list'}}};
+	my $table_name_list = $self->_get_table_name_list(
+		table_name_list => $arg_hash{'table_name_list'});
 
 	$self->{'_table_compactor_list'} = [];
-	for my $table_name (sort keys %table_name_hash) {
-		my $table_compactor;
-		eval {
-			$table_compactor = $arg_hash{'table_compactor_constructor'}->(
-				database => $self->{'_database'},
-				schema_name => $self->{'_schema_name'},
-				table_name => $table_name,
-				use_pgstattuple => $arg_hash{'use_pgstattuple'});
-		};
-		if ($@) {
-			$self->{'_logger'}->write(
-				message => (
-					'Can not prepare the table to compacting, the following '.
-					"error has occured:\n".$@),
-				level => 'error',
-				target => (
-					$self->{'_log_ident'}.'.'.$self->{'_database'}->quote_ident(
-						string => $table_name)));
-		} else {
-			push(@{$self->{'_table_compactor_list'}}, $table_compactor);
+	for my $table_name (@{$table_name_list}) {
+		if (not grep(
+				$_ eq $table_name, @{$arg_hash{'excluded_table_name_list'}}))
+		{
+			my $table_compactor;
+			eval {
+				$table_compactor = $arg_hash{'table_compactor_constructor'}->(
+					database => $self->{'_database'},
+					schema_name => $self->{'_schema_name'},
+					table_name => $table_name,
+					use_pgstattuple => $arg_hash{'use_pgstattuple'});
+			};
+			if ($@) {
+				$self->{'_logger'}->write(
+					message => (
+						'Can not prepare the table to compacting, the '.
+						"following error has occured:\n".$@),
+					level => 'error',
+					target => (
+						$self->{'_log_ident'}.'.'.
+						$self->{'_database'}->quote_ident(
+							string => $table_name)));
+			} else {
+				push(@{$self->{'_table_compactor_list'}}, $table_compactor);
+			}
 		}
 	}
 
@@ -196,13 +198,23 @@ sub is_processed {
 }
 
 sub _get_table_name_list {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
+
+	my $table_name_in = '';
+	if (@{$arg_hash{'table_name_list'}}) {
+		$table_name_in =
+			'AND tablename IN (\''.
+			join('\', \'', @{$arg_hash{'table_name_list'}}).
+			'\')';
+	}
 
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT tablename FROM pg_tables
-WHERE schemaname = '$self->{'_schema_name'}'
-ORDER BY 1
+WHERE schemaname = '$self->{'_schema_name'}' $table_name_in
+ORDER BY
+    pg_relation_size(quote_ident(schemaname) || '.' || quote_ident(tablename)),
+    tablename
 SQL
 		);
 
