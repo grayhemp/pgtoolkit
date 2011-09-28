@@ -215,7 +215,7 @@ sub process {
 		my $progress_report_time = $self->_time();
 		my $vacuum_page_count = 0;
 		my $to_page = $self->{'_stat'}->{'_page_count'} - 1;
-
+		my $expected_page_count = $self->{'_stat'}->{'_page_count'};
 		$self->{'_initial_stat'} = {%{$self->{'_stat'}}};
 
 		my $loop;
@@ -248,9 +248,12 @@ sub process {
 				$progress_report_time = $self->_time();
 			}
 
+			$expected_page_count -= $self->{'_pages_per_round'};
 			$vacuum_page_count += ($last_to_page - $to_page);
+
 			if (not $self->{'_no_routine_vacuum'} and
-				$vacuum_page_count >= $self->_get_pages_before_vacuum())
+				$vacuum_page_count >= $self->_get_pages_before_vacuum(
+					expected_page_count => $expected_page_count))
 			{
 				$self->_log_vacuum(type => 'routinely');
 				$self->_do_vacuum();
@@ -258,6 +261,7 @@ sub process {
 				$self->{'_stat'} = $self->_get_statistics();
 
 				$self->_log_vacuum_state(
+					expected_page_count => $expected_page_count,
 					to_page => $to_page,
 					type => 'routine');
 
@@ -279,6 +283,7 @@ sub process {
 		$self->{'_stat'} = $self->_get_statistics();
 
 		$self->_log_vacuum_state(
+			expected_page_count => $expected_page_count,
 			to_page => $to_page,
 			type => 'final');
 
@@ -293,9 +298,10 @@ sub process {
 			$self->_log_reindex_queries();
 		}
 
-		$self->{'_is_processed'} = (
+		$self->{'_is_processed'} =
 			$self->{'_stat'}->{'_page_count'} < $to_page + 1 +
-			$self->_get_pages_before_vacuum());
+			$self->_get_pages_before_vacuum(
+				expected_page_count => $expected_page_count);
 	}
 
 	if (not $self->{'_is_processed'}) {
@@ -464,7 +470,8 @@ sub _log_vacuum_state {
 	my ($self, %arg_hash) = @_;
 
 	if ($self->{'_stat'}->{'_page_count'} >= $arg_hash{'to_page'} + 1 +
-		$self->_get_pages_before_vacuum())
+		$self->_get_pages_before_vacuum(
+			expected_page_count => $arg_hash{'expected_page_count'}))
 	{
 		$self->{'_logger'}->write(
 			message => (
@@ -779,14 +786,16 @@ sub _reindex {
 }
 
 sub _get_pages_before_vacuum {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
-	my $result = 1000;
-	if ($self->{'_stat'}->{'_page_count'} / 16 < 1000) {
-		$result = $self->{'_stat'}->{'_page_count'} / 16;
-	}
-
-	return $result;
+	# max(min(1/16 real page count, 1000), 1/50 expected page count, 1)
+	return
+		(sort {$b <=> $a}
+		 (sort {$a <=> $b}
+		  $self->{'_stat'}->{'_page_count'} / 16,
+		  1000)[0],
+		 $arg_hash{'expected_page_count'} / 50,
+		 1)[0];
 }
 
 =head1 SEE ALSO
