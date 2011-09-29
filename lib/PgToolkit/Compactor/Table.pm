@@ -18,7 +18,7 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 		table_name => $table_name,
 		min_page_count => 100,
 		min_free_percent => 10,
-		pages_per_round => 5,
+		max_pages_per_round => 5,
 		no_initial_vacuum => 0,
 		no_routine_vacuum => 0,
 		delay_constant => 1,
@@ -27,7 +27,12 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 		reindex => 0,
 		print_reindex_queries => 0,
 		progress_report_period => 60,
-		use_pgstattuple => 0);
+		use_pgstattuple => 0,
+		pages_per_round_divisor = 1000,
+		pages_before_vacuum_lower_divisor = 16,
+		pages_before_vacuum_lower_threshold = 1000,
+		pages_before_vacuum_upper_divisor = 50)
+
 
 	$table_compactor->process();
 
@@ -64,9 +69,9 @@ a minimum number of pages that is worth to compact with
 
 a mininum free space percent that is worth to compact with
 
-=item C<pages_per_round>
+=item C<max_pages_per_round>
 
-a number of pages to process per one round
+an upper threshold of pages to process per one round
 
 =item C<no_initial_vacuum>
 
@@ -103,7 +108,31 @@ a period in seconds to report the progress with
 
 =item C<use_pgstattuple>
 
-states whether we should use pgstattuple to get statistics or not.
+states whether we should use pgstattuple to get statistics or not
+
+=item C<pages_per_round_divisor>
+
+is used to calculate a pages per round value, recommended to set to 1000
+
+ min(
+     max(1/pages_per_round_divisor of the real page count, 1),
+     max_pages_per_round)
+
+=item C<pages_before_vacuum_lower_divisor>
+
+=item C<pages_before_vacuum_lower_threshold>
+
+=item C<pages_before_vacuum_upper_divisor>
+
+are used to calculate a pages before vacuum value, recommended to set to
+16, 1000 and 50 respectively
+
+ max(
+     min(
+         1/pages_before_vacuum_lower_divisor of the real page count,
+         1000),
+     1/pages_before_vacuum_upper_divisor of the expected page count,
+     1)
 
 =back
 
@@ -119,7 +148,7 @@ sub init {
 
 	$self->{'_min_page_count'} = $arg_hash{'min_page_count'};
 	$self->{'_min_free_percent'} = $arg_hash{'min_free_percent'};
-	$self->{'_pages_per_round'} = $arg_hash{'pages_per_round'};
+	$self->{'_max_pages_per_round'} = $arg_hash{'max_pages_per_round'};
 	$self->{'_no_initial_vacuum'} = $arg_hash{'no_initial_vacuum'};
 	$self->{'_no_routine_vacuum'} = $arg_hash{'no_routine_vacuum'};
 	$self->{'_delay_constant'} = $arg_hash{'delay_constant'};
@@ -130,6 +159,13 @@ sub init {
 
 	$self->{'_progress_report_period'} = $arg_hash{'progress_report_period'};
 	$self->{'_use_pgstattuple'} = $arg_hash{'use_pgstattuple'};
+	$self->{'_pages_per_round_divisor'} = $arg_hash{'pages_per_round_divisor'};
+	$self->{'_pages_before_vacuum_lower_divisor'} =
+		$arg_hash{'pages_before_vacuum_lower_divisor'};
+	$self->{'_pages_before_vacuum_lower_threshold'} =
+		$arg_hash{'pages_before_vacuum_lower_threshold'};
+	$self->{'_pages_before_vacuum_upper_divisor'} =
+		$arg_hash{'pages_before_vacuum_upper_divisor'};
 
 	$self->{'_ident'} =
 		$self->{'_database'}->quote_ident(
@@ -211,7 +247,9 @@ sub process {
 		my $column_ident = $self->{'_database'}->quote_ident(
 			string => $self->_get_update_column());
 
-		$self->_log_start_compacting(column_ident => $column_ident);
+		$self->_log_start_compacting(
+			statistics => $statistics,
+			column_ident => $column_ident);
 
 		my $progress_report_time = $self->_time();
 		my $vacuum_page_count = 0;
@@ -226,6 +264,7 @@ sub process {
 			my $last_to_page = $to_page;
 			eval {
 				$to_page = $self->_clean_pages(
+					statistics => $statistics,
 					column_ident => $column_ident,
 					to_page => $last_to_page);
 			};
@@ -251,7 +290,8 @@ sub process {
 				$progress_report_time = $self->_time();
 			}
 
-			$expected_page_count -= $self->{'_pages_per_round'};
+			$expected_page_count -= $self->_get_pages_per_round(
+				statistics => $statistics);
 			$vacuum_page_count += ($last_to_page - $to_page);
 
 			if (not $self->{'_no_routine_vacuum'} and
@@ -442,8 +482,10 @@ sub _log_start_compacting {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Compacting the table using the '.$arg_hash{'column_ident'}.
-			' column by '.$self->{'_pages_per_round'}.' pages per round.'),
+			'Compacting the table using the '.
+			$arg_hash{'column_ident'}.' column by '.
+			$self->_get_pages_per_round(statistics => $arg_hash{'statistics'}).
+			' pages per round.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -722,11 +764,13 @@ SQL
 sub _clean_pages {
 	my ($self, %arg_hash) = @_;
 
+	my $pages_per_round = $self->_get_pages_per_round(
+		statistics => $arg_hash{'statistics'});
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT _clean_pages(
     '$self->{'_ident'}', '$arg_hash{'column_ident'}',
-    $arg_hash{'to_page'}, $self->{'_pages_per_round'})
+    $arg_hash{'to_page'}, $pages_per_round)
 SQL
 		);
 
@@ -796,16 +840,29 @@ sub _reindex {
 	return;
 }
 
+sub _get_pages_per_round {
+	my ($self, %arg_hash) = @_;
+
+	return
+		(sort {$a <=> $b}
+		 (sort {$b <=> $a}
+		  $arg_hash{'statistics'}->{'page_count'} /
+		  $self->{'_pages_per_round_divisor'},
+		  1)[0],
+		 $self->{'_max_pages_per_round'})[0];
+}
+
 sub _get_pages_before_vacuum {
 	my ($self, %arg_hash) = @_;
 
-	# max(min(1/16 real page count, 1000), 1/50 expected page count, 1)
 	return
 		(sort {$b <=> $a}
 		 (sort {$a <=> $b}
-		  $arg_hash{'statistics'}->{'page_count'} / 16,
-		  1000)[0],
-		 $arg_hash{'expected_page_count'} / 50,
+		  $arg_hash{'statistics'}->{'page_count'} /
+		  $self->{'_pages_before_vacuum_lower_divisor'},
+		  $self->{'_pages_before_vacuum_lower_threshold'})[0],
+		 $arg_hash{'expected_page_count'} /
+		 $self->{'_pages_before_vacuum_upper_divisor'},
 		 1)[0];
 }
 

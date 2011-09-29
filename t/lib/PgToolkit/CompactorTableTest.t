@@ -27,7 +27,7 @@ sub setup : Test(setup) {
 			table_name => 'table',
 			min_page_count => 100,
 			min_free_percent => 15,
-			pages_per_round => 5,
+			max_pages_per_round => 5,
 			no_initial_vacuum => 0,
 			no_routine_vacuum => 0,
 			delay_constant => 1,
@@ -36,6 +36,10 @@ sub setup : Test(setup) {
 			reindex => 0,
 			progress_report_period => 3,
 			use_pgstat_tuple => 0,
+			pages_per_round_divisor => 1,
+			pages_before_vacuum_lower_divisor => 16,
+			pages_before_vacuum_lower_threshold => 1000,
+			pages_before_vacuum_upper_divisor => 50,
 			@_);
 	};
 }

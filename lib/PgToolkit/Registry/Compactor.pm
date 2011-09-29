@@ -133,7 +133,7 @@ sub get_table_compactor {
 		table_name => $arg_hash{'table_name'},
 		min_page_count => $options->get(name => 'min-page-count'),
 		min_free_percent => $options->get(name => 'min-free-percent'),
-		pages_per_round => $options->get(name => 'pages-per-round'),
+		min_pages_per_round => $options->get(name => 'max-pages-per-round'),
 		no_initial_vacuum => $options->get(name => 'no-initial-vacuum'),
 		no_routine_vacuum => $options->get(name => 'no-routine-vacuum'),
 		delay_constant => $options->get(name => 'delay-constant'),
@@ -143,7 +143,11 @@ sub get_table_compactor {
 		print_reindex_queries => $options->get(name => 'print-reindex-queries'),
 		progress_report_period => $options->get(
 			name => 'progress-report-period'),
-		use_pgstattuple => $arg_hash{'use_pgstattuple'});
+		use_pgstattuple => $arg_hash{'use_pgstattuple'},
+		pages_per_round_divisor => 1000,
+		pages_before_vacuum_lower_divisor => 16,
+		pages_before_vacuum_lower_threshold => 1000,
+		pages_before_vacuum_upper_divisor => 50);
 }
 
 =head2 B<get_database_adapter()>
@@ -224,7 +228,7 @@ sub get_options {
 				# behaviour
 				'no-initial-vacuum|I' => 0, 'no-routine-vacuum|R' => 0,
 				'reindex|r' => 0, 'print-reindex-queries|s' => 0,
-				'force|f' => 0, 'pages-per-round|c:i' => 5,
+				'force|f' => 0, 'max-pages-per-round|c:i' => 10,
 				'delay-constant|e:i' => 0, 'delay-ratio|E:i' => 2,
 				'max-retry-count|o:i' => 10, 'min-page-count|x:i' => 10,
 				'min-free-percent|y:i' => 5, 'progress-report-period|z:i' => 60,

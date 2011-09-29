@@ -225,9 +225,9 @@ requirements.
 
 =item B<-c> PAGES
 
-=item B<--pages-per-round> PAGES
+=item B<--max-pages-per-round> PAGES
 
-Number of pages to process per round. By default it is 5.
+An upper threshold of pages to process per round. By default it is 10.
 
 =item B<-e> SECONDS
 
