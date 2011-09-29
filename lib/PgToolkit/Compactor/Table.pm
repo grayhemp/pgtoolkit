@@ -244,18 +244,23 @@ sub process {
 			statistics => $statistics,
 			phrase => 'initially');
 
+		my $expected_page_count = $statistics->{'page_count'};
 		my $column_ident = $self->{'_database'}->quote_ident(
 			string => $self->_get_update_column());
+		my $pages_per_round = $self->_get_pages_per_round(
+			statistics => $statistics);
+		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
+			expected_page_count => $expected_page_count,
+			statistics => $statistics);
+		my $vacuum_page_count = 0;
+		my $initial_statistics = {%{$statistics}};
+		my $to_page = $statistics->{'page_count'} - 1;
+		my $progress_report_time = $self->_time();
 
 		$self->_log_start_compacting(
 			statistics => $statistics,
-			column_ident => $column_ident);
-
-		my $progress_report_time = $self->_time();
-		my $vacuum_page_count = 0;
-		my $expected_page_count = $statistics->{'page_count'};
-		my $initial_statistics = {%{$statistics}};
-		my $to_page = $statistics->{'page_count'} - 1;
+			column_ident => $column_ident,
+			pages_per_round => $pages_per_round);
 
 		my $loop;
 		for ($loop = $statistics->{'page_count'}; $loop > 0 ; $loop--) {
@@ -266,7 +271,8 @@ sub process {
 				$to_page = $self->_clean_pages(
 					statistics => $statistics,
 					column_ident => $column_ident,
-					to_page => $last_to_page);
+					to_page => $last_to_page,
+					pages_per_round => $pages_per_round);
 			};
 			if ($@) {
 				if ($@ =~ 'No more free space left in the table') {
@@ -290,27 +296,29 @@ sub process {
 				$progress_report_time = $self->_time();
 			}
 
-			$expected_page_count -= $self->_get_pages_per_round(
-				statistics => $statistics);
+			$expected_page_count -= $pages_per_round;
 			$vacuum_page_count += ($last_to_page - $to_page);
 
 			if (not $self->{'_no_routine_vacuum'} and
-				$vacuum_page_count >= $self->_get_pages_before_vacuum(
-					expected_page_count => $expected_page_count,
-					statistics => $statistics))
+				$vacuum_page_count >= $pages_before_vacuum)
 			{
 				$self->_log_vacuum(phrase => 'routinely');
 				$self->_do_vacuum();
 
+				$vacuum_page_count = 0;
+				$pages_per_round = $self->_get_pages_per_round(
+					statistics => $statistics);
+				$pages_before_vacuum = $self->_get_pages_before_vacuum(
+					expected_page_count => $expected_page_count,
+					statistics => $statistics);
 				$statistics = $self->_get_statistics();
 
 				$self->_log_vacuum_state(
 					expected_page_count => $expected_page_count,
 					statistics => $statistics,
 					to_page => $to_page,
-					phrase => 'routine');
-
-				$vacuum_page_count = 0;
+					phrase => 'routine',
+					pages_before_vacuum => $pages_before_vacuum);
 
 				if ($to_page > $statistics->{'page_count'} - 1) {
 					$to_page = $statistics->{'page_count'} - 1;
@@ -323,15 +331,19 @@ sub process {
 		}
 
 		$self->_log_vacuum(phrase => 'analyze finally');
-
 		$self->_do_vacuum(analyze => 1);
+
+		$pages_before_vacuum = $self->_get_pages_before_vacuum(
+			expected_page_count => $expected_page_count,
+			statistics => $statistics);
 		$statistics = $self->_get_statistics();
 
 		$self->_log_vacuum_state(
 			expected_page_count => $expected_page_count,
 			statistics => $statistics,
 			to_page => $to_page,
-			phrase => 'final');
+			phrase => 'final',
+			pages_before_vacuum => $pages_before_vacuum);
 
 		$self->_log_statistics(
 			statistics => $statistics,
@@ -347,10 +359,7 @@ sub process {
 		}
 
 		$self->{'_is_processed'} =
-			$statistics->{'page_count'} < $to_page + 1 +
-			$self->_get_pages_before_vacuum(
-				expected_page_count => $expected_page_count,
-				statistics => $statistics);
+			$statistics->{'page_count'} < $to_page + 1 + $pages_before_vacuum;
 	}
 
 	if (not $self->{'_is_processed'}) {
@@ -482,10 +491,8 @@ sub _log_start_compacting {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Compacting the table using the '.
-			$arg_hash{'column_ident'}.' column by '.
-			$self->_get_pages_per_round(statistics => $arg_hash{'statistics'}).
-			' pages per round.'),
+			'Compacting the table using the '.$arg_hash{'column_ident'}.
+			' column by '.$arg_hash{'pages_per_round'}.' pages per round.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -520,10 +527,8 @@ sub _log_progress {
 sub _log_vacuum_state {
 	my ($self, %arg_hash) = @_;
 
-	if ($arg_hash{'statistics'}->{'page_count'} >= $arg_hash{'to_page'} + 1 +
-		$self->_get_pages_before_vacuum(
-			expected_page_count => $arg_hash{'expected_page_count'},
-			statistics => $arg_hash{'statistics'}))
+	if ($arg_hash{'statistics'}->{'page_count'} >=
+		$arg_hash{'to_page'} + 1 + $arg_hash{'pages_before_vacuum'})
 	{
 		$self->{'_logger'}->write(
 			message => (
@@ -764,13 +769,11 @@ SQL
 sub _clean_pages {
 	my ($self, %arg_hash) = @_;
 
-	my $pages_per_round = $self->_get_pages_per_round(
-		statistics => $arg_hash{'statistics'});
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT _clean_pages(
     '$self->{'_ident'}', '$arg_hash{'column_ident'}',
-    $arg_hash{'to_page'}, $pages_per_round)
+    $arg_hash{'to_page'}, $arg_hash{'pages_per_round'})
 SQL
 		);
 
