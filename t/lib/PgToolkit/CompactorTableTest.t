@@ -128,6 +128,8 @@ sub test_force_processing : Test(10) {
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
 	{'row_list_sequence'}->[1] = [[99, 120, 85, 14, 5000]];
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[2] = [[92, 108, 85, 5, 1250]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(force => 1);
 

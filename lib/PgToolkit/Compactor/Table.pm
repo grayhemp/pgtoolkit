@@ -223,6 +223,7 @@ sub process {
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
 		$self->_log_vacuum(phrase => 'analyze initially');
 		$self->_do_vacuum(analyze => 1);
+
 		$statistics = $self->_get_statistics();
 
 		if (not $self->{'_force'}) {
@@ -310,6 +311,12 @@ sub process {
 				$vacuum_page_count = 0;
 				$statistics = $self->_get_statistics();
 
+				$self->_log_vacuum_state(
+					expected_page_count => $expected_page_count,
+					statistics => $statistics,
+					to_page => $to_page,
+					phrase => 'routine');
+
 				my $last_pages_per_round = $pages_per_round;
 				$pages_per_round = $self->_get_pages_per_round(
 					statistics => $statistics);
@@ -326,13 +333,6 @@ sub process {
 					$self->_log_pages_before_vacuum(
 						value => $pages_before_vacuum);
 				}
-
-				$self->_log_vacuum_state(
-					expected_page_count => $expected_page_count,
-					statistics => $statistics,
-					to_page => $to_page,
-					phrase => 'routine',
-					pages_before_vacuum => $pages_before_vacuum);
 
 				if ($to_page > $statistics->{'page_count'} - 1) {
 					$to_page = $statistics->{'page_count'} - 1;
@@ -353,8 +353,7 @@ sub process {
 			expected_page_count => $expected_page_count,
 			statistics => $statistics,
 			to_page => $to_page,
-			phrase => 'final',
-			pages_before_vacuum => $pages_before_vacuum);
+			phrase => 'final');
 
 		$self->_log_statistics(
 			statistics => $statistics,
@@ -369,8 +368,7 @@ sub process {
 			$self->_log_reindex_queries();
 		}
 
-		$self->{'_is_processed'} =
-			$statistics->{'page_count'} < $to_page + 1 + $pages_before_vacuum;
+		$self->{'_is_processed'} = $statistics->{'page_count'} <= $to_page + 1;
 	}
 
 	if (not $self->{'_is_processed'}) {
@@ -562,15 +560,13 @@ sub _log_progress {
 sub _log_vacuum_state {
 	my ($self, %arg_hash) = @_;
 
-	if ($arg_hash{'statistics'}->{'page_count'} >=
-		$arg_hash{'to_page'} + 1 + $arg_hash{'pages_before_vacuum'})
-	{
+	if ($arg_hash{'statistics'}->{'page_count'} > $arg_hash{'to_page'} + 1) {
 		$self->{'_logger'}->write(
 			message => (
-				ucfirst($arg_hash{'phrase'}).' vacuum of the table '.
-				'has not managed to clean '.
+				'The '.$arg_hash{'phrase'}.' vacuum has not managed to clean '.
 				($arg_hash{'statistics'}->{'page_count'} -
-				 $arg_hash{'to_page'} - 1).' pages.'),
+				 $arg_hash{'to_page'} - 1).' pages leaving '.
+				$arg_hash{'statistics'}->{'page_count'}.' pages in the table.'),
 			level => 'warning',
 			target => $self->{'_log_ident'});
 	} else {
