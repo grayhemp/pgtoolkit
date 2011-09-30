@@ -133,7 +133,7 @@ sub get_table_compactor {
 		table_name => $arg_hash{'table_name'},
 		min_page_count => $options->get(name => 'min-page-count'),
 		min_free_percent => $options->get(name => 'min-free-percent'),
-		min_pages_per_round => $options->get(name => 'max-pages-per-round'),
+		max_pages_per_round => $options->get(name => 'max-pages-per-round'),
 		no_initial_vacuum => $options->get(name => 'no-initial-vacuum'),
 		no_routine_vacuum => $options->get(name => 'no-routine-vacuum'),
 		delay_constant => $options->get(name => 'delay-constant'),
