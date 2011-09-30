@@ -13,10 +13,21 @@ use PgToolkit::DbiStub;
 
 use PgToolkit::Database::Dbi;
 
+sub setup : Test(setup) {
+	my $self = shift;
+
+	$self->{'database_constructor'} = sub {
+		return PgToolkit::Database::Dbi->new(
+			driver => 'somepg', host => 'somehost', port => '5432',
+			dbname => 'somedb', user => 'someuser', password => 'somepassword',
+			@_);
+	}
+}
+
 sub test_init : Test(8) {
-	my $db = PgToolkit::Database::Dbi->new(
-		driver => 'somepg', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser', password => 'somepassword');
+	my $self = shift;
+
+	my $db = $self->{'database_constructor'}->();
 
 	isa_ok($db->{'dbh'}, 'DBI');
 
@@ -33,7 +44,7 @@ sub test_init : Test(8) {
 		 }]);
 	is($db->get_dbname(), 'somedb');
 
-	$db = PgToolkit::Database::Dbi->new(
+	$db = $self->{'database_constructor'}->(
 		driver => 'anotherpg', host => 'anotherhost', port => '6432',
 		dbname => 'anotherdb', user => 'anotheruser',
 		password => 'anotherpassword');
@@ -55,10 +66,12 @@ sub test_init : Test(8) {
 }
 
 sub test_no_driver : Test {
+	my $self = shift;
+
 	throws_ok(
 		sub {
 			local @INC;
-			PgToolkit::Database::Dbi->new(
+			$self->{'database_constructor'}->(
 				driver => 'wrongpg', host => 'host', port => '5432',
 				dbname => 'db', user => 'user', password => 'password');
 		},
@@ -68,9 +81,7 @@ sub test_no_driver : Test {
 sub test_execute : Test(12) {
 	my $self = shift;
 
-	my $db = PgToolkit::Database::Dbi->new(
-		driver => 'somepg', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser', password => 'somepassword');
+	my $db = $self->{'database_constructor'}->();
 
 	my $data_hash = {
 		'SELECT 1 WHERE false;' => [],
@@ -87,6 +98,12 @@ sub test_execute : Test(12) {
 		is($db->{'sth'}->call_pos(1), 'execute');
 		is_deeply([$db->{'sth'}->call_args(1)], [$db->{'sth'}]);
 	}
+}
+
+sub test_adapter_name : Test {
+	my $self = shift;
+
+	is($self->{'database_constructor'}->()->get_adapter_name(), 'DBI/somepg');
 }
 
 1;

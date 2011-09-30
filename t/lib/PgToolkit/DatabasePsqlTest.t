@@ -11,24 +11,35 @@ use Test::Exception;
 
 use PgToolkit::Database::Psql;
 
+sub setup : Test(setup) {
+	my $self = shift;
+
+	$self->{'database_constructor'} = sub {
+		return PgToolkit::DatabasePsqlTest::DatabasePsql->new(
+			path => 'psql', host => 'somehost', port => '5432',
+			dbname => 'somedb', user => 'someuser', password => 'somepassword',
+			@_);
+	}
+}
+
 sub test_init : Test(5) {
-	my $db = PgToolkit::DatabasePsqlTest::DatabasePsql->new(
-		path => '/usr/bin/psql', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser', password => 'somepassword');
+	my $self = shift;
+
+	my $db = $self->{'database_constructor'}->();
 
 	is($db->get_command(),
-	   'PGPASSWORD=somepassword /usr/bin/psql -A -t -X -h somehost -p 5432 '.
+	   'PGPASSWORD=somepassword psql -A -t -X -h somehost -p 5432 '.
 	   '-d somedb -U someuser -P null="<NULL>"');
 	is($db->get_dbname(), 'somedb');
 
-	$db = PgToolkit::DatabasePsqlTest::DatabasePsql->new(
-		path => 'psql', host => 'anotherhost', port => '6432',
+	$db = $self->{'database_constructor'}->(
+		path => '/usr/bin/psql', host => 'anotherhost', port => '6432',
 		dbname => 'anotherdb', user => 'anotheruser',
 		password => 'anotherpassword');
 
 	is($db->get_command(),
-	   'PGPASSWORD=anotherpassword psql -A -t -X -h anotherhost -p 6432 '.
-	   '-d anotherdb -U anotheruser -P null="<NULL>"');
+	   'PGPASSWORD=anotherpassword /usr/bin/psql -A -t -X -h anotherhost '.
+	   '-p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
 	is($db->get_dbname(), 'anotherdb');
 
 	is(PgToolkit::DatabasePsqlTest::DatabasePsql->new()->get_command(),
@@ -36,10 +47,12 @@ sub test_init : Test(5) {
 }
 
 sub test_can_not_run : Test {
+	my $self = shift;
+
 	throws_ok(
 		sub {
 			PgToolkit::Database::Psql->new(
-				path => 'psql', host => 'localhost', port => '7432',
+				psql => 'psql', host => 'localhost', port => '7432',
 				dbname => 'test', user => 'test', password => '');
 		},
 		qr/DatabaseError Can not run psql\./);
@@ -48,9 +61,7 @@ sub test_can_not_run : Test {
 sub test_execute : Test(5) {
 	my $self = shift;
 
-	my $db = PgToolkit::DatabasePsqlTest::DatabasePsql->new(
-		path => 'psql', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser', password => 'somepassword');
+	my $db = $self->{'database_constructor'}->();
 
 	my $data_hash = {
 		'SELECT 1 WHERE false;' => [],
@@ -65,6 +76,12 @@ sub test_execute : Test(5) {
 	for my $sql (keys %{$data_hash}) {
 		is_deeply($db->execute(sql => $sql), $data_hash->{$sql});
 	}
+}
+
+sub test_adapter_name : Test {
+	my $self = shift;
+
+	is($self->{'database_constructor'}->()->get_adapter_name(), 'psql');
 }
 
 1;

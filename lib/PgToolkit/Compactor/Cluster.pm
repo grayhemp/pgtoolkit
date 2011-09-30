@@ -79,6 +79,12 @@ sub init {
 			message => ('Can not connect to the cluster, '.
 						'the following error has occured:'."\n".$@),
 			level => 'error');
+	} else {
+		$self->{'_logger'}->write(
+			message => (
+				'The '.$self->{'_postgres_database'}->get_adapter_name().
+				' database adapter has been choosen.'),
+			level => 'info');
 	}
 
 	my $dbname_list = [];

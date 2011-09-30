@@ -82,7 +82,8 @@ sub init {
 	$self->{'_command'} =~ s/\s+/ /g;
 
 	eval {
-		$self->_run_psql(command => $self->{'_command'}, sql => 'SELECT 1;');
+		$self->_run_psql(
+			command => $self->{'_command'}, sql => 'SELECT 1;');
 	};
 	if ($@) {
 		if ($@ =~ 'DatabaseError') {
@@ -144,6 +145,20 @@ sub execute {
 	}
 
 	return $result;
+}
+
+=head2 B<get_adapter_name()>
+
+Returns the name of the adapter.
+
+=head3 Returns
+
+A string representing the name.
+
+=cut
+
+sub get_adapter_name {
+	return 'psql';
 }
 
 sub _run_psql {

@@ -91,6 +91,20 @@ sub execute {
 	die('NotImplementedError');
 }
 
+=head2 B<get_adapter_name()>
+
+Returns the name of the adapter.
+
+=head3 Returns
+
+A string representing the name.
+
+=cut
+
+sub get_adapter_name {
+	die('NotImplementedError');
+}
+
 =head2 B<get_dbname()>
 
 Returns the database name.

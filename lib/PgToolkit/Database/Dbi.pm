@@ -59,6 +59,8 @@ sub init {
 
 	$self->SUPER::init(%arg_hash);
 
+	$self->{'_driver'} = $arg_hash{'driver'};
+
 	eval { require DBI; };
 	if ($@) {
 		die('DatabaseError DBI module not found.');
@@ -133,6 +135,22 @@ sub execute {
 	}
 
 	return $result
+}
+
+=head2 B<get_adapter_name()>
+
+Returns the name of the adapter.
+
+=head3 Returns
+
+A string representing the name.
+
+=cut
+
+sub get_adapter_name {
+	my $self = shift;
+
+	return 'DBI/'.$self->{'_driver'};
 }
 
 =head1 SEE ALSO

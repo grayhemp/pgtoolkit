@@ -206,4 +206,8 @@ sub execute {
 	return shift->{'mock'}->execute(@_);
 }
 
+sub get_adapter_name {
+	return 'Stub';
+}
+
 1;
