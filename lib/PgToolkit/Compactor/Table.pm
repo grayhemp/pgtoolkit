@@ -5,6 +5,8 @@ use parent qw(PgToolkit::Class);
 use strict;
 use warnings;
 
+use POSIX;
+
 =head1 NAME
 
 B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
@@ -241,26 +243,26 @@ sub process {
 
 	if (not $self->{'_is_processed'}) {
 		$self->_log_statistics(
-			statistics => $statistics,
-			phrase => 'initially');
+			statistics => $statistics, phrase => 'initially');
 
-		my $expected_page_count = $statistics->{'page_count'};
 		my $column_ident = $self->{'_database'}->quote_ident(
 			string => $self->_get_update_column());
+		$self->_log_column(name => $column_ident);
+
+		my $expected_page_count = $statistics->{'page_count'};
+
 		my $pages_per_round = $self->_get_pages_per_round(
 			statistics => $statistics);
 		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
 			statistics => $statistics);
+		$self->_log_pages_per_round(value => $pages_per_round);
+		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
+
 		my $vacuum_page_count = 0;
 		my $initial_statistics = {%{$statistics}};
 		my $to_page = $statistics->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
-
-		$self->_log_start_compacting(
-			statistics => $statistics,
-			column_ident => $column_ident,
-			pages_per_round => $pages_per_round);
 
 		my $loop;
 		for ($loop = $statistics->{'page_count'}; $loop > 0 ; $loop--) {
@@ -306,12 +308,24 @@ sub process {
 				$self->_do_vacuum();
 
 				$vacuum_page_count = 0;
+				$statistics = $self->_get_statistics();
+
+				my $last_pages_per_round = $pages_per_round;
 				$pages_per_round = $self->_get_pages_per_round(
 					statistics => $statistics);
+				if ($last_pages_per_round != $pages_per_round) {
+					$self->_log_pages_per_round(
+						value => $pages_per_round);
+				}
+
+				my $last_pages_before_vacuum = $pages_before_vacuum;
 				$pages_before_vacuum = $self->_get_pages_before_vacuum(
 					expected_page_count => $expected_page_count,
 					statistics => $statistics);
-				$statistics = $self->_get_statistics();
+				if ($last_pages_before_vacuum != $pages_before_vacuum) {
+					$self->_log_pages_before_vacuum(
+						value => $pages_before_vacuum);
+				}
 
 				$self->_log_vacuum_state(
 					expected_page_count => $expected_page_count,
@@ -333,9 +347,6 @@ sub process {
 		$self->_log_vacuum(phrase => 'analyze finally');
 		$self->_do_vacuum(analyze => 1);
 
-		$pages_before_vacuum = $self->_get_pages_before_vacuum(
-			expected_page_count => $expected_page_count,
-			statistics => $statistics);
 		$statistics = $self->_get_statistics();
 
 		$self->_log_vacuum_state(
@@ -486,13 +497,37 @@ sub _log_statistics {
 	return;
 }
 
-sub _log_start_compacting {
+sub _log_column {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
-			'Compacting the table using the '.$arg_hash{'column_ident'}.
-			' column by '.$arg_hash{'pages_per_round'}.' pages per round.'),
+			'The '.$arg_hash{'name'}.' column has been chosen to '.
+			'perform updates by.'),
+		level => 'info',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_pages_per_round {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('The pages per round value has been set to '.
+					$arg_hash{'value'}.'.'),
+		level => 'info',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_pages_before_vacuum {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('The pages before vacuum value has been set to '.
+					$arg_hash{'value'}.'.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -846,19 +881,19 @@ sub _reindex {
 sub _get_pages_per_round {
 	my ($self, %arg_hash) = @_;
 
-	return
+	return ceil(
 		(sort {$a <=> $b}
 		 (sort {$b <=> $a}
 		  $arg_hash{'statistics'}->{'page_count'} /
 		  $self->{'_pages_per_round_divisor'},
 		  1)[0],
-		 $self->{'_max_pages_per_round'})[0];
+		 $self->{'_max_pages_per_round'})[0]);
 }
 
 sub _get_pages_before_vacuum {
 	my ($self, %arg_hash) = @_;
 
-	return
+	return ceil(
 		(sort {$b <=> $a}
 		 (sort {$a <=> $b}
 		  $arg_hash{'statistics'}->{'page_count'} /
@@ -866,7 +901,7 @@ sub _get_pages_before_vacuum {
 		  $self->{'_pages_before_vacuum_lower_threshold'})[0],
 		 $arg_hash{'expected_page_count'} /
 		 $self->{'_pages_before_vacuum_upper_divisor'},
-		 1)[0];
+		 1)[0]);
 }
 
 =head1 SEE ALSO
