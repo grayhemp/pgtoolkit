@@ -66,24 +66,18 @@ sub init {
 	$self->{'_logger'} = $arg_hash{'logger'};
 	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
 
-	$self->{'_logger'}->write(
-		message => 'Preparing the cluster.',
-		level => 'info');
-
 	eval {
 		$self->{'_postgres_database'} = $self->{'_database_constructor'}->
 			(dbname => 'postgres');
 	};
 	if ($@) {
 		$self->{'_logger'}->write(
-			message => ('Can not connect to the cluster, '.
-						'the following error has occured:'."\n".$@),
+			message => 'Can not connect: '."\n".$@,
 			level => 'error');
 	} else {
 		$self->{'_logger'}->write(
-			message => (
-				'The '.$self->{'_postgres_database'}->get_adapter_name().
-				' database adapter has been choosen.'),
+			message => ('Database connection method: '.
+						$self->{'_postgres_database'}->get_adapter_name().'.'),
 			level => 'info');
 	}
 
@@ -94,9 +88,7 @@ sub init {
 	};
 	if ($@) {
 		$self->{'_logger'}->write(
-			message => (
-				'Can not get a database name list for the cluster, '.
-				'the following error has occured:'."\n".$@),
+			message => 'Can not get database names:'."\n".$@,
 			level => 'error');
 	}
 
@@ -114,8 +106,7 @@ sub init {
 			};
 			if ($@) {
 				$self->{'_logger'}->write(
-					message => ('Can not prepare the database, the following '.
-								'error has occured:'."\n".$@),
+					message => 'Can not prepare:'."\n".$@,
 					level => 'error',
 					target => $self->{'_postgres_database'}->quote_ident(
 						string => $dbname));
@@ -141,17 +132,14 @@ sub process {
 	my $self = shift;
 
 	if (@{$self->{'_database_compactor_list'}}) {
-		$self->{'_logger'}->write(
-			message => 'Processing the cluster.',
-			level => 'info');
-
 		my $attempt = 0;
 		while (not $self->is_processed() and
-			   $attempt <= $self->{'_max_retry_count'}) {
-
+			   $attempt <= $self->{'_max_retry_count'})
+		{
 			if ($attempt != 0) {
 				$self->{'_logger'}->write(
-					message => 'Retrying cluster processing '.$attempt.' time.',
+					message => ('Retrying processing, attempt: '.$attempt.
+								' from '.$self->{'_max_retry_count'}.'.'),
 					level => 'notice');
 			}
 
@@ -166,23 +154,19 @@ sub process {
 			$attempt++;
 		}
 
-		$self->{'_logger'}->write(
-			message => (
-				'Finished processing the cluster'.
-				(($attempt > 1) ? 'after '.$attempt.' attempt' : '').'.'),
-			level => ($attempt > 1) ? 'notice' : 'info');
-
-		if (not $self->is_processed()) {
+		if ($self->is_processed()) {
 			$self->{'_logger'}->write(
-				message => ('Processing of the cluster has not been '.
-							'completed after '.$attempt.' attempt(s).'),
+				message => ('Processing complete: '.($attempt - 1).
+							' retries from '.$self->{'_max_retry_count'}.'.'),
+				level => ($attempt > 1) ? 'notice' : 'info');
+		} else {
+			$self->{'_logger'}->write(
+				message => 'Processing incomplete.',
 				level => 'warning');
 		}
 	} else {
 		$self->{'_logger'}->write(
-			message => (
-				'Processing of the cluster has been cancelled as no '.
-				'appropriate databases have been found.'),
+			message => 'No databases to process.',
 			level => 'warning');
 	}
 

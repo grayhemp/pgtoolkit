@@ -64,15 +64,9 @@ sub init {
 		string => $self->{'_database'}->get_dbname());
 
 	$self->{'_logger'}->write(
-		message => 'Scanning the database.',
+		message => 'Creating environment: _clean_pages() stored function.',
 		level => 'info',
 		target => $self->{'_ident'});
-
-	$self->{'_logger'}->write(
-		message => 'Creating the processing stored function in the database.',
-		level => 'info',
-		target => $self->{'_ident'});
-
 	$self->_create_clean_pages_function();
 
 	my %schema_name_hash = map(
@@ -85,15 +79,14 @@ sub init {
 
 	if ($use_pgstattuple) {
 		$self->{'_logger'}->write(
-			message => ('The pgstattuple contrib is installed in the database '.
-						'so it will be used to calculate statistics.'),
+			message => 'Statictics calculation method: pgstattuple.',
 			level => 'info',
 			target => $self->{'_ident'});
 	} else {
 		$self->{'_logger'}->write(
-			message => (
-				'Approximate methods will be used to calculate statistics.'),
-			level => 'info',
+			message => ('Statictics calculation method: approximation '.
+						'(recommened pgstattuple).'),
+			level => 'notice',
 			target => $self->{'_ident'});
 	}
 
@@ -108,11 +101,10 @@ sub init {
 		};
 		if ($@) {
 			$self->{'_logger'}->write(
-				message => ('Can not prepare the schema to compacting, the '.
-							'following error has occured:'."\n".$@),
+				message => 'Can not prepare:'."\n".$@,
 				level => 'error',
 				target => (
-					$self->{'_ident'}.'/'.$self->{'_database'}->quote_ident(
+					$self->{'_ident'}.', '.$self->{'_database'}->quote_ident(
 						string => $schema_name)));
 		} else {
 			push(@{$self->{'_schema_compactor_list'}}, $schema_compactor);
@@ -133,25 +125,20 @@ Runs a bloat reducing process for the database.
 sub process {
 	my $self = shift;
 
-	$self->{'_logger'}->write(
-		message => 'Processing the database.',
-		level => 'info',
-		target => $self->{'_ident'});
-
 	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
 		if (not $schema_compactor->is_processed()) {
 			$schema_compactor->process();
 		}
 	}
 
-	$self->{'_logger'}->write(
-		message => 'Finished processing the database.',
-		level => 'info',
-		target => $self->{'_ident'});
-
-	if (not $self->is_processed()) {
+	if ($self->is_processed()) {
 		$self->{'_logger'}->write(
-			message => 'Processing of the database has not been completed.',
+			message => 'Processing complete.',
+			level => 'info',
+			target => $self->{'_ident'});
+	} else {
+		$self->{'_logger'}->write(
+			message => 'Processing incomplete.',
 			level => 'warning',
 			target => $self->{'_ident'});
 	}
@@ -181,12 +168,11 @@ sub is_processed {
 sub DESTROY {
 	my $self = shift;
 
+	$self->_drop_clean_pages_function();
 	$self->{'_logger'}->write(
-		message => 'Dropping the cleaning stored function in the database.',
+		message => 'Dropping environment: _clean_pages() stored function.',
 		level => 'info',
 		target => $self->{'_ident'});
-
-	$self->_drop_clean_pages_function();
 }
 
 sub _has_pgstattuple {

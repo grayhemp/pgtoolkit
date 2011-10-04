@@ -6,6 +6,7 @@ use strict;
 use warnings;
 
 use POSIX;
+use Time::HiRes qw(time sleep);
 
 =head1 NAME
 
@@ -174,14 +175,8 @@ sub init {
 			string => $self->{'_schema_name'}).'.'.
 		$self->{'_database'}->quote_ident(
 			string => $self->{'_table_name'});
-	$self->{'_log_ident'} =
-		$self->{'_database'}->quote_ident(
-			string => $self->{'_database'}->get_dbname()).'/'.$self->{'_ident'};
-
-	$self->{'_logger'}->write(
-		message => 'Scanning the table.',
-		level => 'info',
-		target => $self->{'_log_ident'});
+	$self->{'_log_ident'} = $self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
 
 	$self->{'_is_processed'} = 0;
 
@@ -200,12 +195,8 @@ sub process {
 	my $self = shift;
 
 	if ($self->_has_special_triggers()) {
-		$self->_log_has_special_triggers();
+		$self->_log_can_not_process_ar_triggers();
 		$self->{'_is_processed'} = 1;
-	}
-
-	if (not $self->{'_is_processed'} and $self->{'_force'}) {
-		$self->_log_force();
 	}
 
 	my $statistics;
@@ -215,48 +206,57 @@ sub process {
 		if (not $self->{'_force'} and
 			$statistics->{'page_count'} < $self->{'_min_page_count'})
 		{
-			$self->_log_min_page_count(statistics => $statistics);
+			$self->_log_skipping_min_page_count(statistics => $statistics);
 			$self->{'_is_processed'} = 1;
 		}
 	}
 
+	my $timing;
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
-		$self->_log_vacuum(phrase => 'analyze initially');
-		$self->_do_vacuum(analyze => 1);
-
+		#$self->_log_vacuum_starting(phrase => 'analyze initial');
+		$self->_do_vacuum(analyze => 1, timing => \ $timing);
 		$statistics = $self->_get_statistics();
+		$self->_log_vacuum_complete(
+			statistics => $statistics,
+			timing => $timing,
+			to_page => $statistics->{'page_count'} - 1,
+			phrase => 'analyze initial');
 
 		if (not $self->{'_force'}) {
 			if ($statistics->{'page_count'} < $self->{'_min_page_count'})
 			{
-				$self->_log_min_page_count(statistics => $statistics);
+				$self->_log_skipping_min_page_count(statistics => $statistics);
 				$self->{'_is_processed'} = 1;
 			}
 
 			if ($statistics->{'free_percent'} <
 				$self->{'_min_free_percent'} and not $self->{'_is_processed'})
 			{
-				$self->_log_min_free_percent(statistics => $statistics);
+				$self->_log_skipping_min_free_percent(
+					statistics => $statistics);
 				$self->{'_is_processed'} = 1;
 			}
 		}
 	}
 
 	if (not $self->{'_is_processed'}) {
-		$self->_log_statistics(
-			statistics => $statistics, phrase => 'initially');
+		if ($self->{'_force'}) {
+			$self->_log_forced_processing();
+		} else {
+			$self->_log_processing();
+		}
 
-		my $column_ident = $self->{'_database'}->quote_ident(
-			string => $self->_get_update_column());
-		$self->_log_column(name => $column_ident);
+		$self->_log_statistics(statistics => $statistics, phrase => 'initial');
 
 		my $expected_page_count = $statistics->{'page_count'};
-
+		my $column_ident = $self->{'_database'}->quote_ident(
+			string => $self->_get_update_column());
 		my $pages_per_round = $self->_get_pages_per_round(
 			statistics => $statistics);
 		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
 			statistics => $statistics);
+		$self->_log_column(name => $column_ident);
 		$self->_log_pages_per_round(value => $pages_per_round);
 		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
 
@@ -264,6 +264,8 @@ sub process {
 		my $initial_statistics = {%{$statistics}};
 		my $to_page = $statistics->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
+		my $clean_pages_total_timing = 0;
+		my $last_loop = $statistics->{'page_count'};
 
 		my $loop;
 		for ($loop = $statistics->{'page_count'}; $loop > 0 ; $loop--) {
@@ -273,9 +275,11 @@ sub process {
 			eval {
 				$to_page = $self->_clean_pages(
 					statistics => $statistics,
+					timing => \ $timing,
 					column_ident => $column_ident,
 					to_page => $last_to_page,
 					pages_per_round => $pages_per_round);
+				$clean_pages_total_timing = $clean_pages_total_timing + $timing;
 			};
 			if ($@) {
 				if ($@ =~ 'No more free space left in the table') {
@@ -305,17 +309,22 @@ sub process {
 			if (not $self->{'_no_routine_vacuum'} and
 				$vacuum_page_count >= $pages_before_vacuum)
 			{
-				$self->_log_vacuum(phrase => 'routinely');
-				$self->_do_vacuum();
+				$self->_log_clean_pages_average(
+					pages_per_round => $pages_per_round,
+					timing => $clean_pages_total_timing / ($last_loop - $loop));
+				$clean_pages_total_timing = 0;
+				$last_loop = $loop;
 
-				$vacuum_page_count = 0;
+				#$self->_log_vacuum_starting(phrase => 'routine');
+				$self->_do_vacuum(timing => \ $timing);
 				$statistics = $self->_get_statistics();
-
-				$self->_log_vacuum_state(
-					expected_page_count => $expected_page_count,
+				$self->_log_vacuum_complete(
 					statistics => $statistics,
+					timing => $timing,
 					to_page => $to_page,
 					phrase => 'routine');
+
+				$vacuum_page_count = 0;
 
 				my $last_pages_per_round = $pages_per_round;
 				$pages_per_round = $self->_get_pages_per_round(
@@ -344,35 +353,35 @@ sub process {
 			$self->_log_max_loops();
 		}
 
-		$self->_log_vacuum(phrase => 'analyze finally');
-		$self->_do_vacuum(analyze => 1);
-
+		#$self->_log_vacuum_starting(phrase => 'analyze final');
+		$self->_do_vacuum(analyze => 1, timing => \ $timing);
 		$statistics = $self->_get_statistics();
-
-		$self->_log_vacuum_state(
-			expected_page_count => $expected_page_count,
+		$self->_log_vacuum_complete(
 			statistics => $statistics,
-			to_page => $to_page,
-			phrase => 'final');
+			timing => $timing,
+			to_page => $to_page + $pages_per_round,
+			phrase => 'analyze final');
 
 		$self->_log_statistics(
 			statistics => $statistics,
-			phrase => 'finally');
+			phrase => 'final');
 
 		if ($self->{'_reindex'}) {
-			$self->_log_reindex();
-			$self->_reindex();
+			#$self->_log_reindex_starting();
+			$self->_reindex(timing => \ $timing);
+			$self->_log_reindex_complete(timing => $timing);
 		}
 
 		if ($self->{'_print_reindex_queries'}) {
 			$self->_log_reindex_queries();
 		}
 
-		$self->{'_is_processed'} = $statistics->{'page_count'} <= $to_page + 1;
+		$self->{'_is_processed'} =
+			$statistics->{'page_count'} <= $to_page + 1 + $pages_per_round;
 	}
 
 	if (not $self->{'_is_processed'}) {
-		$self->_log_not_processed();
+		$self->_log_processing_incomplete();
 	}
 
 	return;
@@ -410,63 +419,98 @@ sub get_log_ident {
 	return $self->{'_log_ident'};
 }
 
-sub _log_has_special_triggers {
+sub _log_can_not_process_ar_triggers {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => ('Can not process the table as it has "always" and/or '.
-					'"replica" triggers.'),
+		message => (
+			'Can not process: "always" or "replica" triggers are on.'),
 		level => 'warning',
 		target => $self->{'_log_ident'});
 
 	return;
 }
 
-sub _log_force {
-	my $self = shift;
-
-	$self->{'_logger'}->write(
-		message => 'Forcing processing of the table.',
-		level => 'notice',
-		target => $self->{'_log_ident'});
-
-	return;
-}
-
-sub _log_min_page_count {
+sub _log_skipping_min_page_count {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping the table as it has '.
-			$arg_hash{'statistics'}->{'page_count'}.' pages and minimum '.
-			$self->{'_min_page_count'}.' pages are required.'),
+			'Skipping processing: '.$arg_hash{'statistics'}->{'page_count'}.
+			' pages from '.$self->{'_min_page_count'}.' minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_ident'});
 
 	return;
 }
 
-sub _log_vacuum {
+sub _log_vacuum_starting {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Performing vacuum '.$arg_hash{'phrase'}.' for the table.',
+		message => 'Vacuum '.$arg_hash{'phrase'}.' starting...',
 		level => 'info',
 		target => $self->{'_log_ident'});
 
 	return;
 }
 
-sub _log_min_free_percent {
+sub _log_vacuum_complete {
+	my ($self, %arg_hash) = @_;
+
+	if ($arg_hash{'statistics'}->{'page_count'} > $arg_hash{'to_page'} + 1) {
+		$self->{'_logger'}->write(
+			message => (
+				'Vacuum '.$arg_hash{'phrase'}.': '.
+				sprintf("%.3f", $arg_hash{'timing'}).' s, can not clean '.
+				($arg_hash{'statistics'}->{'page_count'} -
+				 $arg_hash{'to_page'} - 1).' pages, '.
+				$arg_hash{'statistics'}->{'page_count'}.' pages left.'),
+			level => 'notice',
+			target => $self->{'_log_ident'});
+	} else {
+		$self->{'_logger'}->write(
+			message => (
+				'Vacuum '.$arg_hash{'phrase'}.': '.
+				sprintf("%.3f", $arg_hash{'timing'}).
+				' s, '.$arg_hash{'statistics'}->{'page_count'}.' pages left.'),
+			level => 'info',
+			target => $self->{'_log_ident'});
+	}
+
+	return;
+}
+
+sub _log_skipping_min_free_percent {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping the table as it has '.
-			$arg_hash{'statistics'}->{'free_percent'}.'% of its '.
-			'space to compact and the minimum required is '.
-			$self->{'_min_free_percent'}.'%.'),
+			'Skipping processing: '.$arg_hash{'statistics'}->{'free_percent'}.
+			'% space to compact from '.$self->{'_min_free_percent'}.
+			'% minimum required.'),
+		level => 'notice',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_forced_processing {
+	my $self = shift;
+
+	$self->{'_logger'}->write(
+		message => 'Forced processing.',
+		level => 'notice',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_processing {
+	my $self = shift;
+
+	$self->{'_logger'}->write(
+		message => 'Processing.',
 		level => 'notice',
 		target => $self->{'_log_ident'});
 
@@ -478,17 +522,17 @@ sub _log_statistics {
 
 	$self->{'_logger'}->write(
 		message => (
-			ucfirst($arg_hash{'phrase'}).' the table has '.
+			'Statistics '.$arg_hash{'phrase'}.': '.
 			$arg_hash{'statistics'}->{'page_count'}.' pages ('.
 			$arg_hash{'statistics'}->{'total_page_count'}.
-			' pages including toasts and indexes)'.
+			' including toasts and indexes)'.
 			(defined $arg_hash{'statistics'}->{'free_space'} ?
-			 ', approximately '.$arg_hash{'statistics'}->{'free_percent'}.
-			 '% of its space that is '.$arg_hash{'statistics'}->{'free_space'}.
-			 ' bytes can be potentially released making it '.
+			 ', approximately '. $arg_hash{'statistics'}->{'free_percent'}.
+			 '% ('.$arg_hash{'statistics'}->{'free_space'}.' bytes, '.
 			 ($arg_hash{'statistics'}->{'page_count'} -
-			  $arg_hash{'statistics'}->{'effective_page_count'}).
-			 ' pages less.' : '.')),
+			  $arg_hash{'statistics'}->{'effective_page_count'}).' pages) '.
+			 'is expected to be compacted' : '').
+			'.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -499,9 +543,7 @@ sub _log_column {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => (
-			'The '.$arg_hash{'name'}.' column has been chosen to '.
-			'perform updates by.'),
+		message => 'Column to perform updates by: '.$arg_hash{'name'}.'.',
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -512,8 +554,7 @@ sub _log_pages_per_round {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('The pages per round value has been set to '.
-					$arg_hash{'value'}.'.'),
+		message => 'Pages to process per round: '.$arg_hash{'value'}.'.',
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -524,8 +565,20 @@ sub _log_pages_before_vacuum {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('The pages before vacuum value has been set to '.
-					$arg_hash{'value'}.'.'),
+		message => 'Pages to process before vacuum: '.$arg_hash{'value'}.'.',
+		level => 'info',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_clean_pages_average {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('Cleaning in average: '.
+					sprintf("%.3f", $arg_hash{'timing'}).' s per '.
+					$arg_hash{'pages_per_round'}.' pages.'),
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -537,9 +590,8 @@ sub _log_progress {
 
 	$self->{'_logger'}->write(
 		message => (
-			'The table '.
+			'Progress: '.
 			(defined $arg_hash{'initial_statistics'}->{'effective_page_count'} ?
-			 'compacting progress is '.
 			 int(
 				 100 *
 				 ($arg_hash{'to_page'} ?
@@ -548,7 +600,7 @@ sub _log_progress {
 				  ($arg_hash{'initial_statistics'}->{'page_count'} -
 				   $arg_hash{'initial_statistics'}->{'effective_page_count'}) :
 				  1)
-			 ).'% with ' : 'has ').
+			 ).'%, ' : ' ').
 			($arg_hash{'initial_statistics'}->{'page_count'} -
 			 $arg_hash{'to_page'} - 1).' pages completed.'),
 		level => 'info',
@@ -557,47 +609,33 @@ sub _log_progress {
 	return;
 }
 
-sub _log_vacuum_state {
-	my ($self, %arg_hash) = @_;
-
-	if ($arg_hash{'statistics'}->{'page_count'} > $arg_hash{'to_page'} + 1) {
-		$self->{'_logger'}->write(
-			message => (
-				'The '.$arg_hash{'phrase'}.' vacuum has not managed to clean '.
-				($arg_hash{'statistics'}->{'page_count'} -
-				 $arg_hash{'to_page'} - 1).' pages leaving '.
-				$arg_hash{'statistics'}->{'page_count'}.' pages in the table.'),
-			level => 'warning',
-			target => $self->{'_log_ident'});
-	} else {
-		$self->{'_logger'}->write(
-			message => (
-				'There are '.$arg_hash{'statistics'}->{'page_count'}.
-				' pages left in the table after '.$arg_hash{'phrase'}.
-				' vacuum.'),
-			level => 'info',
-			target => $self->{'_log_ident'});
-	}
-
-	return;
-}
-
 sub _log_max_loops {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'The maximum compacting loops are exceeded for the table.',
+		message => 'Maximum loops reached.',
 		level => 'warning',
 		target => $self->{'_log_ident'});
 
 	return;
 }
 
-sub _log_reindex {
+sub _log_reindex_starting {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'Performing reindexing for the table.',
+		message => 'Reindex starting...',
+		level => 'info',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_reindex_complete {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => 'Reindex: '.sprintf("%.3f", $arg_hash{'timing'}).' s.',
 		level => 'info',
 		target => $self->{'_log_ident'});
 
@@ -608,20 +646,19 @@ sub _log_reindex_queries {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Reindex queries for the table:'."\n".
-			join("\n", @{$self->_get_reindex_queries()})),
+		message => ('Reindex queries:'."\n".
+					join("\n", @{$self->_get_reindex_queries()})),
 		level => 'notice',
 		target => $self->{'_log_ident'});
 
 	return;
 }
 
-sub _log_not_processed {
+sub _log_processing_incomplete {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'Processing of the table has not been completed.',
+		message => 'Processing incomplete.',
 		level => 'warning',
 		target => $self->{'_log_ident'});
 
@@ -760,9 +797,13 @@ SQL
 sub _do_vacuum {
 	my ($self, %arg_hash) = @_;
 
+	${$arg_hash{'timing'}} = $self->_time();
+
 	$self->{'_database'}->execute(
 		sql => ('VACUUM '.($arg_hash{'analyze'} ? 'ANALYZE ' : '').
 				$self->{'_ident'}));
+
+	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return;
 }
@@ -800,6 +841,8 @@ SQL
 sub _clean_pages {
 	my ($self, %arg_hash) = @_;
 
+	${$arg_hash{'timing'}} = $self->_time();
+
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT _clean_pages(
@@ -807,6 +850,8 @@ SELECT _clean_pages(
     $arg_hash{'to_page'}, $arg_hash{'pages_per_round'})
 SQL
 		);
+
+	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return $result->[0]->[0];
 }
@@ -865,11 +910,15 @@ SQL
 }
 
 sub _reindex {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
+
+	${$arg_hash{'timing'}} = $self->_time();
 
 	for my $query (@{$self->_get_reindex_queries()}) {
 		$self->{'_database'}->execute(sql => $query);
 	}
+
+	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return;
 }

@@ -86,7 +86,7 @@ sub test_write_with_target : Test {
 			level => 'info',
 			target => 'target');
 
-	like($self->{'out'}, qr/INFO target message\n/);
+	like($self->{'out'}, qr/target INFO message\n/);
 }
 
 1;

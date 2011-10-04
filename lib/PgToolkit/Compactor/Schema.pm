@@ -83,12 +83,7 @@ sub init {
 	$self->{'_ident'} = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
 	$self->{'_log_ident'} = $self->{'_database'}->quote_ident(
-		string => $self->{'_database'}->get_dbname()).'/'.$self->{'_ident'};
-
-	$self->{'_logger'}->write(
-		message => 'Scanning the schema.',
-		level => 'info',
-		target => $self->{'_log_ident'});
+		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
 
 	if (not $self->_has_schema()) {
 		die('SchemaCompactorError There is no schema '.$self->{'_ident'}.'.');
@@ -112,9 +107,7 @@ sub init {
 			};
 			if ($@) {
 				$self->{'_logger'}->write(
-					message => (
-						'Can not prepare the table to compacting, the '.
-						"following error has occured:\n".$@),
+					message => 'Can not prepare: '."\n".$@,
 					level => 'error',
 					target => (
 						$self->{'_log_ident'}.'.'.
@@ -140,11 +133,6 @@ Runs a bloat reducing process for the schema.
 sub process {
 	my $self = shift;
 
-	$self->{'_logger'}->write(
-		message => 'Processing the schema.',
-		level => 'info',
-		target => $self->{'_log_ident'});
-
 	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
 		if (not $table_compactor->is_processed()) {
 			eval {
@@ -152,24 +140,21 @@ sub process {
 			};
 			if ($@) {
 				$self->{'_logger'}->write(
-					message => (
-						'Can not process the table, '.
-						'the following error has occured:'."\n".$@),
+					message => 'Can not process: '."\n".$@,
 					level => 'error',
 					target => $table_compactor->get_log_ident());
 			}
 		}
 	}
 
-	$self->{'_logger'}->write(
-		message => 'Finished processing the schema.',
-		level => 'info',
-		target => $self->{'_log_ident'});
-
-
-	if (not $self->is_processed()) {
+	if ($self->is_processed()) {
 		$self->{'_logger'}->write(
-			message => 'Processing of the schema has not been completed.',
+			message => 'Processing complete.',
+			level => 'info',
+			target => $self->{'_log_ident'});
+	} else {
+		$self->{'_logger'}->write(
+			message => 'Processing incomplete.',
 			level => 'warning',
 			target => $self->{'_log_ident'});
 	}

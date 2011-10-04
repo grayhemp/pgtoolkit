@@ -128,8 +128,8 @@ sub write {
 		print(
 			{$level_code > 0 ? $self->{'_out_handle'} : $self->{'_err_handle'}}
 			scalar(localtime()).' '.
-			uc($arg_hash{'level'}).' '.
 			(defined $arg_hash{'target'} ? $arg_hash{'target'}.' ' : '').
+			uc($arg_hash{'level'}).' '.
 			$arg_hash{'message'}."\n");
 	}
 

@@ -154,13 +154,13 @@ sub test_main_processing : Test(24) {
 
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
 	$self->{'database'}->{'mock'}->is_called(6, 'clean_pages', to_page => 99);
-	$table_compactor->{'mock'}->is_called(1, 'sleep', 1.5);
+	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 94);
-	$table_compactor->{'mock'}->is_called(2, 'sleep', 1.5);
+	$table_compactor->{'mock'}->is_called(2, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(8, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(9, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(10, 'clean_pages', to_page => 87);
-	$table_compactor->{'mock'}->is_called(3, 'sleep', 1.5);
+	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(11, 'clean_pages', to_page => 84);
 	$self->{'database'}->{'mock'}->is_called(12, 'vacuum_analyze');
 	$self->{'database'}->{'mock'}->is_called(13, 'get_statistics');
@@ -179,11 +179,11 @@ sub test_main_processing_no_routine_vacuum : Test(20) {
 
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
 	$self->{'database'}->{'mock'}->is_called(6, 'clean_pages', to_page => 99);
-	$table_compactor->{'mock'}->is_called(1, 'sleep', 1.5);
+	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 94);
-	$table_compactor->{'mock'}->is_called(2, 'sleep', 1.5);
+	$table_compactor->{'mock'}->is_called(2, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(8, 'clean_pages', to_page => 89);
-	$table_compactor->{'mock'}->is_called(3, 'sleep', 1.5);
+	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(9, 'clean_pages', to_page => 84);
 	$self->{'database'}->{'mock'}->is_called(10, 'vacuum_analyze');
 	$self->{'database'}->{'mock'}->is_called(11, 'get_statistics');
@@ -302,7 +302,7 @@ sub init {
 		});
 
 	$self->{'mock'}->set_true('sleep');
-	$self->{'mock'}->set_series('-time', 1 .. 400);
+	$self->{'mock'}->set_series('-time', 1 .. 1000);
 
 	return;
 }
