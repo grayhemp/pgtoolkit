@@ -31,7 +31,7 @@ pg_compactor [OPTION...]
 
 =item Options controlling the behaviour:
 
-[-IRrsf] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
+[-IRLrsf] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
 [-y RATIO] [-z SECONDS]
 
 =back
@@ -200,8 +200,14 @@ A table to exclude from processing.
 
 =item B<--no-routine-vacuum>
 
-Turn of performing of initial/routine vacuum. By default all the
-vacuums are performed.
+Turn off initial/routine vacuum. By default all the vacuums are
+on. Final vacuum can not be turned off.
+
+=item B<-L>
+
+=item B<--no-final-analyze>
+
+Turn off final analyze. By default is on.
 
 =item B<-r>
 

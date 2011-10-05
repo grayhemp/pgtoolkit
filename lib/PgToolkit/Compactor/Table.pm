@@ -24,6 +24,7 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 		max_pages_per_round => 5,
 		no_initial_vacuum => 0,
 		no_routine_vacuum => 0,
+		no_final_analyze => 0,
 		delay_constant => 1,
 		delay_ratio => 2,
 		force => 0,
@@ -83,6 +84,10 @@ perform no initial vacuum
 =item C<no_routine_vacuum>
 
 perform no routine vacuum
+
+=item C<no_fianl_analyze>
+
+perform no final analyze
 
 =item C<delay_constant>
 
@@ -154,6 +159,7 @@ sub init {
 	$self->{'_max_pages_per_round'} = $arg_hash{'max_pages_per_round'};
 	$self->{'_no_initial_vacuum'} = $arg_hash{'no_initial_vacuum'};
 	$self->{'_no_routine_vacuum'} = $arg_hash{'no_routine_vacuum'};
+	$self->{'_no_final_analyze'} = $arg_hash{'no_final_analyze'};
 	$self->{'_delay_constant'} = $arg_hash{'delay_constant'};
 	$self->{'_delay_ratio'} = $arg_hash{'delay_ratio'};
 	$self->{'_force'} = $arg_hash{'force'};
@@ -213,13 +219,13 @@ sub process {
 
 	my $timing;
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
-		$self->_do_vacuum(analyze => 1, timing => \ $timing);
+		$self->_do_vacuum(timing => \ $timing);
 		$statistics = $self->_get_statistics();
 		$self->_log_vacuum_complete(
 			statistics => $statistics,
 			timing => $timing,
 			to_page => $statistics->{'page_count'} - 1,
-			phrase => 'analyze initial');
+			phrase => 'initial');
 
 		if (not $self->{'_force'}) {
 			if ($statistics->{'page_count'} < $self->{'_min_page_count'})
@@ -353,13 +359,18 @@ sub process {
 			$self->_log_max_loops();
 		}
 
-		$self->_do_vacuum(analyze => 1, timing => \ $timing);
+		$self->_do_vacuum(timing => \ $timing);
 		$statistics = $self->_get_statistics();
 		$self->_log_vacuum_complete(
 			statistics => $statistics,
 			timing => $timing,
 			to_page => $to_page + $pages_per_round,
-			phrase => 'analyze final');
+			phrase => 'final');
+
+		if (not $self->{'_no_final_analyze'}) {
+			$self->_do_analyze(timing => \ $timing);
+			$self->_log_analyze_complete(timing => $timing, phrase => 'final');
+		}
 
 		$self->{'_is_processed'} =
 			$statistics->{'page_count'} <= $to_page + 1 + $pages_per_round;
@@ -608,6 +619,18 @@ sub _log_max_loops {
 	return;
 }
 
+sub _log_analyze_complete {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('Analyze '.$arg_hash{'phrase'}.': '.
+					sprintf("%.3f", $arg_hash{'timing'}).' s.'),
+		level => 'info',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
 sub _log_reindex_complete {
 	my ($self, %arg_hash) = @_;
 
@@ -795,6 +818,18 @@ sub _do_vacuum {
 	$self->{'_database'}->execute(
 		sql => ('VACUUM '.($arg_hash{'analyze'} ? 'ANALYZE ' : '').
 				$self->{'_ident'}));
+
+	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
+
+	return;
+}
+
+sub _do_analyze {
+	my ($self, %arg_hash) = @_;
+
+	${$arg_hash{'timing'}} = $self->_time();
+
+	$self->{'_database'}->execute(sql => 'ANALYZE '.$self->{'_ident'});
 
 	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 

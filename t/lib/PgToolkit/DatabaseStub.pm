@@ -114,6 +114,9 @@ sub init {
 		'vacuum_analyze' => {
 			'sql_pattern' => qr/VACUUM ANALYZE schema\.table/,
 			'row_list' => [[undef]]},
+		'analyze' => {
+			'sql_pattern' => qr/ANALYZE schema\.table/,
+			'row_list' => [[undef]]},
 		'reindex_select' => {
 			'sql_pattern' => (
 				qr/SELECT indexname, tablespace, indexdef.+/s.

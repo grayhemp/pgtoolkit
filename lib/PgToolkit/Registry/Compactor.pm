@@ -136,6 +136,7 @@ sub get_table_compactor {
 		max_pages_per_round => $options->get(name => 'max-pages-per-round'),
 		no_initial_vacuum => $options->get(name => 'no-initial-vacuum'),
 		no_routine_vacuum => $options->get(name => 'no-routine-vacuum'),
+		no_final_analyze => $options->get(name => 'no-final-analyze'),
 		delay_constant => $options->get(name => 'delay-constant'),
 		delay_ratio => $options->get(name => 'delay-ratio'),
 		force => $options->get(name => 'force'),
@@ -227,11 +228,12 @@ sub get_options {
 				'exclude-schema|N:s@' => [], 'exclude-table|T:s@' => [],
 				# behaviour
 				'no-initial-vacuum|I' => 0, 'no-routine-vacuum|R' => 0,
-				'reindex|r' => 0, 'print-reindex-queries|s' => 0,
-				'force|f' => 0, 'max-pages-per-round|c:i' => 10,
-				'delay-constant|e:i' => 0, 'delay-ratio|E:i' => 2,
-				'max-retry-count|o:i' => 10, 'min-page-count|x:i' => 10,
-				'min-free-percent|y:i' => 5, 'progress-report-period|z:i' => 60,
+				'no-final-analyze|L' => 0, 'reindex|r' => 0,
+				'print-reindex-queries|s' => 0, 'force|f' => 0,
+				'max-pages-per-round|c:i' => 10, 'delay-constant|e:i' => 0,
+				'delay-ratio|E:i' => 2, 'max-retry-count|o:i' => 10,
+				'min-page-count|x:i' => 10, 'min-free-percent|y:i' => 5,
+				'progress-report-period|z:i' => 60,
 				# misc
 				'quiet|q' => 0, 'verbosity|v:s' => 'notice'},
 			error_check_code => sub {
