@@ -193,7 +193,7 @@ sub test_main_processing_no_routine_vacuum : Test(22) {
 	$self->{'database'}->{'mock'}->is_called(12, 'get_statistics');
 }
 
-sub test_reindex : Test(13) {
+sub test_reindex : Test(15) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -207,10 +207,11 @@ sub test_reindex : Test(13) {
 	$self->{'database'}->{'mock'}->is_called(17, 'reindex_drop_alter1');
 	$self->{'database'}->{'mock'}->is_called(18, 'reindex_create2');
 	$self->{'database'}->{'mock'}->is_called(19, 'reindex_drop_alter2');
-	$self->{'database'}->{'mock'}->is_called(20, undef);
+	$self->{'database'}->{'mock'}->is_called(20, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(21, undef);
 }
 
-sub test_print_reindex_queries : Test(5) {
+sub test_print_reindex_queries : Test(7) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -220,7 +221,8 @@ sub test_print_reindex_queries : Test(5) {
 
 	$self->{'database'}->{'mock'}->is_called(14, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(15, 'reindex_select');
-	$self->{'database'}->{'mock'}->is_called(16, undef);
+	$self->{'database'}->{'mock'}->is_called(16, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(17, undef);
 }
 
 sub test_loops_count : Test(4) {

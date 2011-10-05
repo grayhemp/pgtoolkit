@@ -361,21 +361,22 @@ sub process {
 			to_page => $to_page + $pages_per_round,
 			phrase => 'analyze final');
 
-		$self->_log_statistics(
-			statistics => $statistics,
-			phrase => 'final');
+		$self->{'_is_processed'} =
+			$statistics->{'page_count'} <= $to_page + 1 + $pages_per_round;
 
-		if ($self->{'_reindex'}) {
+		if ($self->{'_is_processed'} and $self->{'_reindex'}) {
 			$self->_reindex(timing => \ $timing);
 			$self->_log_reindex_complete(timing => $timing);
 		}
 
-		if ($self->{'_print_reindex_queries'}) {
+		if ($self->{'_is_processed'} and $self->{'_print_reindex_queries'}) {
 			$self->_log_reindex_queries();
 		}
 
-		$self->{'_is_processed'} =
-			$statistics->{'page_count'} <= $to_page + 1 + $pages_per_round;
+		$statistics = $self->_get_statistics();
+		$self->_log_statistics(
+			statistics => $statistics,
+			phrase => 'final');
 	}
 
 	if (not $self->{'_is_processed'}) {
@@ -888,7 +889,7 @@ SQL
 		my $index_ident = $self->{'_database'}->quote_ident(
 			string => $indexname);
 
-		push(@{$query_list}, $definition);
+		push(@{$query_list}, $definition.';');
 		push(
 			@{$query_list},
 			'BEGIN; '.
