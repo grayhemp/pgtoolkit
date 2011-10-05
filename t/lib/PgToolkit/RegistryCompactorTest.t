@@ -14,7 +14,7 @@ use PgToolkit::DatabaseStub;
 use PgToolkit::Registry::Compactor;
 
 sub is_lazy {
-	my (undef, %arg_hash) = @_;
+	my ($self, %arg_hash) = @_;
 
 	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
 	is($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
@@ -23,7 +23,7 @@ sub is_lazy {
 }
 
 sub is_prototype {
-	my (undef, %arg_hash) = @_;
+	my ($self, %arg_hash) = @_;
 
 	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
 	isnt($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
@@ -34,6 +34,7 @@ sub is_prototype {
 sub setup : Test(setup) {
 	my $self = shift;
 
+	push(@ARGV, '-a');
 	$self->{'registry'} = PgToolkit::Registry::Compactor->new();
 	$self->{'database'} = PgToolkit::DatabaseStub->new(dbname => 'dbname');
 }
