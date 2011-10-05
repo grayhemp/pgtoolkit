@@ -74,7 +74,7 @@ sub test_min_page_count : Test(4) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_no_initial_vacuum : Test(6) {
+sub test_no_initial_vacuum : Test(8) {
 	my $self = shift;
 
 	splice(
@@ -88,7 +88,8 @@ sub test_no_initial_vacuum : Test(6) {
 
 	$self->{'database'}->{'mock'}->is_called(2, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(3, 'get_column');
-	$self->{'database'}->{'mock'}->is_called(4, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(4, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(5, 'clean_pages', to_page => 99);
 }
 
 sub test_min_page_count_after_initial_vacuum : Test(6) {
@@ -123,7 +124,7 @@ sub test_min_free_percent_after_initial_vacuum : Test(6) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_force_processing : Test(10) {
+sub test_force_processing : Test(12) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
@@ -139,10 +140,11 @@ sub test_force_processing : Test(10) {
 	$self->{'database'}->{'mock'}->is_called(3, 'vacuum_analyze');
 	$self->{'database'}->{'mock'}->is_called(4, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
-	$self->{'database'}->{'mock'}->is_called(6, 'clean_pages', to_page => 98);
+	$self->{'database'}->{'mock'}->is_called(6, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 98);
 }
 
-sub test_main_processing : Test(24) {
+sub test_main_processing : Test(26) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
@@ -153,20 +155,21 @@ sub test_main_processing : Test(24) {
 	$table_compactor->process();
 
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
-	$self->{'database'}->{'mock'}->is_called(6, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(6, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 99);
 	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
-	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 94);
+	$self->{'database'}->{'mock'}->is_called(8, 'clean_pages', to_page => 94);
 	$table_compactor->{'mock'}->is_called(2, 'sleep', 2.5);
-	$self->{'database'}->{'mock'}->is_called(8, 'vacuum');
-	$self->{'database'}->{'mock'}->is_called(9, 'get_statistics');
-	$self->{'database'}->{'mock'}->is_called(10, 'clean_pages', to_page => 87);
+	$self->{'database'}->{'mock'}->is_called(9, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(10, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(11, 'clean_pages', to_page => 87);
 	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
-	$self->{'database'}->{'mock'}->is_called(11, 'clean_pages', to_page => 84);
-	$self->{'database'}->{'mock'}->is_called(12, 'vacuum_analyze');
-	$self->{'database'}->{'mock'}->is_called(13, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(12, 'clean_pages', to_page => 84);
+	$self->{'database'}->{'mock'}->is_called(13, 'vacuum_analyze');
+	$self->{'database'}->{'mock'}->is_called(14, 'get_statistics');
 }
 
-sub test_main_processing_no_routine_vacuum : Test(20) {
+sub test_main_processing_no_routine_vacuum : Test(22) {
 	my $self = shift;
 
 	splice(@{$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
@@ -178,15 +181,16 @@ sub test_main_processing_no_routine_vacuum : Test(20) {
 	$table_compactor->process();
 
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
-	$self->{'database'}->{'mock'}->is_called(6, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(6, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 99);
 	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
-	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 94);
+	$self->{'database'}->{'mock'}->is_called(8, 'clean_pages', to_page => 94);
 	$table_compactor->{'mock'}->is_called(2, 'sleep', 2.5);
-	$self->{'database'}->{'mock'}->is_called(8, 'clean_pages', to_page => 89);
+	$self->{'database'}->{'mock'}->is_called(9, 'clean_pages', to_page => 89);
 	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
-	$self->{'database'}->{'mock'}->is_called(9, 'clean_pages', to_page => 84);
-	$self->{'database'}->{'mock'}->is_called(10, 'vacuum_analyze');
-	$self->{'database'}->{'mock'}->is_called(11, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(10, 'clean_pages', to_page => 84);
+	$self->{'database'}->{'mock'}->is_called(11, 'vacuum_analyze');
+	$self->{'database'}->{'mock'}->is_called(12, 'get_statistics');
 }
 
 sub test_reindex : Test(13) {
@@ -197,13 +201,13 @@ sub test_reindex : Test(13) {
 
 	$table_compactor->process();
 
-	$self->{'database'}->{'mock'}->is_called(13, 'get_statistics');
-	$self->{'database'}->{'mock'}->is_called(14, 'reindex_select');
-	$self->{'database'}->{'mock'}->is_called(15, 'reindex_create1');
-	$self->{'database'}->{'mock'}->is_called(16, 'reindex_drop_alter1');
-	$self->{'database'}->{'mock'}->is_called(17, 'reindex_create2');
-	$self->{'database'}->{'mock'}->is_called(18, 'reindex_drop_alter2');
-	$self->{'database'}->{'mock'}->is_called(19, undef);
+	$self->{'database'}->{'mock'}->is_called(14, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(15, 'reindex_select');
+	$self->{'database'}->{'mock'}->is_called(16, 'reindex_create1');
+	$self->{'database'}->{'mock'}->is_called(17, 'reindex_drop_alter1');
+	$self->{'database'}->{'mock'}->is_called(18, 'reindex_create2');
+	$self->{'database'}->{'mock'}->is_called(19, 'reindex_drop_alter2');
+	$self->{'database'}->{'mock'}->is_called(20, undef);
 }
 
 sub test_print_reindex_queries : Test(5) {
@@ -214,9 +218,9 @@ sub test_print_reindex_queries : Test(5) {
 
 	$table_compactor->process();
 
-	$self->{'database'}->{'mock'}->is_called(13, 'get_statistics');
-	$self->{'database'}->{'mock'}->is_called(14, 'reindex_select');
-	$self->{'database'}->{'mock'}->is_called(15, undef);
+	$self->{'database'}->{'mock'}->is_called(14, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(15, 'reindex_select');
+	$self->{'database'}->{'mock'}->is_called(16, undef);
 }
 
 sub test_loops_count : Test(4) {
@@ -235,8 +239,8 @@ sub test_loops_count : Test(4) {
 
 	$table_compactor->process();
 
-	$self->{'database'}->{'mock'}->is_called(107, 'clean_pages', to_page => 84);
-	$self->{'database'}->{'mock'}->is_called(108, 'vacuum_analyze');
+	$self->{'database'}->{'mock'}->is_called(108, 'clean_pages', to_page => 84);
+	$self->{'database'}->{'mock'}->is_called(109, 'vacuum_analyze');
 }
 
 sub test_processed : Test {

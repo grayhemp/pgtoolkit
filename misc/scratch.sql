@@ -1,15 +1,23 @@
 -- Rewrite the clean table function
 
+-- Calculate the maximum possible number of tuples per page for
+-- a table (i_max_tupples_per_page)
+SELECT ceil(current_setting('block_size')::real / sum(attlen))
+FROM pg_attribute
+WHERE
+    attrelid = 'test_table'::regclass AND
+    attnum < 0;
+
 CREATE OR REPLACE FUNCTION _clean_pages(
     i_table_ident text,
     i_column_ident text,
     i_to_page integer,
-    i_page_offset integer)
+    i_page_offset integer,
+    i_max_tupples_per_page integer)
 RETURNS integer
 LANGUAGE plpgsql AS $$
 DECLARE
     _from_page integer := i_to_page - i_page_offset + 1;
-    _max_tuples_per_page integer;
     _min_ctid tid;
     _max_ctid tid;
     _ctid_list tid[];
@@ -17,6 +25,10 @@ DECLARE
     _ctid tid;
     _loop integer;
     _result_page integer;
+    _update_query text :=
+        'UPDATE ONLY ' || i_table_ident ||
+        ' SET ' || i_column_ident || ' = ' || i_column_ident ||
+        ' WHERE ctid = ANY($1) RETURNING ctid';
 BEGIN
     -- Check page argument values
     IF NOT (
@@ -27,49 +39,25 @@ BEGIN
         RAISE EXCEPTION 'Wrong page arguments specified.';
     END IF;
 
-    -- Check if there are no always or replica triggers on update
-    IF EXISTS(
-        SELECT 1 FROM pg_trigger
-        WHERE
-            pg_trigger.tgrelid = i_table_ident::regclass AND
-            tgtype & 16 = 8 AND
-            tgenabled IN ('A', 'R'))
-    THEN
-        RAISE EXCEPTION
-            'Can not process a table with A or R triggers on update.';
-    END IF;
-
     -- Prevent triggers firing on update
     SET LOCAL session_replication_role TO replica;
 
-    -- Calculate the maximum possible number of tuples per page for
-    -- the table
-    SELECT ceil(current_setting('block_size')::real / sum(attlen))
-    INTO _max_tuples_per_page
-    FROM pg_attribute
-    WHERE
-        attrelid = i_table_ident::regclass AND
-        attnum < 0;
-
     -- Define minimal and maximal ctid values of the range
     _min_ctid := (_from_page, 1)::text::tid;
-    _max_ctid := (i_to_page, _max_tuples_per_page)::text::tid;
+    _max_ctid := (i_to_page, i_max_tupples_per_page)::text::tid;
 
     -- Build a list of possible ctid values of the range
     SELECT array_agg((pi, ti)::text::tid)
     INTO _ctid_list
     FROM generate_series(_from_page, i_to_page) AS pi
-    CROSS JOIN generate_series(1, _max_tuples_per_page) AS ti;
+    CROSS JOIN generate_series(1, i_max_tupples_per_page) AS ti;
 
     <<_outer_loop>>
-    FOR _loop IN 1.._max_tuples_per_page LOOP
+    FOR _loop IN 1..i_max_tupples_per_page LOOP
         _next_ctid_list := array[]::tid[];
 
         -- Update all the tuples in the range
-        FOR _ctid IN EXECUTE
-            'UPDATE ONLY ' || i_table_ident || ' ' ||
-            'SET ' || i_column_ident || ' = ' || i_column_ident || ' ' ||
-            'WHERE ctid = ANY($1) RETURNING ctid' USING _ctid_list
+        FOR _ctid IN EXECUTE _update_query USING _ctid_list
         LOOP
             IF _ctid > _max_ctid THEN
                 RAISE EXCEPTION 'No more free space left in the table.';
@@ -89,7 +77,7 @@ BEGIN
     END LOOP;
 
     -- No result
-    IF _loop = _max_tuples_per_page AND _result_page IS NULL THEN
+    IF _loop = i_max_tupples_per_page AND _result_page IS NULL THEN
         RAISE EXCEPTION
             'Maximal loops count has been reached with no result.';
     END IF;

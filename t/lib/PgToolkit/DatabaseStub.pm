@@ -80,6 +80,12 @@ sub init {
 				qr/SELECT count\(1\) FROM pg_trigger.+/s.
 				qr/tgrelid = 'schema\.table'::regclass/),
 			'row_list' => [[0]]},
+		'get_max_tupples_per_page' => {
+			'sql_pattern' => (
+				qr/SELECT ceil\(current_setting\('block_size'\)::real \/ /.
+				qr/sum\(attlen\)\).+/s.
+				qr/attrelid = 'schema\.table'::regclass/),
+			'row_list' => [[10]]},
 		'get_statistics' => {
 			'sql_pattern' => (
 				qr/SELECT\s+page_count, total_page_count.+/s.
@@ -96,8 +102,8 @@ sub init {
 			'row_list' => [['column']]},
 		'clean_pages' => {
 			'sql_pattern' => (
-				qr/SELECT _clean_pages\(.+'schema.table', 'column'.+/s.
-				qr/<to_page>, 5/),
+				qr/SELECT _clean_pages\(\s+'schema.table', 'column', /s.
+				qr/<to_page>,\s+5, 10/s),
 			'row_list_sequence' => [
 				[[94]], [[89]], [[84]],
 				'No more free space left in the table']},

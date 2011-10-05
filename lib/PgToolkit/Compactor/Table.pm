@@ -213,7 +213,6 @@ sub process {
 
 	my $timing;
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
-		#$self->_log_vacuum_starting(phrase => 'analyze initial');
 		$self->_do_vacuum(analyze => 1, timing => \ $timing);
 		$statistics = $self->_get_statistics();
 		$self->_log_vacuum_complete(
@@ -266,6 +265,7 @@ sub process {
 		my $progress_report_time = $self->_time();
 		my $clean_pages_total_timing = 0;
 		my $last_loop = $statistics->{'page_count'};
+		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
 
 		my $loop;
 		for ($loop = $statistics->{'page_count'}; $loop > 0 ; $loop--) {
@@ -278,7 +278,8 @@ sub process {
 					timing => \ $timing,
 					column_ident => $column_ident,
 					to_page => $last_to_page,
-					pages_per_round => $pages_per_round);
+					pages_per_round => $pages_per_round,
+					max_tupples_per_page => $max_tupples_per_page);
 				$clean_pages_total_timing = $clean_pages_total_timing + $timing;
 			};
 			if ($@) {
@@ -315,7 +316,6 @@ sub process {
 				$clean_pages_total_timing = 0;
 				$last_loop = $loop;
 
-				#$self->_log_vacuum_starting(phrase => 'routine');
 				$self->_do_vacuum(timing => \ $timing);
 				$statistics = $self->_get_statistics();
 				$self->_log_vacuum_complete(
@@ -353,7 +353,6 @@ sub process {
 			$self->_log_max_loops();
 		}
 
-		#$self->_log_vacuum_starting(phrase => 'analyze final');
 		$self->_do_vacuum(analyze => 1, timing => \ $timing);
 		$statistics = $self->_get_statistics();
 		$self->_log_vacuum_complete(
@@ -367,7 +366,6 @@ sub process {
 			phrase => 'final');
 
 		if ($self->{'_reindex'}) {
-			#$self->_log_reindex_starting();
 			$self->_reindex(timing => \ $timing);
 			$self->_log_reindex_complete(timing => $timing);
 		}
@@ -439,17 +437,6 @@ sub _log_skipping_min_page_count {
 			'Skipping processing: '.$arg_hash{'statistics'}->{'page_count'}.
 			' pages from '.$self->{'_min_page_count'}.' minimum required.'),
 		level => 'notice',
-		target => $self->{'_log_ident'});
-
-	return;
-}
-
-sub _log_vacuum_starting {
-	my ($self, %arg_hash) = @_;
-
-	$self->{'_logger'}->write(
-		message => 'Vacuum '.$arg_hash{'phrase'}.' starting...',
-		level => 'info',
 		target => $self->{'_log_ident'});
 
 	return;
@@ -620,17 +607,6 @@ sub _log_max_loops {
 	return;
 }
 
-sub _log_reindex_starting {
-	my $self = shift;
-
-	$self->{'_logger'}->write(
-		message => 'Reindex starting...',
-		level => 'info',
-		target => $self->{'_log_ident'});
-
-	return;
-}
-
 sub _log_reindex_complete {
 	my ($self, %arg_hash) = @_;
 
@@ -689,6 +665,22 @@ WHERE
     tgrelid = '$self->{'_ident'}'::regclass AND
     tgtype & 16 = 8 AND
     tgenabled IN ('A', 'R')
+SQL
+		);
+
+	return $result->[0]->[0];
+}
+
+sub _get_max_tupples_per_page {
+	my $self = shift;
+
+	my $result = $self->{'_database'}->execute(
+		sql => <<SQL
+SELECT ceil(current_setting('block_size')::real / sum(attlen))
+FROM pg_attribute
+WHERE
+    attrelid = '$self->{'_ident'}'::regclass AND
+    attnum < 0;
 SQL
 		);
 
@@ -846,8 +838,8 @@ sub _clean_pages {
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT _clean_pages(
-    '$self->{'_ident'}', '$arg_hash{'column_ident'}',
-    $arg_hash{'to_page'}, $arg_hash{'pages_per_round'})
+    '$self->{'_ident'}', '$arg_hash{'column_ident'}', $arg_hash{'to_page'},
+    $arg_hash{'pages_per_round'}, $arg_hash{'max_tupples_per_page'})
 SQL
 		);
 
