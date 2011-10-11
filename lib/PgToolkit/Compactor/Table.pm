@@ -31,7 +31,7 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 		reindex => 0,
 		print_reindex_queries => 0,
 		progress_report_period => 60,
-		pgstattuple_schema_name => 0,
+		pgstattuple_schema_name => 'public',
 		pages_per_round_divisor = 1000,
 		pages_before_vacuum_lower_divisor = 16,
 		pages_before_vacuum_lower_threshold = 1000,
@@ -280,7 +280,7 @@ sub process {
 		my $to_page = $statistics->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
 		my $clean_pages_total_timing = 0;
-		my $last_loop = $statistics->{'page_count'};
+		my $last_loop = $statistics->{'page_count'} + 1;
 		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
 
 		my $loop;
