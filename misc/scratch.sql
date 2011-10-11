@@ -95,7 +95,7 @@ CREATE DATABASE dbname1;
 CREATE DATABASE dbname2;
 --
 \c dbname1
---\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
+\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
 --
 CREATE TABLE table1 AS
 SELECT
@@ -137,6 +137,22 @@ SELECT
 FROM generate_series(1, 10) i;
 --
 \c dbname1
+SELECT
+    pg_relpages('"public"."table2"') AS page_count,
+    ceil(
+        pg_total_relation_size('"public"."table2"')::real /
+        current_setting('block_size')::integer
+    ) AS total_page_count,
+    CASE
+        WHEN free_percent = 0 THEN pg_relpages('"public"."table2"')
+        ELSE
+            ceil(
+                pg_relpages('"public"."table2"') *
+                (1 - free_percent / 100)
+            )
+        END as effective_page_count,
+    free_percent, free_space
+FROM public.pgstattuple('"public"."table2"');
 
 -- Rewrite the bloat data query
 
@@ -196,7 +212,7 @@ FROM (
     FROM pg_class
     LEFT JOIN pg_statistic ON starelid = pg_class.oid
     CROSS JOIN (SELECT 23 AS header_width, 8 AS ma) AS const
-    WHERE pg_class.oid = 'public.table2'::regclass
+    WHERE pg_class.oid = 'public.table1'::regclass
     GROUP BY pg_class.oid, reltuples, header_width, ma
 ) AS sq;
 
