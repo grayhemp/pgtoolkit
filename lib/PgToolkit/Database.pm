@@ -154,13 +154,27 @@ sub _get_escaped_dbname {
 
 A quoted indentifier string.
 
+=head3 Throws
+
+=over 4
+
+=item C<DatabaseError>
+
+when nothing to ident.
+
+=back
+
 =cut
 
 sub quote_ident {
 	my ($self, %arg_hash) = @_;
 
+	if (not $arg_hash{'string'}) {
+		die('DatabaseError Nothing to ident.');
+	}
+
 	my $result = $arg_hash{'string'};
-	if (not $result =~ m/^[\w][\w\d]*$/) {
+	if (not $result =~ m/^[a-z_][a-z0-9_]*$/) {
 		$result =~ s/"/""/g;
 		$result = '"'.$result.'"';
 	}
