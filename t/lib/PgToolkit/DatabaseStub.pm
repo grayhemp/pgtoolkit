@@ -23,8 +23,8 @@ sub init {
 			my ($self, $pos, $name, %substitution_hash) = @_;
 
 			if (defined $name) {
-				my $sql_pattern = $self->{'data_hash'}->{$name}->
-				{'sql_pattern'};
+				my $sql_pattern = $self->{'data_hash'}->{$name}
+				->{'sql_pattern'};
 				for my $item (keys %substitution_hash) {
 					$sql_pattern =~ s/<$item>/$substitution_hash{$item}/g;
 				}
@@ -91,7 +91,7 @@ sub init {
 				qr/SELECT\s+page_count, total_page_count.+/s.
 				qr/pg_class\.oid = 'schema\.table'::regclass/),
 			'row_list_sequence' => [
-				[[100, 120, undef, undef, undef]],
+				[[100, 120, 85, 15, 5000]],
 				[[100, 120, 85, 15, 5000]],
 				[[90, 108, 85, 5, 1250]],
 				[[85, 102, 85, 0, 0]],,
@@ -194,17 +194,17 @@ sub init {
 				qr/AND datname IN \('dbname2', 'dbname1'\)\n/.
 				qr/ORDER BY pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname2']]},
-		'has_pgstattuple' => {
+		'get_pgstattuple_schema_name' => {
 			'sql_pattern' =>
-				qr/SELECT sign\(count\(1\)\) FROM pg_proc /.
-				qr/WHERE proname = 'pgstattuple'/,
+				qr/SELECT nspname FROM pg_proc.+/s.
+				qr/WHERE proname = 'pgstattuple' LIMIT 1/,
 			'row_list' => [[0]]},
 		'get_pgstattuple_statistics' => {
 			'sql_pattern' => (
 				qr/free_percent, free_space.+/s.
-				qr/FROM pgstattuple\('schema\.table'\)/),
+				qr/FROM public\.pgstattuple\('schema\.table'\)/),
 			'row_list_sequence' => [
-				[[100, 120, undef, undef, undef]],
+				[[100, 120, 85, 15, 5000]],
 				[[100, 120, 85, 15, 5000]],
 				[[90, 108, 85, 5, 1250]],
 				[[85, 102, 85, 0, 0]],

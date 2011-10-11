@@ -36,7 +36,7 @@ sub setup : Test(setup) {
 			},
 			table_name_list => [],
 			excluded_table_name_list => [],
-			use_pgstattuple => 0,
+			pgstattuple_schema_name => undef,
 			@_);
 	};
 }
@@ -117,7 +117,7 @@ sub test_init_creates_table_compactors_in_returning_order : Test(16) {
 				[$mock, 'database' => $self->{'database'},
 				 'schema_name' => 'schema',
 				 'table_name' => $data_hash->{'expected'}->[$i],
-				 'use_pgstattuple' => 0]);
+				 'pgstattuple_schema_name' => undef]);
 		}
 	}
 }
@@ -192,18 +192,18 @@ sub test_process_skips_table_if_cannot_process_it : Test(2) {
 	}
 }
 
-sub test_init_transits_use_pgstattuple_to_table_compactor : Test(8) {
+sub test_init_transits_pgstattuple_schema_name_to_table_compactor : Test(8) {
 	my $self = shift;
 
-	for my $use_pgstattuple (0 .. 1) {
+	for my $pgstattuple_schema_name (undef, 'public') {
 		$self->{'schema_compactor_constructor'}->(
-			use_pgstattuple => $use_pgstattuple);
+			pgstattuple_schema_name => $pgstattuple_schema_name);
 
 		for my $i (0 .. @{$self->{'table_compactor_mock_list'}} - 1) {
 			my $mock = $self->{'table_compactor_mock_list'}->[$i];
 			is($mock->call_pos(1), 'init');
-			is({'self', $mock->call_args(1)}->{'use_pgstattuple'},
-			   $use_pgstattuple);
+			is({'self', $mock->call_args(1)}->{'pgstattuple_schema_name'},
+			   $pgstattuple_schema_name);
 		}
 	}
 }

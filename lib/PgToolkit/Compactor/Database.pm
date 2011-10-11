@@ -75,17 +75,16 @@ sub init {
 
 	delete @schema_name_hash{@{$arg_hash{'excluded_schema_name_list'}}};
 
-	my $use_pgstattuple = $self->_has_pgstattuple();
+	my $pgstattuple_schema_name = $self->_get_pgstattuple_schema_name();
 
-	if ($use_pgstattuple) {
+	if ($pgstattuple_schema_name) {
 		$self->{'_logger'}->write(
 			message => 'Statictics calculation method: pgstattuple.',
 			level => 'info',
 			target => $self->{'_ident'});
 	} else {
 		$self->{'_logger'}->write(
-			message => ('Statictics calculation method: approximation '.
-						'(recommened pgstattuple).'),
+			message => 'Statictics calculation method: approximation.',
 			level => 'notice',
 			target => $self->{'_ident'});
 	}
@@ -97,7 +96,7 @@ sub init {
 			$schema_compactor = $arg_hash{'schema_compactor_constructor'}->(
 				database => $self->{'_database'},
 				schema_name => $schema_name,
-				use_pgstattuple => $use_pgstattuple);
+				pgstattuple_schema_name => $pgstattuple_schema_name);
 		};
 		if ($@) {
 			$self->{'_logger'}->write(
@@ -175,16 +174,18 @@ sub DESTROY {
 		target => $self->{'_ident'});
 }
 
-sub _has_pgstattuple {
+sub _get_pgstattuple_schema_name {
 	my $self = shift;
 
 	my $result = $self->{'_database'}->execute(
 			sql => <<SQL
-SELECT sign(count(1)) FROM pg_proc WHERE proname = 'pgstattuple'
+SELECT nspname FROM pg_proc
+JOIN pg_namespace AS n ON pronamespace = n.oid
+WHERE proname = 'pgstattuple' LIMIT 1
 SQL
 		);
 
-	return $result->[0]->[0];
+	return @{$result} ? $result->[0]->[0] : undef;
 }
 
 sub _get_schema_name_list {

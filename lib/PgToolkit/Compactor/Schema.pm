@@ -18,7 +18,7 @@ B<PgToolkit::Compactor::Schema> - a schema level processing for bloat reducing.
 		table_compactor_constructor => $table_compactor_constructor,
 		table_name_list => $table_name_list,
 		excluded_table_name_list => $excluded_table_name_list,
-		use_pgstattuple => 0);
+		pgstattuple_schema_name => 0);
 
 	$schema_compactor->process();
 
@@ -55,9 +55,9 @@ a list of table names to process
 
 a list of table names to exclude from processing
 
-=item C<use_pgstattuple>
+=item C<pgstattuple_schema_name>
 
-states whether we should use pgstattuple to get statistics or not.
+shema where pgstattuple is if we should use it to get statistics.
 
 =back
 
@@ -103,7 +103,8 @@ sub init {
 					database => $self->{'_database'},
 					schema_name => $self->{'_schema_name'},
 					table_name => $table_name,
-					use_pgstattuple => $arg_hash{'use_pgstattuple'});
+					pgstattuple_schema_name => (
+						$arg_hash{'pgstattuple_schema_name'}));
 			};
 			if ($@) {
 				$self->{'_logger'}->write(

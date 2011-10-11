@@ -36,7 +36,7 @@ sub setup : Test(setup) {
 			force => 0,
 			reindex => 0,
 			progress_report_period => 3,
-			use_pgstat_tuple => 0,
+			pgstattuple_schema_name => undef,
 			pages_per_round_divisor => 1,
 			pages_before_vacuum_lower_divisor => 16,
 			pages_before_vacuum_lower_threshold => 1000,
@@ -72,6 +72,23 @@ sub test_min_page_count : Test(4) {
 
 	$self->{'database'}->{'mock'}->is_called(2, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(3, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_analyze_if_not_analyzed : Test(9) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[0] = [[100, 120, undef, undef, undef]],;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	$self->{'database'}->{'mock'}->is_called(2, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(3, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(4, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(5, 'vacuum');
 	ok($table_compactor->is_processed());
 }
 
@@ -276,7 +293,7 @@ sub test_pgstattuple_installed_get_statistics_by_it : Test(2) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
-		use_pgstattuple => 1);
+		pgstattuple_schema_name => 'public');
 
 	$table_compactor->process();
 

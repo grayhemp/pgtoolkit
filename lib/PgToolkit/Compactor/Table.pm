@@ -31,12 +31,11 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 		reindex => 0,
 		print_reindex_queries => 0,
 		progress_report_period => 60,
-		use_pgstattuple => 0,
+		pgstattuple_schema_name => 0,
 		pages_per_round_divisor = 1000,
 		pages_before_vacuum_lower_divisor = 16,
 		pages_before_vacuum_lower_threshold = 1000,
 		pages_before_vacuum_upper_divisor = 50)
-
 
 	$table_compactor->process();
 
@@ -114,9 +113,9 @@ logs reindex queries after processing
 
 a period in seconds to report the progress with
 
-=item C<use_pgstattuple>
+=item C<pgstattuple_schema_name>
 
-states whether we should use pgstattuple to get statistics or not
+schema where pgstattuple is if we should use it to get statistics
 
 =item C<pages_per_round_divisor>
 
@@ -167,7 +166,11 @@ sub init {
 	$self->{'_print_reindex_queries'} = $arg_hash{'print_reindex_queries'};
 
 	$self->{'_progress_report_period'} = $arg_hash{'progress_report_period'};
-	$self->{'_use_pgstattuple'} = $arg_hash{'use_pgstattuple'};
+	if ($arg_hash{'pgstattuple_schema_name'}) {
+		$self->{'_pgstattuple_schema_ident'} =
+			$self->{'_database'}->quote_ident(
+				string => $arg_hash{'pgstattuple_schema_name'});
+	}
 	$self->{'_pages_per_round_divisor'} = $arg_hash{'pages_per_round_divisor'};
 	$self->{'_pages_before_vacuum_lower_divisor'} =
 		$arg_hash{'pages_before_vacuum_lower_divisor'};
@@ -205,9 +208,17 @@ sub process {
 		$self->{'_is_processed'} = 1;
 	}
 
+	my $timing;
 	my $statistics;
 	if (not $self->{'_is_processed'}) {
 		$statistics = $self->_get_statistics();
+
+		if (not defined $statistics->{'effective_page_count'}) {
+			$self->_do_analyze(timing => \ $timing);
+			$self->_log_analyze_complete(
+				timing => $timing, phrase => 'required initial');
+			$statistics = $self->_get_statistics();
+		}
 
 		if (not $self->{'_force'} and
 			$statistics->{'page_count'} < $self->{'_min_page_count'})
@@ -217,7 +228,6 @@ sub process {
 		}
 	}
 
-	my $timing;
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
 		$self->_do_vacuum(timing => \ $timing);
 		$statistics = $self->_get_statistics();
@@ -715,7 +725,7 @@ sub _get_statistics {
 	my $self = shift;
 
 	my $result;
-	if ($self->{'_use_pgstattuple'}) {
+	if ($self->{'_pgstattuple_schema_ident'}) {
 		$result = $self->{'_database'}->execute(
 			sql => <<SQL
 SELECT
@@ -733,7 +743,7 @@ SELECT
             )
         END as effective_page_count,
     free_percent, free_space
-FROM pgstattuple('$self->{'_ident'}');
+FROM $self->{'_pgstattuple_schema_ident'}.pgstattuple('$self->{'_ident'}');
 SQL
 			);
 	} else {

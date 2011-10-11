@@ -96,7 +96,7 @@ sub test_init_creates_schema_compactors : Test(12) {
 				[$mock->call_args(1)],
 				[$mock, 'database' => $self->{'database'},
 				 'schema_name' => $data_hash->{'expected'}->[$i],
-				 'use_pgstattuple' => 0]);
+				 'pgstattuple_schema_name' => 0]);
 		}
 	}
 }
@@ -137,20 +137,22 @@ sub test_init_skips_schema_if_cannot_create_its_compactor : Test {
 	is(@{$self->{'schema_compactor_mock_list'}}, 1);
 }
 
-sub test_init_gets_use_pgstattuple_and_pass_it_to_schema_constructor : Test(8) {
+sub test_init_passes_pgstattuple_schema_name_to_schema_constructor : Test(8) {
 	my $self = shift;
 
-	for my $use_pgstattuple (0 .. 1) {
-		$self->{'database'}->{'mock'}->{'data_hash'}->{'has_pgstattuple'}
-		->{'row_list'} = [[$use_pgstattuple]];
+	for my $pgstattuple_schema_name (undef, 'public') {
+		$self->{'database'}->{'mock'}->{'data_hash'}
+		->{'get_pgstattuple_schema_name'}
+		->{'row_list'} =
+			$pgstattuple_schema_name ? [[$pgstattuple_schema_name]] : [];
 
 		$self->{'database_compactor_constructor'}->();
 
 		for my $i (0 .. @{$self->{'schema_compactor_mock_list'}} - 1) {
 			my $mock = $self->{'schema_compactor_mock_list'}->[$i];
 			is($mock->call_pos(1), 'init');
-			is({'self', $mock->call_args(1)}->{'use_pgstattuple'},
-			   $use_pgstattuple);
+			is({'self', $mock->call_args(1)}->{'pgstattuple_schema_name'},
+			   $pgstattuple_schema_name);
 		}
 	}
 }

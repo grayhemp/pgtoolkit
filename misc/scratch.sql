@@ -5,7 +5,7 @@
 SELECT ceil(current_setting('block_size')::real / sum(attlen))
 FROM pg_attribute
 WHERE
-    attrelid = 'test_table'::regclass AND
+    attrelid = 'table1'::regclass AND
     attnum < 0;
 
 CREATE OR REPLACE FUNCTION _clean_pages(
@@ -87,8 +87,17 @@ END $$;
 
 -- Test data
 
-DROP TABLE IF EXISTS test_table;
-CREATE TABLE test_table AS
+\c postgres
+DROP DATABASE dbname1;
+DROP DATABASE dbname2;
+--
+CREATE DATABASE dbname1;
+CREATE DATABASE dbname2;
+--
+\c dbname1
+--\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
+--
+CREATE TABLE table1 AS
 SELECT
     i AS id,
     repeat('blabla'||i::text, (random() * 500)::integer) AS text_column,
@@ -100,11 +109,34 @@ SELECT
         WHEN random() < 0.5
         THEN random()
         ELSE NULL END AS partially_null_column
-FROM generate_series(1, 100000) i;
-DELETE FROM test_table WHERE random() < 0.5;
-CREATE INDEX i_test_table__index1 ON test_table (text_column, float_column);
-
-VACUUM ANALYZE test_table;
+FROM generate_series(1, 10000) i;
+DELETE FROM table1 WHERE random() < 0.5;
+CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
+--
+CREATE TABLE table2 (id bigserial PRIMARY KEY, text_column text);
+--
+\c dbname2
+--
+CREATE TABLE table1 AS
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    CASE
+        WHEN random() < 0.5
+        THEN random()
+        ELSE NULL END AS partially_null_column
+FROM generate_series(1, 1000) i;
+DELETE FROM table1 WHERE random() < 0.05;
+--
+CREATE SCHEMA schema1;
+--
+CREATE TABLE schema1.table2 AS
+SELECT
+    i AS id,
+    random() * 10000 AS float_column
+FROM generate_series(1, 10) i;
+--
+\c dbname1
 
 -- Rewrite the bloat data query
 
@@ -164,32 +196,32 @@ FROM (
     FROM pg_class
     LEFT JOIN pg_statistic ON starelid = pg_class.oid
     CROSS JOIN (SELECT 23 AS header_width, 8 AS ma) AS const
-    WHERE pg_class.oid = 'public.test_table'::regclass
+    WHERE pg_class.oid = 'public.table2'::regclass
     GROUP BY pg_class.oid, reltuples, header_width, ma
 ) AS sq;
 
 SELECT
-    pg_relpages('"public"."test_table"') AS page_count,
+    pg_relpages('"public"."table1"') AS page_count,
     ceil(
-        pg_total_relation_size('"public"."test_table"')::real /
+        pg_total_relation_size('"public"."table1"')::real /
         current_setting('block_size')::integer
     ) AS total_page_count,
     CASE
-        WHEN free_percent = 0 THEN pg_relpages('"public"."test_table"')
+        WHEN free_percent = 0 THEN pg_relpages('"public"."table1"')
         ELSE
             ceil(
-                pg_relpages('"public"."test_table"') *
+                pg_relpages('"public"."table1"') *
                 (1 - free_percent / 100)
             )
         END as effective_page_count,
     free_percent, free_space
-FROM pgstattuple('"public"."test_table"');
+FROM public.pgstattuple('"public"."table1"');
 
 -- Check special triggers
 
 SELECT count(1) FROM pg_trigger
 WHERE
-    tgrelid='public.test_table'::regclass AND
+    tgrelid='public.table1'::regclass AND
     tgtype & 16 = 8 AND
     tgenabled IN ('A', 'R');
 
@@ -198,7 +230,7 @@ WHERE
 SELECT indexname, tablespace, indexdef FROM pg_indexes
 WHERE
     schemaname = 'public' AND
-    tablename = 'test_table' AND
+    tablename = 'table1' AND
     NOT EXISTS (
         SELECT 1 FROM pg_depend
         WHERE
@@ -217,8 +249,10 @@ ORDER BY indexdef;
 
 SELECT count(1) FROM pg_namespace WHERE nspname = 'public';
 
--- Check pgstattuple
+-- Get pgstattuple schema
 
-SELECT sign(count(1)) FROM pg_proc WHERE proname = 'pgstattuple';
+SELECT nspname FROM pg_proc
+JOIN pg_namespace AS n ON pronamespace = n.oid
+WHERE proname = 'pgstattuple' LIMIT 1;
 
 --

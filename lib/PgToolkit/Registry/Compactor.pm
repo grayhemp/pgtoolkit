@@ -81,7 +81,8 @@ sub get_database_compactor {
 			return $self->get_schema_compactor(
 				database => $arg_hash{'database'},
 				schema_name => $arg_hash{'schema_name'},
-				use_pgstattuple => $arg_hash{'use_pgstattuple'});
+				pgstattuple_schema_name => (
+					$arg_hash{'pgstattuple_schema_name'}));
 		},
 		schema_name_list => $options->get(name => 'schema'),
 		excluded_schema_name_list => $options->get(name => 'exclude-schema'));
@@ -108,11 +109,12 @@ sub get_schema_compactor {
 				database => $arg_hash{'database'},
 				schema_name => $arg_hash{'schema_name'},
 				table_name => $arg_hash{'table_name'},
-				use_pgstattuple => $arg_hash{'use_pgstattuple'});
+				pgstattuple_schema_name => (
+					$arg_hash{'pgstattuple_schema_name'}));
 		},
 		table_name_list => $options->get(name => 'table'),
 		excluded_table_name_list => $options->get(name => 'exclude-table'),
-		use_pgstattuple => $arg_hash{'use_pgstattuple'});
+		pgstattuple_schema_name => $arg_hash{'pgstattuple_schema_name'});
 }
 
 =head2 B<get_table_compactor()>
@@ -144,7 +146,7 @@ sub get_table_compactor {
 		print_reindex_queries => $options->get(name => 'print-reindex-queries'),
 		progress_report_period => $options->get(
 			name => 'progress-report-period'),
-		use_pgstattuple => $arg_hash{'use_pgstattuple'},
+		pgstattuple_schema_name => $arg_hash{'pgstattuple_schema_name'},
 		pages_per_round_divisor => 1000,
 		pages_before_vacuum_lower_divisor => 16,
 		pages_before_vacuum_lower_threshold => 1000,
