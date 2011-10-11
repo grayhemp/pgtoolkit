@@ -293,7 +293,7 @@ if (__PACKAGE__ eq 'main') {
 
 =head1 VERSION
 
-1.0alpha1
+1.0alpha2
 
 =head1 LICENSE AND COPYRIGHT
 
