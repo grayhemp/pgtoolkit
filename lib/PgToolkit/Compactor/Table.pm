@@ -883,7 +883,7 @@ sub _clean_pages {
 
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
-SELECT _clean_pages(
+SELECT public._clean_pages(
     '$self->{'_ident'}', '$arg_hash{'column_ident'}', $arg_hash{'to_page'},
     $arg_hash{'pages_per_round'}, $arg_hash{'max_tupples_per_page'})
 SQL

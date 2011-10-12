@@ -103,7 +103,7 @@ sub init {
 			'row_list' => [['column']]},
 		'clean_pages' => {
 			'sql_pattern' => (
-				qr/SELECT _clean_pages\(\s+'schema.table', 'column', /s.
+				qr/SELECT public\._clean_pages\(\s+'schema.table', 'column', /s.
 				qr/<to_page>,\s+5, 10/s),
 			'row_list_sequence' => [
 				[[94]], [[89]], [[84]],
@@ -175,11 +175,11 @@ sub init {
 			'row_list' => [['schema1'],['schema2']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
-				qr/CREATE OR REPLACE FUNCTION _clean_pages/,
+				qr/CREATE OR REPLACE FUNCTION public\._clean_pages/,
 			'row_list' => []},
 		'drop_clean_pages' => {
 			'sql_pattern' =>
-				qr/DROP FUNCTION _clean_pages/,
+				qr/DROP FUNCTION public\._clean_pages/,
 			'row_list' => []},
 		'get_dbname_list1' => {
 			'sql_pattern' =>

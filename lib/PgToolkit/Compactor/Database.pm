@@ -215,7 +215,7 @@ sub _create_clean_pages_function {
 
 	$self->{'_database'}->execute(
 		sql => << 'SQL'
-CREATE OR REPLACE FUNCTION _clean_pages(
+CREATE OR REPLACE FUNCTION public._clean_pages(
     i_table_ident text,
     i_column_ident text,
     i_to_page integer,
@@ -302,7 +302,7 @@ sub _drop_clean_pages_function {
 
 	$self->{'_database'}->execute(
 		sql => <<SQL
-DROP FUNCTION _clean_pages(text, text, integer, integer, integer);
+DROP FUNCTION public._clean_pages(text, text, integer, integer, integer);
 SQL
 		);
 
