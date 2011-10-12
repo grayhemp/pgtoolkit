@@ -16,8 +16,9 @@ reducing.
 		database => $database,
 		logger => $logger,
 		schema_compactor_constructor => $schema_compactor_constructor,
-		schema_name_list => $schema_name_list,
-		excluded_schema_name_list => $excluded_schema_name_list);
+		schema_name_list => ['schema1', 'schema2'],
+		excluded_schema_name_list => [],
+		no_pgstatuple => 0);
 
 	$database_compactor->process();
 
@@ -48,7 +49,11 @@ a list of schema names to process
 
 =item C<excluded_schema_name_list>
 
-a list of schema names to exclude from processing.
+a list of schema names to exclude from processing
+
+=item C<no_pgstatuple>
+
+do not use pgstattuple to calculate statictics.
 
 =back
 
@@ -75,7 +80,10 @@ sub init {
 
 	delete @schema_name_hash{@{$arg_hash{'excluded_schema_name_list'}}};
 
-	my $pgstattuple_schema_name = $self->_get_pgstattuple_schema_name();
+	my $pgstattuple_schema_name;
+	if (not $arg_hash{'no_pgstatuple'}) {
+		$pgstattuple_schema_name = $self->_get_pgstattuple_schema_name();
+	}
 
 	if ($pgstattuple_schema_name) {
 		$self->{'_logger'}->write(

@@ -85,7 +85,8 @@ sub get_database_compactor {
 					$arg_hash{'pgstattuple_schema_name'}));
 		},
 		schema_name_list => $options->get(name => 'schema'),
-		excluded_schema_name_list => $options->get(name => 'exclude-schema'));
+		excluded_schema_name_list => $options->get(name => 'exclude-schema'),
+		no_pgstatuple => $options->get(name => 'no-pgstattuple'));
 }
 
 =head2 B<get_schema_compactor()>
@@ -221,23 +222,37 @@ sub get_options {
 		$self->{'_options'} = PgToolkit::Options->new(
 			definition_hash => {
 				# connection
-				'host|h:s' => 'localhost', 'port|p:i' => '5432',
+				'host|h:s' => 'localhost',
+				'port|p:i' => '5432',
 				'user|U:s' => do { `whoami` =~ /(.*?)\n/; $1 },
-				'password|W:s' => undef, 'path-to-psql|P:s' => 'psql',
+				'password|W:s' => undef,
+				'path-to-psql|P:s' => 'psql',
 				# target
-				'all|a:i' => 1, 'dbname|d:s@' => [], 'schema|n:s@' => [],
-				'table|t:s@' => [], 'exclude-dbname|D:s@' => [],
-				'exclude-schema|N:s@' => [], 'exclude-table|T:s@' => [],
+				'all|a:i' => 1,
+				'dbname|d:s@' => [],
+				'schema|n:s@' => [],
+				'table|t:s@' => [],
+				'exclude-dbname|D:s@' => [],
+				'exclude-schema|N:s@' => [],
+				'exclude-table|T:s@' => [],
 				# behaviour
-				'no-initial-vacuum|I' => 0, 'no-routine-vacuum|R' => 0,
-				'no-final-analyze|L' => 0, 'reindex|r' => 0,
-				'print-reindex-queries|s' => 0, 'force|f' => 0,
-				'max-pages-per-round|c:i' => 10, 'delay-constant|e:i' => 0,
-				'delay-ratio|E:i' => 2, 'max-retry-count|o:i' => 10,
-				'min-page-count|x:i' => 10, 'min-free-percent|y:i' => 20,
+				'no-initial-vacuum|I' => 0,
+				'no-routine-vacuum|R' => 0,
+				'no-final-analyze|L' => 0,
+				'no-pgstattuple|S' => 0,
+				'reindex|r' => 0,
+				'print-reindex-queries|s' => 0,
+				'force|f' => 0,
+				'max-pages-per-round|c:i' => 10,
+				'delay-constant|e:i' => 0,
+				'delay-ratio|E:i' => 2,
+				'max-retry-count|o:i' => 10,
+				'min-page-count|x:i' => 10,
+				'min-free-percent|y:i' => 20,
 				'progress-report-period|z:i' => 60,
 				# misc
-				'quiet|q' => 0, 'verbosity|v:s' => 'notice'},
+				'quiet|q' => 0,
+				'verbosity|v:s' => 'notice'},
 			error_check_code => sub {
 				my $option_hash = shift;
 				return (

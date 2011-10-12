@@ -31,7 +31,7 @@ pg_compactor [OPTION...]
 
 =item Options controlling the behaviour:
 
-[-IRLrsf] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
+[-IRLSrsf] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
 [-y RATIO] [-z SECONDS]
 
 =back
@@ -207,7 +207,13 @@ on. Final vacuum can not be turned off.
 
 =item B<--no-final-analyze>
 
-Turn off final analyze. By default is on.
+Turn off final analyze. By default final analyze is performed.
+
+=item B<-S>
+
+=item B<--no-pgstattuple>
+
+Do not use pgstattuple even if it is installed. By default is off.
 
 =item B<-r>
 
@@ -293,7 +299,7 @@ if (__PACKAGE__ eq 'main') {
 
 =head1 VERSION
 
-1.0alpha2
+1.0alpha3
 
 =head1 LICENSE AND COPYRIGHT
 

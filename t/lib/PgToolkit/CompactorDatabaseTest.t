@@ -34,6 +34,7 @@ sub setup : Test(setup) {
 			},
 			schema_name_list => [],
 			excluded_schema_name_list => [],
+			no_pgstatuple => 0,
 			@_);
 	};
 }
@@ -154,6 +155,21 @@ sub test_init_passes_pgstattuple_schema_name_to_schema_constructor : Test(8) {
 			is({'self', $mock->call_args(1)}->{'pgstattuple_schema_name'},
 			   $pgstattuple_schema_name);
 		}
+	}
+}
+
+sub test_init_no_pgstatuple_passes_nothing_to_schema_constructor : Test(4) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_pgstattuple_schema_name'}->{'row_list'} = [['public']];
+
+	$self->{'database_compactor_constructor'}->(no_pgstatuple => 1);
+
+	for my $i (0 .. @{$self->{'schema_compactor_mock_list'}} - 1) {
+		my $mock = $self->{'schema_compactor_mock_list'}->[$i];
+		is($mock->call_pos(1), 'init');
+		is({'self', $mock->call_args(1)}->{'pgstattuple_schema_name'}, undef);
 	}
 }
 
