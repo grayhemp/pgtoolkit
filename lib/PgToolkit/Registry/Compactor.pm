@@ -234,7 +234,7 @@ sub get_options {
 				'print-reindex-queries|s' => 0, 'force|f' => 0,
 				'max-pages-per-round|c:i' => 10, 'delay-constant|e:i' => 0,
 				'delay-ratio|E:i' => 2, 'max-retry-count|o:i' => 10,
-				'min-page-count|x:i' => 10, 'min-free-percent|y:i' => 5,
+				'min-page-count|x:i' => 10, 'min-free-percent|y:i' => 20,
 				'progress-report-period|z:i' => 60,
 				# misc
 				'quiet|q' => 0, 'verbosity|v:s' => 'notice'},
