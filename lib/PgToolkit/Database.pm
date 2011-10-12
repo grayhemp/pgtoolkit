@@ -173,13 +173,16 @@ sub quote_ident {
 		die('DatabaseError Nothing to ident.');
 	}
 
-	my $result = $arg_hash{'string'};
-	if (not $result =~ m/^[a-z_][a-z0-9_]*$/) {
-		$result =~ s/"/""/g;
-		$result = '"'.$result.'"';
-	}
+	return $self->_quote_ident(%arg_hash);
+}
 
-	return $result;
+sub _quote_ident {
+	my ($self, %arg_hash) = @_;
+
+	my $result = $self->execute(
+		sql => 'SELECT quote_ident(\''.$arg_hash{'string'}.'\')');
+
+	return $result->[0]->[0];
 }
 
 =head1 SEE ALSO

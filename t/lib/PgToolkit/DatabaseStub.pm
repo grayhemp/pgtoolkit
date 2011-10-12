@@ -221,4 +221,10 @@ sub get_adapter_name {
 	return 'Stub';
 }
 
+sub _quote_ident {
+	my ($self, %arg_hash) = @_;
+
+	return $arg_hash{'string'};
+}
+
 1;

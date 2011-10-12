@@ -113,7 +113,7 @@ FROM generate_series(1, 10000) i;
 DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
 --
-CREATE TABLE table2 (id bigserial PRIMARY KEY, text_column text);
+CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
 --
 \c dbname2
 --
@@ -125,34 +125,25 @@ SELECT
         WHEN random() < 0.5
         THEN random()
         ELSE NULL END AS partially_null_column
-FROM generate_series(1, 1000) i;
+FROM generate_series(1, 5000) i;
 DELETE FROM table1 WHERE random() < 0.05;
+--
+CREATE TABLE table2 AS
+SELECT
+    i AS "primary",
+    random() * 10000 AS float_column
+FROM generate_series(1, 5000) i;
+DELETE FROM table2 WHERE random() < 0.5;
 --
 CREATE SCHEMA schema1;
 --
-CREATE TABLE schema1.table2 AS
+CREATE TABLE schema1.table1 AS
 SELECT
     i AS id,
     random() * 10000 AS float_column
 FROM generate_series(1, 10) i;
 --
 \c dbname1
-SELECT
-    pg_relpages('"public"."table2"') AS page_count,
-    ceil(
-        pg_total_relation_size('"public"."table2"')::real /
-        current_setting('block_size')::integer
-    ) AS total_page_count,
-    CASE
-        WHEN free_percent = 0 THEN pg_relpages('"public"."table2"')
-        ELSE
-            ceil(
-                pg_relpages('"public"."table2"') *
-                (1 - free_percent / 100)
-            )
-        END as effective_page_count,
-    free_percent, free_space
-FROM public.pgstattuple('"public"."table2"');
 
 -- Rewrite the bloat data query
 

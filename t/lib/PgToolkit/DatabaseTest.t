@@ -9,7 +9,7 @@ use warnings;
 use Test::More;
 use Test::Exception;
 
-use PgToolkit::Database;
+use PgToolkit::DatabaseStub;
 
 sub test_init : Test(2) {
 	is(PgToolkit::DatabaseTest::Database->new(dbname => 'somedb')->get_dbname(),
@@ -20,13 +20,9 @@ sub test_init : Test(2) {
 	   'anotherdb');
 }
 
-sub test_quote_ident : Test(6) {
+sub test_quote_ident_nothing_to_ident : Test(2) {
 	my $db = PgToolkit::DatabaseTest::Database->new(dbname => 'somedb');
 
-	is($db->quote_ident(string => 'some_ident'), 'some_ident');
-	is($db->quote_ident(string => 'some-ident'), '"some-ident"');
-	is($db->quote_ident(string => 'some"ident'), '"some""ident"');
-	is($db->quote_ident(string => 'SomeIdent'), '"SomeIdent"');
 	throws_ok(
 		sub { $db->quote_ident(string => ''); },
 		qr/DatabaseError Nothing to ident\./);
@@ -48,7 +44,7 @@ sub test_escaped_dbname : Test(2) {
 
 package PgToolkit::DatabaseTest::Database;
 
-use parent qw(PgToolkit::Database);
+use parent qw(PgToolkit::DatabaseStub);
 
 sub get_escaped_dbname {
 	return shift->_get_escaped_dbname();
