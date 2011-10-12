@@ -1,3 +1,63 @@
+-- Test cluster script
+
+\c postgres
+DROP DATABASE dbname1;
+DROP DATABASE dbname2;
+--
+CREATE DATABASE dbname1;
+CREATE DATABASE dbname2;
+--
+\c dbname1
+\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
+--
+CREATE TABLE table1 AS
+SELECT
+    i AS id,
+    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column,
+    now() - '1 year'::interval * random() AS timestamp_column,
+    random() < 0.5 AS boolean_column,
+    random() * 10000 AS float_column,
+    null::text AS null_column,
+    CASE
+        WHEN random() < 0.5
+        THEN random()
+        ELSE NULL END AS partially_null_column
+FROM generate_series(1, 10000) i;
+DELETE FROM table1 WHERE random() < 0.5;
+CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
+--
+CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
+--
+\c dbname2
+--
+CREATE TABLE table1 AS
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    CASE
+        WHEN random() < 0.5
+        THEN random()
+        ELSE NULL END AS partially_null_column
+FROM generate_series(1, 5000) i;
+DELETE FROM table1 WHERE random() < 0.05;
+--
+CREATE TABLE table2 AS
+SELECT
+    i AS "primary",
+    random() * 10000 AS float_column
+FROM generate_series(1, 5000) i;
+DELETE FROM table2 WHERE random() < 0.5;
+--
+CREATE SCHEMA schema1;
+--
+CREATE TABLE schema1.table1 AS
+SELECT
+    i AS id,
+    random() * 10000 AS float_column
+FROM generate_series(1, 10) i;
+--
+\c dbname1
+
 -- Rewrite the clean table function
 
 -- Calculate the maximum possible number of tuples per page for
@@ -84,66 +144,6 @@ BEGIN
 
     RETURN _result_page;
 END $$;
-
--- Test data
-
-\c postgres
-DROP DATABASE dbname1;
-DROP DATABASE dbname2;
---
-CREATE DATABASE dbname1;
-CREATE DATABASE dbname2;
---
-\c dbname1
-\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
---
-CREATE TABLE table1 AS
-SELECT
-    i AS id,
-    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column,
-    now() - '1 year'::interval * random() AS timestamp_column,
-    random() < 0.5 AS boolean_column,
-    random() * 10000 AS float_column,
-    null::text AS null_column,
-    CASE
-        WHEN random() < 0.5
-        THEN random()
-        ELSE NULL END AS partially_null_column
-FROM generate_series(1, 10000) i;
-DELETE FROM table1 WHERE random() < 0.5;
-CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
---
-CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
---
-\c dbname2
---
-CREATE TABLE table1 AS
-SELECT
-    i AS id,
-    random() * 10000 AS float_column,
-    CASE
-        WHEN random() < 0.5
-        THEN random()
-        ELSE NULL END AS partially_null_column
-FROM generate_series(1, 5000) i;
-DELETE FROM table1 WHERE random() < 0.05;
---
-CREATE TABLE table2 AS
-SELECT
-    i AS "primary",
-    random() * 10000 AS float_column
-FROM generate_series(1, 5000) i;
-DELETE FROM table2 WHERE random() < 0.5;
---
-CREATE SCHEMA schema1;
---
-CREATE TABLE schema1.table1 AS
-SELECT
-    i AS id,
-    random() * 10000 AS float_column
-FROM generate_series(1, 10) i;
---
-\c dbname1
 
 -- Rewrite the bloat data query
 
