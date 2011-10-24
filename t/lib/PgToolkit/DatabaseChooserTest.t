@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::DatabaseChooserTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;
@@ -49,13 +49,13 @@ sub test_nothing_has_been_created : Test {
 
 package PgToolkit::DatabaseChooserTest::Stub;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 1;
 
 package PgToolkit::DatabaseChooserTest::ErrorStub;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 sub init {
 	die('DatabaseError Stub');
@@ -65,13 +65,13 @@ sub init {
 
 package PgToolkit::DatabaseChooserTest::AnotherStub;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 1;
 
 package PgToolkit::DatabaseChooserTest::AnotherErrorStub;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 sub init {
 	die('DatabaseError Another stub');

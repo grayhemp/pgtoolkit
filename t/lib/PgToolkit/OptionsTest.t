@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::OptionsTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;

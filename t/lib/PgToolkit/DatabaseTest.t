@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::DatabaseTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;
@@ -44,7 +44,7 @@ sub test_escaped_dbname : Test(2) {
 
 package PgToolkit::DatabaseTest::Database;
 
-use parent qw(PgToolkit::DatabaseStub);
+use base qw(PgToolkit::DatabaseStub);
 
 sub get_escaped_dbname {
 	return shift->_get_escaped_dbname();

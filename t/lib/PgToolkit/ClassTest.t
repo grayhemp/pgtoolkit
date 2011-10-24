@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::ClassTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;
@@ -29,7 +29,7 @@ sub test_init : Test(2) {
 
 package PgToolkit::ClassTest::Dummy;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 sub init {
 	my ($self, %args) = @_;

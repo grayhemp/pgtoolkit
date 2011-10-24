@@ -1,6 +1,6 @@
 package PgToolkit::Compactor::Schema;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 use strict;
 use warnings;

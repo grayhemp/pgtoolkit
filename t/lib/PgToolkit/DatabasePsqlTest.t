@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::DatabasePsqlTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;
@@ -88,7 +88,7 @@ sub test_adapter_name : Test {
 
 package PgToolkit::DatabasePsqlTest::DatabasePsql;
 
-use parent -norequire, qw(PgToolkit::Database::Psql);
+use base qw(PgToolkit::Database::Psql);
 
 sub get_command {
 	my $self  = shift;

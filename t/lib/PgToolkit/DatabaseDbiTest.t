@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::DatabaseDbiTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;

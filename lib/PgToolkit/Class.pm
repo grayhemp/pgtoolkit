@@ -11,7 +11,7 @@ B<PgToolkit::Class> - a base class.
 
 	package Foo;
 
-	use parent qw(PgToolkit::Class);
+	use base qw(PgToolkit::Class);
 
 	sub init {
 		# some initialization

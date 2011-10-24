@@ -1,7 +1,7 @@
 # -*- mode: Perl; -*-
 package PgToolkit::CompactorTableTest;
 
-use parent qw(PgToolkit::Test);
+use base qw(PgToolkit::Test);
 
 use strict;
 use warnings;
@@ -317,7 +317,7 @@ sub test_no_final_analyze : Test(5) {
 
 package PgToolkit::Compactor::TableStub;
 
-use parent qw(PgToolkit::Compactor::Table);
+use base qw(PgToolkit::Compactor::Table);
 
 use strict;
 use warnings;

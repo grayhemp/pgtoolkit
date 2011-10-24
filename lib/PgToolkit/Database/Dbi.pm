@@ -1,6 +1,6 @@
 package PgToolkit::Database::Dbi;
 
-use parent qw(PgToolkit::Database);
+use base qw(PgToolkit::Database);
 
 use strict;
 use warnings;

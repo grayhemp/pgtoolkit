@@ -1,6 +1,6 @@
 package PgToolkit::Database;
 
-use parent qw(PgToolkit::Class);
+use base qw(PgToolkit::Class);
 
 use strict;
 use warnings;
@@ -13,7 +13,7 @@ B<PgToolkit::Database> - a database abstract class.
 
 	package SomeDatabase;
 
-	use parent qw(PgToolkit::Database);
+	use base qw(PgToolkit::Database);
 
 	sub init {
 		my ($self, %arg_hash) = @_;

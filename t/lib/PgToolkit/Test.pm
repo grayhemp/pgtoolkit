@@ -1,6 +1,6 @@
 package PgToolkit::Test;
 
-use parent qw(Test::Class);
+use base qw(Test::Class);
 
 use strict;
 use warnings;
@@ -11,7 +11,7 @@ B<PgToolkit::Test> - a base class for all test cases.
 
 =head1 SYNOPSIS
 
-	use parent qw(PgToolkit::Test);
+	use base qw(PgToolkit::Test);
 
 =head1 DESCRIPTION
 
