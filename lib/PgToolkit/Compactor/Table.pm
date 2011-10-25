@@ -282,6 +282,7 @@ sub process {
 		my $clean_pages_total_timing = 0;
 		my $last_loop = $statistics->{'page_count'} + 1;
 		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
+		my $expected_error_occurred = 0;
 
 		my $loop;
 		for ($loop = $statistics->{'page_count'}; $loop > 0 ; $loop--) {
@@ -300,10 +301,17 @@ sub process {
 			};
 			if ($@) {
 				if ($@ =~ 'No more free space left in the table') {
-					last;
+					# Normal cleaning completion
+				} elsif ($@ =~ 'deadlock detected') {
+					$self->_log_deadlock_detected();
+					$expected_error_occurred = 1;
+				} elsif ($@ =~ 'cannot extract system attribute') {
+					$self->_log_cannot_extract_system_attribute();
+					$expected_error_occurred = 1;
 				} else {
 					die($@);
 				}
+				last;
 			}
 
 			$self->_sleep(
@@ -382,8 +390,9 @@ sub process {
 			$self->_log_analyze_complete(timing => $timing, phrase => 'final');
 		}
 
-		$self->{'_is_processed'} =
-			$statistics->{'page_count'} <= $to_page + 1 + $pages_per_round;
+		$self->{'_is_processed'} = (
+			($statistics->{'page_count'} <= $to_page + 1 + $pages_per_round) and
+			not $expected_error_occurred);
 
 		if ($self->{'_is_processed'} and $self->{'_reindex'}) {
 			$self->_reindex(timing => \ $timing);
@@ -669,6 +678,29 @@ sub _log_processing_incomplete {
 
 	$self->{'_logger'}->write(
 		message => 'Processing incomplete.',
+		level => 'warning',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_deadlock_detected {
+	my $self = shift;
+
+	$self->{'_logger'}->write(
+		message => 'Stopped processing as a deadlock has been detected.',
+		level => 'warning',
+		target => $self->{'_log_ident'});
+
+	return;
+}
+
+sub _log_cannot_extract_system_attribute {
+	my $self = shift;
+
+	$self->{'_logger'}->write(
+		message => ('Stopped processing as a system attribute extraction '.
+					'error has occurred.'),
 		level => 'warning',
 		target => $self->{'_log_ident'});
 

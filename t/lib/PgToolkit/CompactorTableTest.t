@@ -313,6 +313,40 @@ sub test_no_final_analyze : Test(5) {
 	$self->{'database'}->{'mock'}->is_called(16, undef);
 }
 
+sub test_stop_processing_on_deadlock_detected : Test(9) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
+	{'row_list_sequence'}->[0] = 'deadlock detected';
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(8, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(9, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(10, 'analyze');
+	ok(not $table_compactor->is_processed());
+}
+
+sub test_stop_processing_on_cannot_extract_system_attribute : Test(9) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
+	{'row_list_sequence'}->[0] = 'cannot extract system attribute';
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(8, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(9, 'get_statistics');
+	$self->{'database'}->{'mock'}->is_called(10, 'analyze');
+	ok(not $table_compactor->is_processed());
+}
+
 1;
 
 package PgToolkit::Compactor::TableStub;
