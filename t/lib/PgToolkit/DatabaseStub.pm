@@ -77,7 +77,7 @@ sub init {
 	$self->{'mock'}->{'data_hash'} = {
 		'has_special_triggers' => {
 			'sql_pattern' => (
-				qr/SELECT count\(1\) FROM pg_trigger.+/s.
+				qr/SELECT count\(1\) FROM pg_catalog\.pg_trigger.+/s.
 				qr/tgrelid = 'schema\.table'::regclass/),
 			'row_list' => [[0]]},
 		'get_max_tupples_per_page' => {
@@ -89,7 +89,7 @@ sub init {
 		'get_statistics' => {
 			'sql_pattern' => (
 				qr/SELECT\s+page_count, total_page_count.+/s.
-				qr/pg_class\.oid = 'schema\.table'::regclass/),
+				qr/pg_catalog\.pg_class\.oid = 'schema\.table'::regclass/),
 			'row_list_sequence' => [
 				[[100, 120, 85, 15, 5000]],
 				[[100, 120, 85, 15, 5000]],
@@ -153,25 +153,25 @@ sub init {
 			'row_list' => []},
 		'get_table_name_list1' => {
 			'sql_pattern' =>
-				qr/SELECT tablename FROM pg_tables\n/.
+				qr/SELECT tablename FROM pg_catalog\.pg_tables\n/.
 				qr/WHERE schemaname = 'schema\d?' \n/.
-				qr/ORDER BY\n    pg_relation_size/,
+				qr/ORDER BY\n    pg_catalog\.pg_relation_size/,
 			'row_list' => [['table1'],['table2']]},
 		'get_table_name_list2' => {
 			'sql_pattern' =>
-				qr/SELECT tablename FROM pg_tables\n/.
+				qr/SELECT tablename FROM pg_catalog\.pg_tables\n/.
 				qr/WHERE schemaname = 'schema\d?' /.
 				qr/AND tablename IN \('table2', 'table1'\)\n/.
-				qr/ORDER BY\n    pg_relation_size/,
+				qr/ORDER BY\n    pg_catalog\.pg_relation_size/,
 			'row_list' => [['table1'],['table2']]},
 		'has_schema' => {
 			'sql_pattern' =>
-				qr/SELECT count\(1\) FROM pg_namespace /.
+				qr/SELECT count\(1\) FROM pg_catalog\.pg_namespace\n/.
 				qr/WHERE nspname = 'schema\d?'/,
 			'row_list' => [[1]]},
 		'get_schema_name_list' => {
 			'sql_pattern' =>
-				qr/SELECT nspname FROM pg_namespace/,
+				qr/SELECT nspname FROM pg_catalog\.pg_namespace/,
 			'row_list' => [['schema1'],['schema2']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
@@ -183,20 +183,20 @@ sub init {
 			'row_list' => []},
 		'get_dbname_list1' => {
 			'sql_pattern' =>
-				qr/SELECT datname FROM pg_database\n/.
+				qr/SELECT datname FROM pg_catalog\.pg_database\n/.
 				qr/WHERE datname NOT IN \([^\(]*\) \n/.
-				qr/ORDER BY pg_database_size/,
+				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname2']]},
 		'get_dbname_list2' => {
 			'sql_pattern' =>
-				qr/SELECT datname FROM pg_database\n/.
+				qr/SELECT datname FROM pg_catalog\.pg_database\n/.
 				qr/WHERE datname NOT IN \([^\(]*\) /.
 				qr/AND datname IN \('dbname2', 'dbname1'\)\n/.
-				qr/ORDER BY pg_database_size/,
+				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname2']]},
 		'get_pgstattuple_schema_name' => {
 			'sql_pattern' =>
-				qr/SELECT nspname FROM pg_proc.+/s.
+				qr/SELECT nspname FROM pg_catalog\.pg_proc.+/s.
 				qr/WHERE proname = 'pgstattuple' LIMIT 1/,
 			'row_list' => [[0]]},
 		'get_pgstattuple_statistics' => {

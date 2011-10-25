@@ -207,9 +207,9 @@ sub _get_dbname_list {
 	my $result = $self->{'_postgres_database'}->
 		execute(
 			sql => <<SQL
-SELECT datname FROM pg_database
+SELECT datname FROM pg_catalog.pg_database
 WHERE datname NOT IN ('postgres', 'template0', 'template1') $datname_in
-ORDER BY pg_database_size(datname), datname
+ORDER BY pg_catalog.pg_database_size(datname), datname
 SQL
 		);
 

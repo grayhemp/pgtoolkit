@@ -187,8 +187,8 @@ sub _get_pgstattuple_schema_name {
 
 	my $result = $self->{'_database'}->execute(
 			sql => <<SQL
-SELECT nspname FROM pg_proc
-JOIN pg_namespace AS n ON pronamespace = n.oid
+SELECT nspname FROM pg_catalog.pg_proc
+JOIN pg_catalog.pg_namespace AS n ON pronamespace = n.oid
 WHERE proname = 'pgstattuple' LIMIT 1
 SQL
 		);
@@ -201,7 +201,7 @@ sub _get_schema_name_list {
 
 	my $result = $self->{'_database'}->execute(
 			sql => <<SQL
-SELECT nspname FROM pg_namespace
+SELECT nspname FROM pg_catalog.pg_namespace
 WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname !~ 'pg_.*'
 ORDER BY 1
 SQL

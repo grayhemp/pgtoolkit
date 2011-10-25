@@ -694,7 +694,7 @@ sub _has_special_triggers {
 
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
-SELECT count(1) FROM pg_trigger
+SELECT count(1) FROM pg_catalog.pg_trigger
 WHERE
     tgrelid = '$self->{'_ident'}'::regclass AND
     tgtype & 16 = 8 AND
@@ -711,7 +711,7 @@ sub _get_max_tupples_per_page {
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
 SELECT ceil(current_setting('block_size')::real / sum(attlen))
-FROM pg_attribute
+FROM pg_catalog.pg_attribute
 WHERE
     attrelid = '$self->{'_ident'}'::regclass AND
     attnum < 0;
@@ -729,16 +729,20 @@ sub _get_statistics {
 		$result = $self->{'_database'}->execute(
 			sql => <<SQL
 SELECT
-    pg_relpages('$self->{'_ident'}') AS page_count,
+    $self->{'_pgstattuple_schema_ident'}.pg_relpages('$self->{'_ident'}')
+        AS page_count,
     ceil(
-        pg_total_relation_size('$self->{'_ident'}')::real /
+        pg_catalog.pg_total_relation_size('$self->{'_ident'}')::real /
         current_setting('block_size')::integer
     ) AS total_page_count,
     CASE
-        WHEN free_percent = 0 THEN pg_relpages('$self->{'_ident'}')
+        WHEN free_percent = 0
+        THEN $self->{'_pgstattuple_schema_ident'}.pg_relpages(
+            '$self->{'_ident'}')
         ELSE
             ceil(
-                pg_relpages('$self->{'_ident'}') *
+                $self->{'_pgstattuple_schema_ident'}.pg_relpages(
+                    '$self->{'_ident'}') *
                 (1 - free_percent / 100)
             )
         END as effective_page_count,
@@ -775,11 +779,11 @@ SELECT
 FROM (
     SELECT
         ceil(
-            pg_relation_size(pg_class.oid)::real /
+            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid)::real /
             current_setting('block_size')::integer
         ) AS page_count,
         ceil(
-            pg_total_relation_size(pg_class.oid)::real /
+            pg_catalog.pg_total_relation_size(pg_catalog.pg_class.oid)::real /
             current_setting('block_size')::integer
         ) AS total_page_count,
         ceil(
@@ -802,11 +806,11 @@ FROM (
                 )
             )::real / (current_setting('block_size')::integer - 24)
         ) AS effective_page_count
-    FROM pg_class
-    LEFT JOIN pg_statistic ON starelid = pg_class.oid
+    FROM pg_catalog.pg_class
+    LEFT JOIN pg_catalog.pg_statistic ON starelid = pg_catalog.pg_class.oid
     CROSS JOIN (SELECT 23 AS header_width, 8 AS ma) AS const
-    WHERE pg_class.oid = '$self->{'_ident'}'::regclass
-    GROUP BY pg_class.oid, reltuples, header_width, ma
+    WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
+    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma
 ) AS sq
 SQL
 			);
@@ -865,7 +869,8 @@ ORDER BY
     (
         attnum::text IN (
             SELECT regexp_split_to_table(indkey::text, ' ')
-            FROM pg_index WHERE indrelid = '$self->{'_ident'}'::regclass)),
+            FROM pg_catalog.pg_index
+            WHERE indrelid = '$self->{'_ident'}'::regclass)),
     -- Preferably smaller attributes
     attlen,
     attnum
@@ -899,18 +904,18 @@ sub _get_reindex_queries {
 
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
-SELECT indexname, tablespace, indexdef FROM pg_indexes
+SELECT indexname, tablespace, indexdef FROM pg_catalog.pg_indexes
 WHERE
     schemaname = '$self->{'_schema_name'}' AND
     tablename = '$self->{'_table_name'}' AND
     NOT EXISTS (
-        SELECT 1 FROM pg_depend
+        SELECT 1 FROM pg_catalog.pg_depend
         WHERE
             deptype='i' AND
             objid = (quote_ident(schemaname) || '.' ||
                      quote_ident(indexname))::regclass) AND
     NOT EXISTS (
-        SELECT 1 FROM pg_depend
+        SELECT 1 FROM pg_catalog.pg_depend
         WHERE
             deptype='n' AND
             refobjid = (quote_ident(schemaname) || '.' ||

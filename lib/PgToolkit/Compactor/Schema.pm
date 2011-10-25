@@ -196,10 +196,11 @@ sub _get_table_name_list {
 
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
-SELECT tablename FROM pg_tables
+SELECT tablename FROM pg_catalog.pg_tables
 WHERE schemaname = '$self->{'_schema_name'}' $table_name_in
 ORDER BY
-    pg_relation_size(quote_ident(schemaname) || '.' || quote_ident(tablename)),
+    pg_catalog.pg_relation_size(
+        quote_ident(schemaname) || '.' || quote_ident(tablename)),
     tablename
 SQL
 		);
@@ -212,7 +213,8 @@ sub _has_schema {
 
 	my $result = $self->{'_database'}->execute(
 		sql => <<SQL
-SELECT count(1) FROM pg_namespace WHERE nspname = '$self->{'_schema_name'}'
+SELECT count(1) FROM pg_catalog.pg_namespace
+WHERE nspname = '$self->{'_schema_name'}'
 SQL
 		);
 

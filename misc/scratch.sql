@@ -1,8 +1,8 @@
 -- Test cluster script
 
 \c postgres
-DROP DATABASE dbname1;
-DROP DATABASE dbname2;
+DROP DATABASE IF EXISTS dbname1;
+DROP DATABASE IF EXISTS dbname2;
 --
 CREATE DATABASE dbname1;
 CREATE DATABASE dbname2;
@@ -27,6 +27,8 @@ DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
 --
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
+--
+ALTER DATABASE dbname1 SET search_path TO '';
 --
 \c dbname2
 --
@@ -56,7 +58,8 @@ SELECT
     random() * 10000 AS float_column
 FROM generate_series(1, 10) i;
 --
-\c dbname1
+ALTER DATABASE dbname2 SET search_path TO '';
+
 
 -- Rewrite the clean table function
 
@@ -173,11 +176,11 @@ SELECT
 FROM (
     SELECT
         ceil(
-            pg_relation_size(pg_class.oid)::real /
+            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid)::real /
             current_setting('block_size')::integer
         ) AS page_count,
         ceil(
-            pg_total_relation_size(pg_class.oid)::real /
+            pg_catalog.pg_total_relation_size(pg_catalog.pg_class.oid)::real /
             current_setting('block_size')::integer
         ) AS total_page_count,
         ceil(
@@ -200,24 +203,24 @@ FROM (
                 )
             )::real / (current_setting('block_size')::integer - 24)
         ) AS effective_page_count
-    FROM pg_class
-    LEFT JOIN pg_statistic ON starelid = pg_class.oid
+    FROM pg_catalog.pg_class
+    LEFT JOIN pg_catalog.pg_statistic ON starelid = pg_catalog.pg_class.oid
     CROSS JOIN (SELECT 23 AS header_width, 8 AS ma) AS const
-    WHERE pg_class.oid = 'public.table1'::regclass
-    GROUP BY pg_class.oid, reltuples, header_width, ma
+    WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
+    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma
 ) AS sq;
 
 SELECT
-    pg_relpages('"public"."table1"') AS page_count,
+    public.pg_relpages('"public"."table1"') AS page_count,
     ceil(
-        pg_total_relation_size('"public"."table1"')::real /
+        pg_catalog.pg_total_relation_size('"public"."table1"')::real /
         current_setting('block_size')::integer
     ) AS total_page_count,
     CASE
-        WHEN free_percent = 0 THEN pg_relpages('"public"."table1"')
+        WHEN free_percent = 0 THEN public.pg_relpages('"public"."table1"')
         ELSE
             ceil(
-                pg_relpages('"public"."table1"') *
+                public.pg_relpages('"public"."table1"') *
                 (1 - free_percent / 100)
             )
         END as effective_page_count,
@@ -226,7 +229,7 @@ FROM public.pgstattuple('"public"."table1"');
 
 -- Check special triggers
 
-SELECT count(1) FROM pg_trigger
+SELECT count(1) FROM pg_catalog.pg_trigger
 WHERE
     tgrelid='public.table1'::regclass AND
     tgtype & 16 = 8 AND
@@ -234,18 +237,18 @@ WHERE
 
 -- Get index definitions
 
-SELECT indexname, tablespace, indexdef FROM pg_indexes
+SELECT indexname, tablespace, indexdef FROM pg_catalog.pg_indexes
 WHERE
     schemaname = 'public' AND
     tablename = 'table1' AND
     NOT EXISTS (
-        SELECT 1 FROM pg_depend
+        SELECT 1 FROM pg_catalog.pg_depend
         WHERE
             deptype='i' AND
             objid = (quote_ident(schemaname) || '.' ||
                      quote_ident(indexname))::regclass) AND
     NOT EXISTS (
-        SELECT 1 FROM pg_depend
+        SELECT 1 FROM pg_catalog.pg_depend
         WHERE
             deptype='n' AND
             refobjid = (quote_ident(schemaname) || '.' ||
@@ -254,12 +257,12 @@ ORDER BY indexdef;
 
 -- Check schema existence
 
-SELECT count(1) FROM pg_namespace WHERE nspname = 'public';
+SELECT count(1) FROM pg_catalog.pg_namespace WHERE nspname = 'public';
 
 -- Get pgstattuple schema
 
-SELECT nspname FROM pg_proc
-JOIN pg_namespace AS n ON pronamespace = n.oid
+SELECT nspname FROM pg_catalog.pg_proc
+JOIN pg_catalog.pg_namespace AS n ON pronamespace = n.oid
 WHERE proname = 'pgstattuple' LIMIT 1;
 
 --
