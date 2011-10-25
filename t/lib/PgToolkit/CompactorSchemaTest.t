@@ -161,37 +161,6 @@ sub test_init_raises_error_when_no_schema : Test(1) {
 		qr/SchemaCompactorError There is no schema schema\./);
 }
 
-sub test_init_skips_table_if_cannot_create_its_compactor : Test {
-	my $self = shift;
-
-	my $try_count = 0;
-	$self->{'schema_compactor_constructor'}->(
-		table_compactor_constructor => sub {
-			if ($try_count == 1) {
-				die('SomeError');
-			}
-			$try_count++;
-			return $self->create_table_compactor_mock(@_);
-		});
-
-	is(@{$self->{'table_compactor_mock_list'}}, 1);
-}
-
-sub test_process_skips_table_if_cannot_process_it : Test(2) {
-	my $self = shift;
-
-	my $schema_compactor = $self->{'schema_compactor_constructor'}->();
-
-	$self->{'table_compactor_mock_list'}->[0]->mock(
-		'process', sub { die('SomeError'); });
-
-	$schema_compactor->process();
-
-	for my $i (0 .. @{$self->{'table_compactor_mock_list'}} - 1) {
-		is($self->{'table_compactor_mock_list'}->[$i]->call_pos(2), 'process');
-	}
-}
-
 sub test_init_transits_pgstattuple_schema_name_to_table_compactor : Test(8) {
 	my $self = shift;
 

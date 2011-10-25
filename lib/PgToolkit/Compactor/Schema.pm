@@ -97,26 +97,13 @@ sub init {
 		if (not grep(
 				$_ eq $table_name, @{$arg_hash{'excluded_table_name_list'}}))
 		{
-			my $table_compactor;
-			eval {
-				$table_compactor = $arg_hash{'table_compactor_constructor'}->(
-					database => $self->{'_database'},
-					schema_name => $self->{'_schema_name'},
-					table_name => $table_name,
-					pgstattuple_schema_name => (
-						$arg_hash{'pgstattuple_schema_name'}));
-			};
-			if ($@) {
-				$self->{'_logger'}->write(
-					message => 'Can not prepare: '."\n".$@,
-					level => 'error',
-					target => (
-						$self->{'_log_ident'}.'.'.
-						$self->{'_database'}->quote_ident(
-							string => $table_name)));
-			} else {
-				push(@{$self->{'_table_compactor_list'}}, $table_compactor);
-			}
+			my $table_compactor = $arg_hash{'table_compactor_constructor'}->(
+				database => $self->{'_database'},
+				schema_name => $self->{'_schema_name'},
+				table_name => $table_name,
+				pgstattuple_schema_name => (
+					$arg_hash{'pgstattuple_schema_name'}));
+			push(@{$self->{'_table_compactor_list'}}, $table_compactor);
 		}
 	}
 
@@ -136,15 +123,7 @@ sub process {
 
 	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
 		if (not $table_compactor->is_processed()) {
-			eval {
-				$table_compactor->process();
-			};
-			if ($@) {
-				$self->{'_logger'}->write(
-					message => 'Can not process: '."\n".$@,
-					level => 'error',
-					target => $table_compactor->get_log_ident());
-			}
+			$table_compactor->process();
 		}
 	}
 

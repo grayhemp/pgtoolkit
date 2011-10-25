@@ -122,22 +122,6 @@ sub test_creates_and_drops_clean_pages_stored_function : Test(4) {
 	$self->{'database'}->{'mock'}->is_called(4, 'drop_clean_pages');
 }
 
-sub test_init_skips_schema_if_cannot_create_its_compactor : Test {
-	my $self = shift;
-
-	my $try_count = 0;
-	$self->{'database_compactor_constructor'}->(
-		schema_compactor_constructor => sub {
-			if ($try_count == 1) {
-				die('SomeError');
-			}
-			$try_count++;
-			return $self->create_schema_compactor_mock(@_);
-		});
-
-	is(@{$self->{'schema_compactor_mock_list'}}, 1);
-}
-
 sub test_init_passes_pgstattuple_schema_name_to_schema_constructor : Test(8) {
 	my $self = shift;
 

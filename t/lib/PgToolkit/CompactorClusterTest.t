@@ -168,20 +168,4 @@ sub test_init_catches_error_when_getting_dbname_list : Test {
 	ok($self->{'cluster_compactor_constructor'}->());
 }
 
-sub test_init_skips_database_if_cannot_create_its_compactor : Test {
-	my $self = shift;
-
-	my $try_count = 0;
-	$self->{'cluster_compactor_constructor'}->(
-		database_compactor_constructor => sub {
-			if ($try_count == 1) {
-				die('SomeError');
-			}
-			$try_count++;
-			return $self->create_database_compactor_mock(@_);
-		});
-
-	is(@{$self->{'database_compactor_mock_list'}}, 1);
-}
-
 1;

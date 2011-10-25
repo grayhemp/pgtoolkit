@@ -66,54 +66,25 @@ sub init {
 	$self->{'_logger'} = $arg_hash{'logger'};
 	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
 
-	eval {
-		$self->{'_postgres_database'} = $self->{'_database_constructor'}->
-			(dbname => 'postgres');
-	};
-	if ($@) {
-		$self->{'_logger'}->write(
-			message => 'Can not connect: '."\n".$@,
-			level => 'error');
-	} else {
-		$self->{'_logger'}->write(
-			message => ('Database connection method: '.
-						$self->{'_postgres_database'}->get_adapter_name().'.'),
-			level => 'info');
-	}
+	$self->{'_postgres_database'} = $self->{'_database_constructor'}->
+		(dbname => 'postgres');
 
-	my $dbname_list = [];
-	eval {
-		$dbname_list = $self->_get_dbname_list(
-			dbname_list => $arg_hash{'dbname_list'});
-	};
-	if ($@) {
-		$self->{'_logger'}->write(
-			message => 'Can not get database names:'."\n".$@,
-			level => 'error');
-	}
+	$self->{'_logger'}->write(
+		message => ('Database connection method: '.
+					$self->{'_postgres_database'}->get_adapter_name().'.'),
+		level => 'info');
+
+	my $dbname_list = $self->_get_dbname_list(
+		dbname_list => $arg_hash{'dbname_list'});
 
 	$self->{'_database_compactor_list'} = [];
 	for my $dbname (@{$dbname_list}) {
-		if (not grep(
-				$_ eq $dbname, @{$arg_hash{'excluded_dbname_list'}}))
-		{
-			my $database_compactor;
-			eval {
-				$database_compactor =
-					$arg_hash{'database_compactor_constructor'}->
-					(database => $self->{'_database_constructor'}->(
-						 dbname => $dbname));
-			};
-			if ($@) {
-				$self->{'_logger'}->write(
-					message => 'Can not prepare:'."\n".$@,
-					level => 'error',
-					target => $self->{'_postgres_database'}->quote_ident(
-						string => $dbname));
-			} else {
-				push(@{$self->{'_database_compactor_list'}},
-					 $database_compactor);
-			}
+		if (not grep($_ eq $dbname, @{$arg_hash{'excluded_dbname_list'}})) {
+			my $database_compactor =
+				$arg_hash{'database_compactor_constructor'}->
+				(database => $self->{'_database_constructor'}->(
+					 dbname => $dbname));
+			push(@{$self->{'_database_compactor_list'}}, $database_compactor);
 		}
 	}
 
@@ -143,8 +114,7 @@ sub process {
 					level => 'notice');
 			}
 
-			for my $database_compactor
-				(@{$self->{'_database_compactor_list'}})
+			for my $database_compactor (@{$self->{'_database_compactor_list'}})
 			{
 				if (not $database_compactor->is_processed()) {
 					$database_compactor->process();

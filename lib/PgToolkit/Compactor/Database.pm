@@ -99,23 +99,11 @@ sub init {
 
 	$self->{'_schema_compactor_list'} = [];
 	for my $schema_name (sort keys %schema_name_hash) {
-		my $schema_compactor;
-		eval {
-			$schema_compactor = $arg_hash{'schema_compactor_constructor'}->(
-				database => $self->{'_database'},
-				schema_name => $schema_name,
-				pgstattuple_schema_name => $pgstattuple_schema_name);
-		};
-		if ($@) {
-			$self->{'_logger'}->write(
-				message => 'Can not prepare:'."\n".$@,
-				level => 'error',
-				target => (
-					$self->{'_ident'}.', '.$self->{'_database'}->quote_ident(
-						string => $schema_name)));
-		} else {
-			push(@{$self->{'_schema_compactor_list'}}, $schema_compactor);
-		}
+		my $schema_compactor = $arg_hash{'schema_compactor_constructor'}->(
+			database => $self->{'_database'},
+			schema_name => $schema_name,
+			pgstattuple_schema_name => $pgstattuple_schema_name);
+		push(@{$self->{'_schema_compactor_list'}}, $schema_compactor);
 	}
 
 	return;
