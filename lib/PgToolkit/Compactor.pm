@@ -31,8 +31,9 @@ B<PgToolkit::Compactor> - a base compactor.
 =head1 DESCRIPTION
 
 B<PgToolkit::Compactor> is a base class for boald reducing mechanisms
-implementation. You can implement _init() and must _process(). If you
-want log entries to have target define the _log_target property.
+implementation. You can implement _init() and must _process(). The
+_logger property is defined in this methods. If you want log entries
+to have target define the _log_target property.
 
 =head3 Constructor arguments
 
@@ -95,7 +96,8 @@ sub _wrap {
 			$self->{'_logger'}->write(
 				message => 'A database error occurred, exiting:'."\n".$@,
 				level => 'error',
-				target => $self->{'_log_target'});
+				(defined $self->{'_log_target'} ?
+				 (target => $self->{'_log_target'}) : ()));
 			$self->_exit();
 		} else {
 			die($@);

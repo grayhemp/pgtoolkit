@@ -1,6 +1,6 @@
 package PgToolkit::Compactor::Schema;
 
-use base qw(PgToolkit::Class);
+use base qw(PgToolkit::Compactor);
 
 use strict;
 use warnings;
@@ -73,16 +73,16 @@ if there is no such schema.
 
 =cut
 
-sub init {
+sub _init {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_database'} = $arg_hash{'database'};
-	$self->{'_logger'} = $arg_hash{'logger'};
 	$self->{'_schema_name'} = $arg_hash{'schema_name'};
 
 	$self->{'_ident'} = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
-	$self->{'_log_ident'} = $self->{'_database'}->quote_ident(
+
+	$self->{'_log_target'} = $self->{'_database'}->quote_ident(
 		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
 
 	if (not $self->_has_schema()) {
@@ -110,15 +110,7 @@ sub init {
 	return;
 }
 
-=head1 METHODS
-
-=head2 B<process()>
-
-Runs a bloat reducing process for the schema.
-
-=cut
-
-sub process {
+sub _process {
 	my $self = shift;
 
 	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
@@ -131,16 +123,18 @@ sub process {
 		$self->{'_logger'}->write(
 			message => 'Processing complete.',
 			level => 'info',
-			target => $self->{'_log_ident'});
+			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => 'Processing incomplete.',
 			level => 'warning',
-			target => $self->{'_log_ident'});
+			target => $self->{'_log_target'});
 	}
 
 	return;
 }
+
+=head1 METHODS
 
 =head2 B<is_processed()>
 

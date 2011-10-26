@@ -1,6 +1,6 @@
 package PgToolkit::Compactor::Table;
 
-use base qw(PgToolkit::Class);
+use base qw(PgToolkit::Compactor);
 
 use strict;
 use warnings;
@@ -145,13 +145,22 @@ are used to calculate a pages before vacuum value, recommended to set to
 
 =cut
 
-sub init {
+sub _init {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_database'} = $arg_hash{'database'};
 	$self->{'_logger'} = $arg_hash{'logger'};
 	$self->{'_schema_name'} = $arg_hash{'schema_name'};
 	$self->{'_table_name'} = $arg_hash{'table_name'};
+
+	$self->{'_ident'} =
+		$self->{'_database'}->quote_ident(
+			string => $self->{'_schema_name'}).'.'.
+		$self->{'_database'}->quote_ident(
+			string => $self->{'_table_name'});
+
+	$self->{'_log_target'} = $self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
 
 	$self->{'_min_page_count'} = $arg_hash{'min_page_count'};
 	$self->{'_min_free_percent'} = $arg_hash{'min_free_percent'};
@@ -179,28 +188,12 @@ sub init {
 	$self->{'_pages_before_vacuum_upper_divisor'} =
 		$arg_hash{'pages_before_vacuum_upper_divisor'};
 
-	$self->{'_ident'} =
-		$self->{'_database'}->quote_ident(
-			string => $self->{'_schema_name'}).'.'.
-		$self->{'_database'}->quote_ident(
-			string => $self->{'_table_name'});
-	$self->{'_log_ident'} = $self->{'_database'}->quote_ident(
-		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
-
 	$self->{'_is_processed'} = 0;
 
 	return;
 }
 
-=head1 METHODS
-
-=head2 B<process()>
-
-Runs a bloat reducing process for the schema.
-
-=cut
-
-sub process {
+sub _process {
 	my $self = shift;
 
 	if ($self->_has_special_triggers()) {
@@ -416,6 +409,8 @@ sub process {
 	return;
 }
 
+=head1 METHODS
+
 =head2 B<is_processed()>
 
 Tests if the table is processed.
@@ -455,7 +450,7 @@ sub _log_can_not_process_ar_triggers {
 		message => (
 			'Can not process: "always" or "replica" triggers are on.'),
 		level => 'warning',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -468,7 +463,7 @@ sub _log_skipping_min_page_count {
 			'Skipping processing: '.$arg_hash{'statistics'}->{'page_count'}.
 			' pages from '.$self->{'_min_page_count'}.' minimum required.'),
 		level => 'notice',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -485,7 +480,7 @@ sub _log_vacuum_complete {
 				 $arg_hash{'to_page'} - 1).' pages, '.
 				$arg_hash{'statistics'}->{'page_count'}.' pages left.'),
 			level => 'notice',
-			target => $self->{'_log_ident'});
+			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
@@ -493,7 +488,7 @@ sub _log_vacuum_complete {
 				sprintf("%.3f", $arg_hash{'timing'}).
 				' s, '.$arg_hash{'statistics'}->{'page_count'}.' pages left.'),
 			level => 'info',
-			target => $self->{'_log_ident'});
+			target => $self->{'_log_target'});
 	}
 
 	return;
@@ -508,7 +503,7 @@ sub _log_skipping_min_free_percent {
 			'% space to compact from '.$self->{'_min_free_percent'}.
 			'% minimum required.'),
 		level => 'notice',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -519,7 +514,7 @@ sub _log_forced_processing {
 	$self->{'_logger'}->write(
 		message => 'Forced processing.',
 		level => 'notice',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -530,7 +525,7 @@ sub _log_processing {
 	$self->{'_logger'}->write(
 		message => 'Processing.',
 		level => 'notice',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -552,7 +547,7 @@ sub _log_statistics {
 			 'is expected to be compacted' : '').
 			'.'),
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -563,7 +558,7 @@ sub _log_column {
 	$self->{'_logger'}->write(
 		message => 'Column to perform updates by: '.$arg_hash{'name'}.'.',
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -574,7 +569,7 @@ sub _log_pages_per_round {
 	$self->{'_logger'}->write(
 		message => 'Pages to process per round: '.$arg_hash{'value'}.'.',
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -585,7 +580,7 @@ sub _log_pages_before_vacuum {
 	$self->{'_logger'}->write(
 		message => 'Pages to process before vacuum: '.$arg_hash{'value'}.'.',
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -598,7 +593,7 @@ sub _log_clean_pages_average {
 					sprintf("%.3f", $arg_hash{'timing'}).' s per '.
 					$arg_hash{'pages_per_round'}.' pages.'),
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -622,7 +617,7 @@ sub _log_progress {
 			($arg_hash{'initial_statistics'}->{'page_count'} -
 			 $arg_hash{'to_page'} - 1).' pages completed.'),
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -633,7 +628,7 @@ sub _log_max_loops {
 	$self->{'_logger'}->write(
 		message => 'Maximum loops reached.',
 		level => 'warning',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -645,7 +640,7 @@ sub _log_analyze_complete {
 		message => ('Analyze '.$arg_hash{'phrase'}.': '.
 					sprintf("%.3f", $arg_hash{'timing'}).' s.'),
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -656,7 +651,7 @@ sub _log_reindex_complete {
 	$self->{'_logger'}->write(
 		message => 'Reindex: '.sprintf("%.3f", $arg_hash{'timing'}).' s.',
 		level => 'info',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -668,7 +663,7 @@ sub _log_reindex_queries {
 		message => ('Reindex queries:'."\n".
 					join("\n", @{$self->_get_reindex_queries()})),
 		level => 'notice',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -679,7 +674,7 @@ sub _log_processing_incomplete {
 	$self->{'_logger'}->write(
 		message => 'Processing incomplete.',
 		level => 'warning',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -690,7 +685,7 @@ sub _log_deadlock_detected {
 	$self->{'_logger'}->write(
 		message => 'Stopped processing as a deadlock has been detected.',
 		level => 'warning',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -702,7 +697,7 @@ sub _log_cannot_extract_system_attribute {
 		message => ('Stopped processing as a system attribute extraction '.
 					'error has occurred.'),
 		level => 'warning',
-		target => $self->{'_log_ident'});
+		target => $self->{'_log_target'});
 
 	return;
 }

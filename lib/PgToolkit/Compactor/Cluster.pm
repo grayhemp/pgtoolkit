@@ -1,6 +1,6 @@
 package PgToolkit::Compactor::Cluster;
 
-use base qw(PgToolkit::Class);
+use base qw(PgToolkit::Compactor);
 
 use strict;
 use warnings;
@@ -59,11 +59,10 @@ a maximum amount of attempts to compact cluster.
 
 =cut
 
-sub init {
+sub _init {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_database_constructor'} = $arg_hash{'database_constructor'};
-	$self->{'_logger'} = $arg_hash{'logger'};
 	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
 
 	$self->{'_postgres_database'} = $self->{'_database_constructor'}->
@@ -91,15 +90,7 @@ sub init {
 	return;
 }
 
-=head1 METHODS
-
-=head2 B<process()>
-
-Runs a bloat reducing process for the cluster.
-
-=cut
-
-sub process {
+sub _process {
 	my $self = shift;
 
 	if (@{$self->{'_database_compactor_list'}}) {
@@ -142,6 +133,8 @@ sub process {
 
 	return;
 }
+
+=head1 METHODS
 
 =head2 B<is_processed()>
 

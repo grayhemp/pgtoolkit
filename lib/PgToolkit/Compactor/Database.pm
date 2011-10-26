@@ -1,6 +1,6 @@
 package PgToolkit::Compactor::Database;
 
-use base qw(PgToolkit::Class);
+use base qw(PgToolkit::Compactor);
 
 use strict;
 use warnings;
@@ -59,19 +59,20 @@ do not use pgstattuple to calculate statictics.
 
 =cut
 
-sub init {
+sub _init {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_database'} = $arg_hash{'database'};
-	$self->{'_logger'} = $arg_hash{'logger'};
 
 	$self->{'_ident'} = $self->{'_database'}->quote_ident(
 		string => $self->{'_database'}->get_dbname());
 
+	$self->{'_log_target'} = $self->{'_ident'};
+
 	$self->{'_logger'}->write(
-		message => 'Creating environment: _clean_pages() stored function.',
+		message => 'Creating environment.',
 		level => 'info',
-		target => $self->{'_ident'});
+		target => $self->{'_log_target'});
 	$self->_create_clean_pages_function();
 
 	my %schema_name_hash = map(
@@ -89,12 +90,12 @@ sub init {
 		$self->{'_logger'}->write(
 			message => 'Statictics calculation method: pgstattuple.',
 			level => 'info',
-			target => $self->{'_ident'});
+			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => 'Statictics calculation method: approximation.',
 			level => 'notice',
-			target => $self->{'_ident'});
+			target => $self->{'_log_target'});
 	}
 
 	$self->{'_schema_compactor_list'} = [];
@@ -109,15 +110,7 @@ sub init {
 	return;
 }
 
-=head1 METHODS
-
-=head2 B<process()>
-
-Runs a bloat reducing process for the database.
-
-=cut
-
-sub process {
+sub _process {
 	my $self = shift;
 
 	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
@@ -130,16 +123,18 @@ sub process {
 		$self->{'_logger'}->write(
 			message => 'Processing complete.',
 			level => 'info',
-			target => $self->{'_ident'});
+			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => 'Processing incomplete.',
 			level => 'warning',
-			target => $self->{'_ident'});
+			target => $self->{'_log_target'});
 	}
 
 	return;
 }
+
+=head1 METHODS
 
 =head2 B<is_processed()>
 
@@ -165,9 +160,9 @@ sub DESTROY {
 
 	$self->_drop_clean_pages_function();
 	$self->{'_logger'}->write(
-		message => 'Dropping environment: _clean_pages() stored function.',
+		message => 'Dropping environment.',
 		level => 'info',
-		target => $self->{'_ident'});
+		target => $self->{'_log_target'});
 }
 
 sub _get_pgstattuple_schema_name {
