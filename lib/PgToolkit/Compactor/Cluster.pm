@@ -101,7 +101,8 @@ sub _process {
 			if ($attempt != 0) {
 				$self->{'_logger'}->write(
 					message => ('Retrying processing, attempt: '.$attempt.
-								' from '.$self->{'_max_retry_count'}.'.'),
+								' from '.$self->{'_max_retry_count'}.', '.
+								$self->_incomplete_count().' databases left.'),
 					level => 'notice');
 			}
 
@@ -122,7 +123,8 @@ sub _process {
 				level => ($attempt > 1) ? 'notice' : 'info');
 		} else {
 			$self->{'_logger'}->write(
-				message => 'Processing incomplete.',
+				message => ('Processing incomplete: '.
+							$self->_incomplete_count().' databases left.'),
 				level => 'warning');
 		}
 	} else {
@@ -151,6 +153,16 @@ sub is_processed {
 
 	my $result = 1;
 	map(($result &&= $_->is_processed()),
+		@{$self->{'_database_compactor_list'}});
+
+	return $result;
+}
+
+sub _incomplete_count {
+	my $self = shift;
+
+	my $result = 0;
+	map(($result += not $_->is_processed()),
 		@{$self->{'_database_compactor_list'}});
 
 	return $result;

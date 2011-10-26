@@ -126,7 +126,8 @@ sub _process {
 			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
-			message => 'Processing incomplete.',
+			message => ('Processing incomplete: '.$self->_incomplete_count().
+						' schemas left.'),
 			level => 'warning',
 			target => $self->{'_log_target'});
 	}
@@ -163,6 +164,16 @@ sub DESTROY {
 		message => 'Dropping environment.',
 		level => 'info',
 		target => $self->{'_log_target'});
+}
+
+sub _incomplete_count {
+	my $self = shift;
+
+	my $result = 0;
+	map(($result += not $_->is_processed()),
+		@{$self->{'_schema_compactor_list'}});
+
+	return $result;
 }
 
 sub _get_pgstattuple_schema_name {

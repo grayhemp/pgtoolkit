@@ -126,7 +126,8 @@ sub _process {
 			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
-			message => 'Processing incomplete.',
+			message => ('Processing incomplete: '.$self->_incomplete_count().
+						' tables left.'),
 			level => 'warning',
 			target => $self->{'_log_target'});
 	}
@@ -151,6 +152,16 @@ sub is_processed {
 
 	my $result = 1;
 	map(($result &&= $_->is_processed()),
+		@{$self->{'_table_compactor_list'}});
+
+	return $result;
+}
+
+sub _incomplete_count {
+	my $self = shift;
+
+	my $result = 0;
+	map(($result += not $_->is_processed()),
 		@{$self->{'_table_compactor_list'}});
 
 	return $result;
