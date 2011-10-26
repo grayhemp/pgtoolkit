@@ -18,7 +18,7 @@ the scripts you will find in the bin/ directory. Before using any of
 them the PERL5LIB environment variable must be set to point to the
 lib/ directory.
 
-To get more information about any tool run it with the --help option.
+To get more information about any tool run it with the --man option.
 
 Currently there is the only tool we have prepared for publishing:
 
