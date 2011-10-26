@@ -159,13 +159,4 @@ sub test_stop_retrying_after_everything_is_processed : Test(4) {
 	}
 }
 
-sub test_init_catches_error_when_getting_dbname_list : Test {
-	my $self = shift;
-
-	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_dbname_list'}
-	->{'row_list'} = 'SomeError';
-
-	ok($self->{'cluster_compactor_constructor'}->());
-}
-
 1;
