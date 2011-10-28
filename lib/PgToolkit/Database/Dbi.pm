@@ -29,6 +29,8 @@ B<PgToolkit::Database::Dbi> is a simplification of the DBI interface.
 
 =item C<host>
 
+by default socket connection is used,
+
 =item C<port>
 
 =item C<dbname>
@@ -73,7 +75,7 @@ sub init {
 	$self->{'dbh'} = DBI->connect(
 		'dbi:'.$arg_hash{'driver'}.
 		':dbname='.($arg_hash{'dbname'} ? $self->_get_escaped_dbname() : '').
-		';host='.($arg_hash{'host'} or '').
+		(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
 		';port='.($arg_hash{'port'} or ''),
 		$arg_hash{'user'}, $arg_hash{'password'},
 		{

@@ -222,7 +222,7 @@ sub get_options {
 		$self->{'_options'} = PgToolkit::Options->new(
 			definition_hash => {
 				# connection
-				'host|h:s' => 'localhost',
+				'host|h:s' => undef,
 				'port|p:i' => '5432',
 				'user|U:s' => do { `whoami` =~ /(.*?)\n/; $1 },
 				'password|W:s' => undef,

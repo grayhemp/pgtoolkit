@@ -18,51 +18,45 @@ sub setup : Test(setup) {
 
 	$self->{'database_constructor'} = sub {
 		return PgToolkit::Database::Dbi->new(
-			driver => 'somepg', host => 'somehost', port => '5432',
+			driver => 'somepg', port => '5432', host => 'somehost',
 			dbname => 'somedb', user => 'someuser', password => 'somepassword',
 			@_);
 	}
 }
 
-sub test_init : Test(8) {
+sub test_init : Test(6) {
 	my $self = shift;
 
-	my $db = $self->{'database_constructor'}->();
+	my $data_hash_list = [
+		{'database_arg_hash' => {'host' => undef},
+		 'dbh_arg_list' => [
+			 'dbi:somepg:dbname=somedb;port=5432',
+			 'someuser', 'somepassword'],
+		 'dbname' => 'somedb'},
+		{'database_arg_hash' => {
+			'driver' => 'anotherpg', 'host' => 'anotherhost', 'port' => '6432',
+			'dbname' => 'anotherdb', 'user' => 'anotheruser',
+			'password' => 'anotherpassword'},
+		 'dbh_arg_list' => [
+			 'dbi:anotherpg:dbname=anotherdb;host=anotherhost;port=6432',
+			 'anotheruser', 'anotherpassword'],
+		 'dbname' => 'anotherdb'}];
 
-	isa_ok($db->{'dbh'}, 'DBI');
+	for my $data_hash (@{$data_hash_list}) {
+		my $db = $self->{'database_constructor'}->(
+			%{$data_hash->{'database_arg_hash'}});
 
-	ok($db->{'dbh'}->call_pos(-1), 'connect');
-	is_deeply(
-		[$db->{'dbh'}->call_args(-1)],
-		[$db->{'dbh'}, 'DBI',
-		 'dbi:somepg:dbname=somedb;host=somehost;port=5432',
-		 'someuser', 'somepassword',
-		 {
-			 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
-			 PrintWarn => 0, PrintError => 0,
-			 pg_server_prepare => 1, pg_enable_utf8 => 1
-		 }]);
-	is($db->get_dbname(), 'somedb');
-
-	$db = $self->{'database_constructor'}->(
-		driver => 'anotherpg', host => 'anotherhost', port => '6432',
-		dbname => 'anotherdb', user => 'anotheruser',
-		password => 'anotherpassword');
-
-	isa_ok($db->{'dbh'}, 'DBI');
-
-	ok($db->{'dbh'}->call_pos(-1), 'connect');
-	is_deeply(
-		[$db->{'dbh'}->call_args(-1)],
-		[$db->{'dbh'}, 'DBI',
-		 'dbi:anotherpg:dbname=anotherdb;host=anotherhost;port=6432',
-		 'anotheruser', 'anotherpassword',
-		 {
-			 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
-			 PrintWarn => 0, PrintError => 0,
-			 pg_server_prepare => 1, pg_enable_utf8 => 1
-		 }]);
-	is($db->get_dbname(), 'anotherdb');
+		ok($db->{'dbh'}->call_pos(-1), 'connect');
+		is_deeply(
+			[$db->{'dbh'}->call_args(-1)],
+			[$db->{'dbh'}, 'DBI', @{$data_hash->{'dbh_arg_list'}},
+			 {
+				 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
+				 PrintWarn => 0, PrintError => 0,
+				 pg_server_prepare => 1, pg_enable_utf8 => 1
+			 }]);
+		is($db->get_dbname(), $data_hash->{'dbname'});
+	}
 }
 
 sub test_no_driver : Test {
