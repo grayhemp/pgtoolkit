@@ -347,6 +347,21 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(9) {
 	ok(not $table_compactor->is_processed());
 }
 
+sub test_stop_processing_on_relation_does_not_exist : Test(4) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'has_special_triggers'}->
+	{'row_list'} = 'relation "schema.table" does not exist';
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	$self->{'database'}->{'mock'}->is_called(1, 'has_special_triggers');
+	$self->{'database'}->{'mock'}->is_called(2, undef);
+	ok($table_compactor->is_processed());
+}
+
 1;
 
 package PgToolkit::Compactor::TableStub;

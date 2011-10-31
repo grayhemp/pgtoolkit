@@ -193,6 +193,23 @@ sub _init {
 	return;
 }
 
+sub process {
+	my $self = shift;
+
+	eval {
+		$self->SUPER::process();
+	};
+	if ($@) {
+		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
+		if ($@ =~ 'relation "'.$name.'" does not exist') {
+			$self->_log_relation_does_not_exist();
+			$self->{'_is_processed'} = 1;
+		} else {
+			die($@);
+		}
+	}
+}
+
 sub _process {
 	my $self = shift;
 
@@ -695,6 +712,18 @@ sub _log_cannot_extract_system_attribute {
 
 	$self->{'_logger'}->write(
 		message => ('Stopped processing as a system attribute extraction '.
+					'error has occurred.'),
+		level => 'warning',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_relation_does_not_exist {
+	my $self = shift;
+
+	$self->{'_logger'}->write(
+		message => ('Stopped processing as a relation does not exist '.
 					'error has occurred.'),
 		level => 'warning',
 		target => $self->{'_log_target'});
