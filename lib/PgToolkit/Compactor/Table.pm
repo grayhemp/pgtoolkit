@@ -197,15 +197,16 @@ sub process {
 	my $self = shift;
 
 	eval {
-		$self->SUPER::process();
+		$self->_process();
 	};
 	if ($@) {
 		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
-		if ($@ =~ 'relation "'.$name.'" does not exist') {
+		if ($@ =~ ('relation "'.$name.'" does not exist')) {
 			$self->_log_relation_does_not_exist();
 			$self->{'_is_processed'} = 1;
 		} else {
-			die($@);
+			my $error = $@;
+			$self->_wrap(code => sub { die($error); });
 		}
 	}
 }

@@ -59,6 +59,8 @@ SELECT
 FROM generate_series(1, 10) i;
 --
 ALTER DATABASE dbname2 SET search_path TO '';
+--
+\c dbname1
 
 
 -- Rewrite the clean table function

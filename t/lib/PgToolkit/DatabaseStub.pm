@@ -68,7 +68,7 @@ sub init {
 			}
 
 			if (ref($result) ne 'ARRAY') {
-				die($result);
+				die('DatabaseError '.$result);
 			}
 
 			return $result;
