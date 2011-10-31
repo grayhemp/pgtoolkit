@@ -400,8 +400,12 @@ sub _process {
 			$self->_log_analyze_complete(timing => $timing, phrase => 'final');
 		}
 
+		$pages_before_vacuum = $self->_get_pages_before_vacuum(
+			expected_page_count => $expected_page_count,
+			statistics => $statistics);
 		$self->{'_is_processed'} = (
-			($statistics->{'page_count'} <= $to_page + 1 + $pages_per_round) and
+			($statistics->{'page_count'} <=
+			 $to_page + 1 + $pages_before_vacuum) and
 			not $expected_error_occurred);
 
 		if ($self->{'_is_processed'} and $self->{'_reindex'}) {
@@ -561,7 +565,7 @@ sub _log_statistics {
 			 '% ('.$arg_hash{'statistics'}->{'free_space'}.' bytes, '.
 			 ($arg_hash{'statistics'}->{'page_count'} -
 			  $arg_hash{'statistics'}->{'effective_page_count'}).' pages) '.
-			 'is expected to be compacted' : '').
+			 'could potentially be compacted' : '').
 			'.'),
 		level => 'info',
 		target => $self->{'_log_target'});

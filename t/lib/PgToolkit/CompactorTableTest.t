@@ -269,6 +269,11 @@ sub test_loops_count : Test(4) {
 sub test_processed : Test {
 	my $self = shift;
 
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[3] = [[91, 108, 85, 6, 1400]];
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[4] = [[91, 108, 85, 6, 1400]];
+
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
 	$table_compactor->process();
@@ -281,6 +286,8 @@ sub test_not_processed : Test {
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
 	{'row_list_sequence'}->[3] = [[92, 110, 85, 7, 1500]];
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[4] = [[92, 110, 85, 7, 1500]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
