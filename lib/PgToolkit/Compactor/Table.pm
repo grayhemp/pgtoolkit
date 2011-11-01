@@ -267,12 +267,10 @@ sub _process {
 
 	if (not $self->{'_is_processed'}) {
 		if ($self->{'_force'}) {
-			$self->_log_forced_processing();
+			$self->_log_forced_processing(statistics => $statistics);
 		} else {
-			$self->_log_processing();
+			$self->_log_processing(statistics => $statistics);
 		}
-
-		$self->_log_statistics(statistics => $statistics, phrase => 'initial');
 
 		my $expected_page_count = $statistics->{'page_count'};
 		my $column_ident = $self->{'_database'}->quote_ident(
@@ -419,13 +417,11 @@ sub _process {
 		}
 
 		$statistics = $self->_get_statistics();
-		$self->_log_statistics(
-			statistics => $statistics,
-			phrase => 'final');
-	}
-
-	if (not $self->{'_is_processed'}) {
-		$self->_log_processing_incomplete();
+		if ($self->{'_is_processed'}) {
+			$self->_log_complete_processing(statistics => $statistics);
+		} else {
+			$self->_log_incomplete_processing(statistics => $statistics);
+		}
 	}
 
 	return;
@@ -531,10 +527,12 @@ sub _log_skipping_min_free_percent {
 }
 
 sub _log_forced_processing {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Forced processing.',
+		message => ('Forced processing: '.
+					$self->_get_log_processing_expectations(
+						statistics => $arg_hash{'statistics'}).'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -542,36 +540,30 @@ sub _log_forced_processing {
 }
 
 sub _log_processing {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Processing.',
+		message => ('Processing: '.
+					$self->_get_log_processing_expectations(
+						statistics => $arg_hash{'statistics'}).'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
 }
 
-sub _log_statistics {
+sub _get_log_processing_expectations {
 	my ($self, %arg_hash) = @_;
 
-	$self->{'_logger'}->write(
-		message => (
-			'Statistics '.$arg_hash{'phrase'}.': '.
-			$arg_hash{'statistics'}->{'page_count'}.' pages ('.
-			$arg_hash{'statistics'}->{'total_page_count'}.
-			' including toasts and indexes)'.
-			(defined $arg_hash{'statistics'}->{'free_space'} ?
-			 ', approximately '. $arg_hash{'statistics'}->{'free_percent'}.
-			 '% ('.$arg_hash{'statistics'}->{'free_space'}.' bytes, '.
-			 ($arg_hash{'statistics'}->{'page_count'} -
-			  $arg_hash{'statistics'}->{'effective_page_count'}).' pages) '.
-			 'could potentially be compacted' : '').
-			'.'),
-		level => 'info',
-		target => $self->{'_log_target'});
-
-	return;
+	return
+		'contains '.$arg_hash{'statistics'}->{'page_count'}.' pages ('.
+		$arg_hash{'statistics'}->{'total_page_count'}.
+		' including toasts and indexes), approximately '.
+		$arg_hash{'statistics'}->{'free_percent'}.'% ('.
+		($arg_hash{'statistics'}->{'page_count'} -
+		 $arg_hash{'statistics'}->{'effective_page_count'}).
+		' pages) are expected to be compacted, reducing the size by '.
+		$arg_hash{'statistics'}->{'free_space'}.' bytes';
 }
 
 sub _log_column {
@@ -690,15 +682,44 @@ sub _log_reindex_queries {
 	return;
 }
 
-sub _log_processing_incomplete {
-	my $self = shift;
+sub _log_incomplete_processing {
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Processing incomplete.',
+		message => ('Processing incomplete: '.
+					$self->_get_log_processing_results(
+						statistics => $arg_hash{'statistics'}).'.'),
 		level => 'warning',
 		target => $self->{'_log_target'});
 
 	return;
+}
+
+sub _log_complete_processing {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('Processing complete: '.
+					$self->_get_log_processing_results(
+						statistics => $arg_hash{'statistics'}).'.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _get_log_processing_results {
+	my ($self, %arg_hash) = @_;
+
+	return
+		$arg_hash{'statistics'}->{'page_count'}.' pages left ('.
+		$arg_hash{'statistics'}->{'total_page_count'}.
+		' including toasts and indexes), approximately '.
+		$arg_hash{'statistics'}->{'free_percent'}.'% ('.
+		($arg_hash{'statistics'}->{'page_count'} -
+		 $arg_hash{'statistics'}->{'effective_page_count'}).
+		' pages) have not been compacted, that is '.
+		$arg_hash{'statistics'}->{'free_space'}.' bytes';
 }
 
 sub _log_deadlock_detected {
