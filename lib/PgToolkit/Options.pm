@@ -96,9 +96,13 @@ sub init {
 	}
 
 	my $option_hash = {};
-	my $result = Getopt::Long::GetOptionsFromArray(
-		$self->{'_argv'}, $option_hash, 'help|?', 'man|m',
-		(keys %{$arg_hash{'definition_hash'}}));
+	my $result;
+	{
+		local @ARGV = @{$self->{'_argv'}};
+		$result = Getopt::Long::GetOptions(
+			$option_hash, 'help|?', 'man|m',
+			(keys %{$arg_hash{'definition_hash'}}));
+	}
 
 	my $error;
 	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'}) and
