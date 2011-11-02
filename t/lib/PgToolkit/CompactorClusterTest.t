@@ -22,7 +22,6 @@ sub setup : Test(setup) {
 	$self->{'database'} = PgToolkit::DatabaseStub->new(dbname => 'dummy');
 
 	$self->{'cluster_compactor_constructor'} = sub {
-		$self->{'database_mock_list'} = [];
 		$self->{'database_compactor_mock_list'} = [];
 		$self->{'database_compactor_mock_process_counter'} = 0;
 
@@ -59,7 +58,9 @@ sub create_database_compactor_mock {
 			return;
 		});
 	$mock->set_false('-is_processed');
-	$mock->set_always('-get_dbname', $arg_hash{'dbname'});
+	$mock->set_always('-get_size_delta', int(rand() * 1000));
+	$mock->set_always('-get_total_size_delta', int(rand() * 1000));
+	$mock->set_always('-get_log_target', $arg_hash{'database'}->get_dbname());
 
 	$mock->init(@arg_list);
 	push(@{$self->{'database_compactor_mock_list'}}, $mock);
@@ -157,6 +158,44 @@ sub test_stop_retrying_after_everything_is_processed : Test(4) {
 		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(3),
 		   undef);
 	}
+}
+
+sub test_get_size_delta : Test {
+	my $self = shift;
+
+	my $cluster_compactor = $self->{'cluster_compactor_constructor'}->();
+
+	for my $database_compactor_mock (@{$self->{'database_compactor_mock_list'}})
+	{
+		$database_compactor_mock->set_true('-is_processed');
+	}
+
+	$cluster_compactor->process();
+
+	my $result = 0;
+	map($result += $_->get_size_delta(),
+		@{$self->{'database_compactor_mock_list'}});
+
+	is($cluster_compactor->get_size_delta(), $result);
+}
+
+sub test_get_total_size_delta : Test {
+	my $self = shift;
+
+	my $cluster_compactor = $self->{'cluster_compactor_constructor'}->();
+
+	for my $database_compactor_mock (@{$self->{'database_compactor_mock_list'}})
+	{
+		$database_compactor_mock->set_true('-is_processed');
+	}
+
+	$cluster_compactor->process();
+
+	my $result = 0;
+	map($result += $_->get_total_size_delta(),
+		@{$self->{'database_compactor_mock_list'}});
+
+	is($cluster_compactor->get_total_size_delta(), $result);
 }
 
 1;

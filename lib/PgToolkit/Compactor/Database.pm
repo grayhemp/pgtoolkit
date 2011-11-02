@@ -113,6 +113,11 @@ sub _init {
 sub _process {
 	my $self = shift;
 
+	$self->{'_logger'}->write(
+		message => 'Processing.',
+		level => 'info',
+		target => $self->{'_log_target'});
+
 	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
 		if (not $schema_compactor->is_processed()) {
 			$schema_compactor->process();
@@ -121,13 +126,19 @@ sub _process {
 
 	if ($self->is_processed()) {
 		$self->{'_logger'}->write(
-			message => 'Processing complete.',
+			message => (
+				'Processing complete: size reduced by '.$self->get_size_delta().
+				' bytes ('.$self->get_total_size_delta().' bytes including '.
+				'toasts and indexes) in total.'),
 			level => 'info',
 			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
-			message => ('Processing incomplete: '.$self->_incomplete_count().
-						' schemas left.'),
+			message => (
+				'Processing incomplete: '.$self->_incomplete_count().
+				' schemas left, size reduced by '.$self->get_size_delta().
+				' bytes ('.$self->get_total_size_delta().' bytes including '.
+				'toasts and indexes) in total.'),
 			level => 'warning',
 			target => $self->{'_log_target'});
 	}
@@ -154,6 +165,62 @@ sub is_processed {
 	map(($result &&= $_->is_processed()), @{$self->{'_schema_compactor_list'}});
 
 	return $result;
+}
+
+=head2 B<get_size_delta()>
+
+Returns a size delta in bytes.
+
+=head3 Returns
+
+A number or undef if has not been processed.
+
+=cut
+
+sub get_size_delta {
+	my $self = shift;
+
+	my $result = 0;
+	map($result += $_->get_size_delta(),
+		@{$self->{'_schema_compactor_list'}});
+
+	return $result;
+}
+
+=head2 B<get_total_size_delta()>
+
+Returns a total (including toasts and indexes) size delta in bytes.
+
+=head3 Returns
+
+A number or undef if has not been processed.
+
+=cut
+
+sub get_total_size_delta {
+	my $self = shift;
+
+	my $result = 0;
+	map($result += $_->get_total_size_delta(),
+		@{$self->{'_schema_compactor_list'}});
+
+	return $result;
+}
+
+=head2 B<get_log_target()>
+
+Returns a database name for logging.
+
+=head3 Returns
+
+A string.
+
+=cut
+
+sub get_log_target {
+	my $self = shift;
+
+	return $self->{'_log_target'};
 }
 
 sub DESTROY {

@@ -94,6 +94,11 @@ sub _process {
 	my $self = shift;
 
 	if (@{$self->{'_database_compactor_list'}}) {
+		$self->{'_logger'}->write(
+			message => 'Processing.',
+			level => 'info',
+			target => $self->{'_log_target'});
+
 		my $attempt = 0;
 		while (not $self->is_processed() and
 			   $attempt <= $self->{'_max_retry_count'})
@@ -116,15 +121,32 @@ sub _process {
 			$attempt++;
 		}
 
+		my $databases_size_delta_report = join(
+			', ',
+			map(
+				$_->get_size_delta().' ('.$_->get_total_size_delta().') '.
+				$_->get_log_target(),
+				@{$self->{'_database_compactor_list'}}));
+
 		if ($self->is_processed()) {
 			$self->{'_logger'}->write(
-				message => ('Processing complete: '.($attempt - 1).
-							' retries from '.$self->{'_max_retry_count'}.'.'),
-				level => ($attempt > 1) ? 'notice' : 'info');
+				message => (
+					'Processing complete: '.($attempt - 1).' retries from '.
+					$self->{'_max_retry_count'}.', size reduced by '.
+					$self->get_size_delta().' bytes ('.
+					$self->get_total_size_delta().' bytes including '.
+					'toasts and indexes) in total, '.
+					$databases_size_delta_report.'.'),
+				level => 'notice');
 		} else {
 			$self->{'_logger'}->write(
-				message => ('Processing incomplete: '.
-							$self->_incomplete_count().' databases left.'),
+				message => (
+					'Processing incomplete: '.$self->_incomplete_count().
+					' databases left, size reduced by '.
+					$self->get_size_delta().' bytes ('.
+					$self->get_total_size_delta().' bytes including '.
+					'toasts and indexes) in total, '.
+					$databases_size_delta_report.'.'),
 				level => 'warning');
 		}
 	} else {
@@ -153,6 +175,46 @@ sub is_processed {
 
 	my $result = 1;
 	map(($result &&= $_->is_processed()),
+		@{$self->{'_database_compactor_list'}});
+
+	return $result;
+}
+
+=head2 B<get_size_delta()>
+
+Returns a size delta in bytes.
+
+=head3 Returns
+
+A number or undef if has not been processed.
+
+=cut
+
+sub get_size_delta {
+	my $self = shift;
+
+	my $result = 0;
+	map($result += $_->get_size_delta(),
+		@{$self->{'_database_compactor_list'}});
+
+	return $result;
+}
+
+=head2 B<get_total_size_delta()>
+
+Returns a total (including toasts and indexes) size delta in bytes.
+
+=head3 Returns
+
+A number or undef if has not been processed.
+
+=cut
+
+sub get_total_size_delta {
+	my $self = shift;
+
+	my $result = 0;
+	map($result += $_->get_total_size_delta(),
 		@{$self->{'_database_compactor_list'}});
 
 	return $result;

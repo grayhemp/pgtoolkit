@@ -50,6 +50,8 @@ sub create_schema_compactor_mock {
 	$mock->set_always(
 		'-get_ident',
 		$self->{'database'}->quote_ident(string => $arg_hash{'schema_name'}));
+	$mock->set_always('-get_size_delta', int(rand() * 1000));
+	$mock->set_always('-get_total_size_delta', int(rand() * 1000));
 
 	$mock->init(@arg_list);
 	push(@{$self->{'schema_compactor_mock_list'}}, $mock);
@@ -155,6 +157,42 @@ sub test_init_no_pgstatuple_passes_nothing_to_schema_constructor : Test(4) {
 		is($mock->call_pos(1), 'init');
 		is({'self', $mock->call_args(1)}->{'pgstattuple_schema_name'}, undef);
 	}
+}
+
+sub test_get_size_delta : Test {
+	my $self = shift;
+
+	my $database_compactor = $self->{'database_compactor_constructor'}->();
+
+	for my $schema_compactor_mock (@{$self->{'schema_compactor_mock_list'}}) {
+		$schema_compactor_mock->set_true('-is_processed');
+	}
+
+	$database_compactor->process();
+
+	my $result = 0;
+	map($result += $_->get_size_delta(),
+		@{$self->{'schema_compactor_mock_list'}});
+
+	is($database_compactor->get_size_delta(), $result);
+}
+
+sub test_get_total_size_delta : Test {
+	my $self = shift;
+
+	my $database_compactor = $self->{'database_compactor_constructor'}->();
+
+	for my $schema_compactor_mock (@{$self->{'schema_compactor_mock_list'}}) {
+		$schema_compactor_mock->set_true('-is_processed');
+	}
+
+	$database_compactor->process();
+
+	my $result = 0;
+	map($result += $_->get_total_size_delta(),
+		@{$self->{'schema_compactor_mock_list'}});
+
+	is($database_compactor->get_total_size_delta(), $result);
 }
 
 1;

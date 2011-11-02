@@ -64,7 +64,7 @@ sub test_min_page_count : Test(4) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[0] = [[99, 120, 85, 15, 5000]];
+	{'row_list_sequence'}->[0] = [[99, 120, 85, 35000, 42000, 15, 5000]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -79,7 +79,8 @@ sub test_analyze_if_not_analyzed : Test(9) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[0] = [[100, 120, undef, undef, undef]],;
+	{'row_list_sequence'}->[0] = [
+		[100, 120, undef, 35000, 42000, undef, undef]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -114,7 +115,7 @@ sub test_min_page_count_after_initial_vacuum : Test(6) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[1] = [[99, 120, 85, 15, 5000]];
+	{'row_list_sequence'}->[1] = [[99, 120, 85, 35000, 42000, 15, 5000]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -130,7 +131,7 @@ sub test_min_free_percent_after_initial_vacuum : Test(6) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[1] = [[100, 120, 85, 14, 5000]];
+	{'row_list_sequence'}->[1] = [[100, 120, 85, 35000, 42000, 14, 5000]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -146,9 +147,9 @@ sub test_force_processing : Test(12) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[1] = [[99, 120, 85, 14, 5000]];
+	{'row_list_sequence'}->[1] = [[99, 120, 85, 35000, 42000, 14, 5000]];
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[2] = [[92, 108, 85, 5, 1250]];
+	{'row_list_sequence'}->[2] = [[92, 108, 85, 35000, 42000, 5, 1250]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(force => 1);
 
@@ -166,7 +167,7 @@ sub test_main_processing : Test(28) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[2] = [[88, 108, 85, 5, 1250]];
+	{'row_list_sequence'}->[2] = [[88, 108, 85, 35000, 42000, 5, 1250]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -270,9 +271,9 @@ sub test_processed : Test {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[3] = [[91, 108, 85, 6, 1400]];
+	{'row_list_sequence'}->[3] = [[91, 108, 85, 35000, 42000, 6, 1400]];
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[4] = [[91, 108, 85, 6, 1400]];
+	{'row_list_sequence'}->[4] = [[91, 108, 85, 35000, 42000, 6, 1400]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -285,9 +286,9 @@ sub test_not_processed : Test {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[3] = [[92, 110, 85, 7, 1500]];
+	{'row_list_sequence'}->[3] = [[92, 110, 85, 35000, 42000, 7, 1500]];
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
-	{'row_list_sequence'}->[4] = [[92, 110, 85, 7, 1500]];
+	{'row_list_sequence'}->[4] = [[92, 110, 85, 35000, 42000, 7, 1500]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -325,6 +326,8 @@ sub test_stop_processing_on_deadlock_detected : Test(9) {
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
 	{'row_list_sequence'}->[0] = 'deadlock detected';
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[3] = [[100, 120, 85, 35000, 42000, 15, 5000]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -342,6 +345,8 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(9) {
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
 	{'row_list_sequence'}->[0] = 'cannot extract system attribute';
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+	{'row_list_sequence'}->[3] = [[100, 120, 85, 35000, 42000, 15, 5000]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -367,6 +372,38 @@ sub test_stop_processing_on_relation_does_not_exist : Test(4) {
 	$self->{'database'}->{'mock'}->is_called(1, 'has_special_triggers');
 	$self->{'database'}->{'mock'}->is_called(2, undef);
 	ok($table_compactor->is_processed());
+}
+
+sub test_get_size_delta : Test {
+	my $self = shift;
+
+	my $size = (
+		$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+		{'row_list_sequence'}->[0]->[0]->[3] -
+		$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+		{'row_list_sequence'}->[4]->[0]->[3]);
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	is($table_compactor->get_size_delta(), $size);
+}
+
+sub test_get_total_size_delta : Test {
+	my $self = shift;
+
+	my $size = (
+		$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+		{'row_list_sequence'}->[0]->[0]->[4] -
+		$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
+		{'row_list_sequence'}->[4]->[0]->[4]);
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	is($table_compactor->get_total_size_delta(), $size);
 }
 
 1;

@@ -154,6 +154,8 @@ END $$;
 
 SELECT
     page_count, total_page_count, effective_page_count,
+    pg_catalog.pg_relation_size('public.table1') AS size,
+    pg_catalog.pg_total_relation_size('public.table1') AS total_size,
     CASE
         WHEN
             effective_page_count = 0 OR page_count <= 1 OR
@@ -213,21 +215,23 @@ FROM (
 ) AS sq;
 
 SELECT
-    public.pg_relpages('"public"."table1"') AS page_count,
+    public.pg_relpages('public.table1') AS page_count,
     ceil(
-        pg_catalog.pg_total_relation_size('"public"."table1"')::real /
+        pg_catalog.pg_total_relation_size('public.table1')::real /
         current_setting('block_size')::integer
     ) AS total_page_count,
     CASE
-        WHEN free_percent = 0 THEN public.pg_relpages('"public"."table1"')
+        WHEN free_percent = 0 THEN public.pg_relpages('public.table1')
         ELSE
             ceil(
-                public.pg_relpages('"public"."table1"') *
+                public.pg_relpages('public.table1') *
                 (1 - free_percent / 100)
             )
-        END as effective_page_count,
+        END AS effective_page_count,
+    pg_catalog.pg_relation_size('public.table1') AS size,
+    pg_catalog.pg_total_relation_size('public.table1') AS total_size,
     free_percent, free_space
-FROM public.pgstattuple('"public"."table1"');
+FROM public.pgstattuple('public.table1');
 
 -- Check special triggers
 
