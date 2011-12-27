@@ -28,7 +28,9 @@ CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
 --
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
 --
-ALTER DATABASE dbname1 SET search_path TO '';
+CREATE SCHEMA dummy;
+--
+ALTER DATABASE dbname1 SET search_path TO dummy;
 --
 \c dbname2
 --
@@ -58,7 +60,9 @@ SELECT
     random() * 10000 AS float_column
 FROM generate_series(1, 10) i;
 --
-ALTER DATABASE dbname2 SET search_path TO '';
+CREATE SCHEMA dummy;
+--
+ALTER DATABASE dbname2 SET search_path TO dummy;
 --
 \c dbname1
 

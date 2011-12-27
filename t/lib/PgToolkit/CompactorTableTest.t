@@ -163,7 +163,7 @@ sub test_force_processing : Test(12) {
 	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 98);
 }
 
-sub test_main_processing : Test(28) {
+sub test_main_processing : Test(22) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
@@ -176,20 +176,17 @@ sub test_main_processing : Test(28) {
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
 	$self->{'database'}->{'mock'}->is_called(6, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 99);
-	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(8, 'clean_pages', to_page => 94);
-	$table_compactor->{'mock'}->is_called(2, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(9, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(10, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(11, 'clean_pages', to_page => 87);
-	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(12, 'clean_pages', to_page => 84);
 	$self->{'database'}->{'mock'}->is_called(13, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(14, 'get_statistics');
 	$self->{'database'}->{'mock'}->is_called(15, 'analyze');
 }
 
-sub test_main_processing_no_routine_vacuum : Test(22) {
+sub test_main_processing_no_routine_vacuum : Test(16) {
 	my $self = shift;
 
 	splice(@{$self->{'database'}->{'mock'}->{'data_hash'}->{'get_statistics'}->
@@ -203,11 +200,8 @@ sub test_main_processing_no_routine_vacuum : Test(22) {
 	$self->{'database'}->{'mock'}->is_called(5, 'get_column');
 	$self->{'database'}->{'mock'}->is_called(6, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(7, 'clean_pages', to_page => 99);
-	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(8, 'clean_pages', to_page => 94);
-	$table_compactor->{'mock'}->is_called(2, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(9, 'clean_pages', to_page => 89);
-	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
 	$self->{'database'}->{'mock'}->is_called(10, 'clean_pages', to_page => 84);
 	$self->{'database'}->{'mock'}->is_called(11, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(12, 'get_statistics');
@@ -406,6 +400,37 @@ sub test_get_total_size_delta : Test {
 	is($table_compactor->get_total_size_delta(), $size);
 }
 
+sub test_delay_and_proggress_1 : Test(12) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process();
+
+	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
+	$table_compactor->{'mock'}->is_called(2, 'log_progress');
+	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
+	$table_compactor->{'mock'}->is_called(4, 'log_progress');
+	$table_compactor->{'mock'}->is_called(5, 'sleep', 2.5);
+	$table_compactor->{'mock'}->is_called(6, 'log_progress');
+}
+
+sub test_delay_and_proggress_2 : Test(8) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		delay_constant => 2,
+		delay_ratio => 1,
+		progress_report_period => 10);
+
+	$table_compactor->process();
+
+	$table_compactor->{'mock'}->is_called(1, 'sleep', 5);
+	$table_compactor->{'mock'}->is_called(2, 'sleep', 5);
+	$table_compactor->{'mock'}->is_called(3, 'log_progress');
+	$table_compactor->{'mock'}->is_called(4, 'sleep', 5);
+}
+
 1;
 
 package PgToolkit::Compactor::TableStub;
@@ -434,6 +459,7 @@ sub init {
 			is_deeply([$self->call_args($pos)], [$self, @arg_list]);
 		});
 
+	$self->{'mock'}->set_true('log_progress');
 	$self->{'mock'}->set_true('sleep');
 	$self->{'mock'}->set_series('-time', 1 .. 1000);
 
@@ -446,6 +472,14 @@ sub _sleep {
 
 sub _time {
 	return shift->{'mock'}->time();
+}
+
+sub _log_progress {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'mock'}->log_progress();
+
+	return $self->SUPER::_log_progress(%arg_hash);
 }
 
 1;
