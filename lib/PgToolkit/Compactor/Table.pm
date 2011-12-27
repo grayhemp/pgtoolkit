@@ -662,10 +662,14 @@ sub _log_pages_before_vacuum {
 sub _log_clean_pages_average {
 	my ($self, %arg_hash) = @_;
 
+	my $timing = sprintf("%.3f", $arg_hash{'timing'});
+
 	$self->{'_logger'}->write(
-		message => ('Cleaning in average: '.
-					sprintf("%.3f", $arg_hash{'timing'}).'s per '.
-					$arg_hash{'pages_per_round'}.' pages.'),
+		message => (
+			'Cleaning in average: '.
+			sprintf("%.1f", $arg_hash{'pages_per_round'} / $timing).
+			' pages/s ('.$timing.'s per '.$arg_hash{'pages_per_round'}.
+			' pages).'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
