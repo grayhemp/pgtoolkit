@@ -8,7 +8,8 @@ CREATE DATABASE dbname1;
 CREATE DATABASE dbname2;
 --
 \c dbname1
-\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
+--\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
+CREATE EXTENSION pgstattuple;
 --
 CREATE TABLE table1 AS
 SELECT
@@ -154,12 +155,22 @@ BEGIN
     RETURN _result_page;
 END $$;
 
--- Rewrite the bloat data query
+-- Get statistics queries
 
 SELECT
-    page_count, total_page_count, effective_page_count,
-    pg_catalog.pg_relation_size('public.table1') AS size,
-    pg_catalog.pg_total_relation_size('public.table1') AS total_size,
+    size,
+    total_size,
+    ceil(size::real / bs) AS page_count,
+    ceil(total_size::real / bs) AS total_page_count
+FROM (
+    SELECT
+        current_setting('block_size')::integer AS bs,
+        pg_catalog.pg_relation_size('public.table1') AS size,
+        pg_catalog.pg_total_relation_size('public.table1') AS total_size
+) AS sq;
+
+SELECT
+    effective_page_count,
     CASE
         WHEN
             effective_page_count = 0 OR page_count <= 1 OR
@@ -175,22 +186,12 @@ SELECT
         END AS free_percent,
     CASE
         WHEN page_count < effective_page_count THEN 0
-        ELSE
-            round(
-                current_setting('block_size')::integer *
-                (page_count - effective_page_count)
-            )
+        ELSE round(bs * (page_count - effective_page_count))
         END AS free_space
 FROM (
     SELECT
-        ceil(
-            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid)::real /
-            current_setting('block_size')::integer
-        ) AS page_count,
-        ceil(
-            pg_catalog.pg_total_relation_size(pg_catalog.pg_class.oid)::real /
-            current_setting('block_size')::integer
-        ) AS total_page_count,
+        bs,
+        ceil(size / bs) AS page_count,
         ceil(
             reltuples * (
                 max(stanullfrac) * ma * ceil(
@@ -209,39 +210,50 @@ FROM (
                         sum((1 - stanullfrac) * stawidth)
                     )::real / ma
                 )
-            )::real / (current_setting('block_size')::integer - 24)
+            )::real / (bs - 24)
         ) AS effective_page_count
     FROM pg_catalog.pg_class
     LEFT JOIN pg_catalog.pg_statistic ON starelid = pg_catalog.pg_class.oid
-    CROSS JOIN (SELECT 23 AS header_width, 8 AS ma) AS const
+    CROSS JOIN (
+        SELECT
+            23 AS header_width, 8 AS ma,
+            current_setting('block_size')::integer AS bs,
+            pg_catalog.pg_relation_size('public.table1')::real AS size
+    ) AS const
     WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
-    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma
+    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma, bs, size
 ) AS sq;
 
 SELECT
-    public.pg_relpages('public.table1') AS page_count,
-    ceil(
-        pg_catalog.pg_total_relation_size('public.table1')::real /
-        current_setting('block_size')::integer
-    ) AS total_page_count,
     CASE
-        WHEN free_percent = 0 THEN public.pg_relpages('public.table1')
-        ELSE
-            ceil(
-                public.pg_relpages('public.table1') *
-                (1 - free_percent / 100)
-            )
+        WHEN free_percent = 0 THEN page_count
+        ELSE ceil(page_count * (1 - free_percent / 100))
         END AS effective_page_count,
-    pg_catalog.pg_relation_size('public.table1') AS size,
-    pg_catalog.pg_total_relation_size('public.table1') AS total_size,
     free_percent, free_space
-FROM public.pgstattuple('public.table1');
+FROM public.pgstattuple('public.table1')
+CROSS JOIN (
+    SELECT
+        pg_catalog.pg_relation_size('public.table1')::real /
+        current_setting('block_size')::integer AS page_count
+) AS sq;
+
+CREATE TABLE public.table1 AS
+SELECT repeat('blabla'||i::text, (random() * 500)::integer) AS text_column
+FROM generate_series(1, 1000000) i;
+DELETE FROM public.table1 WHERE random() < 0.5;
+
+SELECT public.pg_relpages('public.table1');
+SELECT
+    pg_catalog.pg_relation_size('public.table1')::real /
+    current_setting('block_size')::integer;
+
+DROP TABLE public.table1;
 
 -- Check special triggers
 
 SELECT count(1) FROM pg_catalog.pg_trigger
 WHERE
-    tgrelid='public.table1'::regclass AND
+    tgrelid = 'public.table1'::regclass AND
     tgtype & 16 = 8 AND
     tgenabled IN ('A', 'R');
 

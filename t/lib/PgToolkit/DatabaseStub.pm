@@ -23,8 +23,12 @@ sub init {
 			my ($self, $pos, $name, %substitution_hash) = @_;
 
 			if (defined $name) {
-				my $sql_pattern = $self->{'data_hash'}->{$name}
-				->{'sql_pattern'};
+				if (not exists $self->{'data_hash'}->{$name}) {
+					die('No such key in data hash: '.$name);
+				}
+
+				my $sql_pattern =
+					$self->{'data_hash'}->{$name}->{'sql_pattern'};
 				for my $item (keys %substitution_hash) {
 					$sql_pattern =~ s/<$item>/$substitution_hash{$item}/g;
 				}
@@ -44,15 +48,22 @@ sub init {
 		sub {
 			my ($self, %arg_hash) = @_;
 
+			my $data_hash = $self->{'data_hash'};
+
 			my $result;
-			for my $data (values %{$self->{'data_hash'}}) {
-				my $sql_pattern = $data->{'sql_pattern'};
+			for my $key (keys %{$data_hash}) {
+				if (not defined $data_hash->{$key}->{'sql_pattern'}) {
+					die('No such key in data hash: '.$key);
+				}
+
+				my $sql_pattern = $data_hash->{$key}->{'sql_pattern'};
 				$sql_pattern =~ s/<[a-z_]+>/.*/g;
 				if ($arg_hash{'sql'} =~ qr/$sql_pattern/) {
-					if (exists $data->{'row_list'}) {
-						$result = $data->{'row_list'};
+					if (exists $data_hash->{$key}->{'row_list'}) {
+						$result = $data_hash->{$key}->{'row_list'};
 					} else {
-						$result = shift @{$data->{'row_list_sequence'}};
+						$result =
+							shift @{$data_hash->{$key}->{'row_list_sequence'}};
 						if (not defined $result) {
 							die("Not enough results for: \n".
 								$arg_hash{'sql'});
@@ -74,6 +85,20 @@ sub init {
 			return $result;
 		});
 
+	my $bloat_statistics_row_list_sequence = [
+		[[85, 15, 5000]],
+		[[85, 15, 5000]],
+		[[85, 5, 1250]],
+		[[85, 0, 0]],
+		[[85, 0, 0]]];
+
+	my $size_statistics_row_list_sequence = [
+		[[35000, 42000, 100, 120]],
+		[[35000, 42000, 100, 120]],
+		[[31500, 37800, 90, 108]],
+		[[29750, 35700, 85, 102]],
+		[[29750, 35700, 85, 102]]];
+
 	$self->{'mock'}->{'data_hash'} = {
 		'has_special_triggers' => {
 			'sql_pattern' => (
@@ -86,16 +111,25 @@ sub init {
 				qr/sum\(attlen\)\).+/s.
 				qr/attrelid = 'schema\.table'::regclass/),
 			'row_list' => [[10]]},
-		'get_statistics' => {
+		'get_approximate_bloat_statistics' => {
 			'sql_pattern' => (
-				qr/SELECT\s+page_count, total_page_count.+/s.
+				qr/SELECT.+effective_page_count,.+/s.
+				qr/END AS free_percent,.+END AS free_space.+/s.
+				qr/pg_relation_size\('schema\.table'\)::real AS size.+/s.
 				qr/pg_catalog\.pg_class\.oid = 'schema\.table'::regclass/),
-			'row_list_sequence' => [
-				[[100, 120, 85, 35000, 42000, 15, 5000]],
-				[[100, 120, 85, 35000, 42000, 15, 5000]],
-				[[90, 108, 85, 31500, 37800, 5, 1250]],
-				[[85, 102, 85, 29750, 35700, 0, 0]],
-				[[85, 102, 85, 29750, 35700, 0, 0]]]},
+			'row_list_sequence' => $bloat_statistics_row_list_sequence},
+		'get_pgstattuple_bloat_statistics' => {
+			'sql_pattern' => (
+				qr/END AS effective_page_count.+free_percent, free_space.+/s.
+				qr/pgstattuple\('schema\.table'\).+/s.
+				qr/pg_catalog\.pg_relation_size\('schema\.table'\)/),
+			'row_list_sequence' => $bloat_statistics_row_list_sequence},
+		'get_size_statistics' => {
+			'sql_pattern' => (
+				qr/SELECT\s+size,\s+total_size,.+/s.
+				qr/pg_catalog\.pg_relation_size\('schema\.table'\).+/s.
+				qr/pg_catalog\.pg_total_relation_size\('schema\.table'\)/),
+			'row_list_sequence' => $size_statistics_row_list_sequence},
 		'get_column' => {
 			'sql_pattern' => (
 				qr/SELECT attname.+attrelid = 'schema\.table'::regclass.+/s.
@@ -198,17 +232,7 @@ sub init {
 			'sql_pattern' =>
 				qr/SELECT nspname FROM pg_catalog\.pg_proc.+/s.
 				qr/WHERE proname = 'pgstattuple' LIMIT 1/,
-			'row_list' => [[0]]},
-		'get_pgstattuple_statistics' => {
-			'sql_pattern' => (
-				qr/free_percent, free_space.+/s.
-				qr/FROM public\.pgstattuple\('schema\.table'\)/),
-			'row_list_sequence' => [
-				[[100, 120, 85, 35000, 42000, 15, 5000]],
-				[[100, 120, 85, 35000, 42000, 15, 5000]],
-				[[90, 108, 85, 31500, 37800, 5, 1250]],
-				[[85, 102, 85, 29750, 35700, 0, 0]],
-				[[85, 102, 85, 29750, 35700, 0, 0]]]}};
+				'row_list' => [[0]]}};
 
 	return;
 }

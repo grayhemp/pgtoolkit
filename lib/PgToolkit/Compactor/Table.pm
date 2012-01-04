@@ -221,52 +221,59 @@ sub _process {
 
 	my $timing;
 	if (not $self->{'_is_processed'}) {
-		$self->{'_statistics'} = $self->_get_statistics();
+		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 
-		if (not defined $self->{'_statistics'}->{'effective_page_count'}) {
+		if (not defined
+			$self->{'_bloat_statistics'}->{'effective_page_count'})
+		{
 			$self->_do_analyze(timing => \ $timing);
 			$self->_log_analyze_complete(
 				timing => $timing, phrase => 'required initial');
-			$self->{'_statistics'} = $self->_get_statistics();
+			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		}
 
-		if (not defined $self->{'_base_statistics'}) {
-			$self->{'_base_statistics'} = {%{$self->{'_statistics'}}};
+		$self->{'_size_statistics'} = $self->_get_size_statistics();
+
+		if (not defined $self->{'_base_size_statistics'}) {
+			$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
 		}
 
 		if (not $self->{'_force'} and
-			$self->{'_statistics'}->{'page_count'} < $self->{'_min_page_count'})
+			$self->{'_size_statistics'}->{'page_count'} <
+			$self->{'_min_page_count'})
 		{
 			$self->_log_skipping_min_page_count(
-				statistics => $self->{'_statistics'});
+				page_count => $self->{'_size_statistics'}->{'page_count'});
 			$self->{'_is_processed'} = 1;
 		}
 	}
 
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
 		$self->_do_vacuum(timing => \ $timing);
-		$self->{'_statistics'} = $self->_get_statistics();
+		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+		$self->{'_size_statistics'} = $self->_get_size_statistics();
 		$self->_log_vacuum_complete(
-			statistics => $self->{'_statistics'},
+			page_count => $self->{'_size_statistics'}->{'page_count'},
 			timing => $timing,
-			to_page => $self->{'_statistics'}->{'page_count'} - 1,
-			pages_before_vacuum => $self->{'_statistics'}->{'page_count'},
+			to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
+			pages_before_vacuum => $self->{'_size_statistics'}->{'page_count'},
 			phrase => 'initial');
 
 		if (not $self->{'_force'}) {
-			if ($self->{'_statistics'}->{'page_count'} <
+			if ($self->{'_size_statistics'}->{'page_count'} <
 				$self->{'_min_page_count'})
 			{
 				$self->_log_skipping_min_page_count(
-					statistics => $self->{'_statistics'});
+					page_count => $self->{'_size_statistics'}->{'page_count'});
 				$self->{'_is_processed'} = 1;
 			}
 
-			if ($self->{'_statistics'}->{'free_percent'} <
+			if ($self->{'_bloat_statistics'}->{'free_percent'} <
 				$self->{'_min_free_percent'} and not $self->{'_is_processed'})
 			{
 				$self->_log_skipping_min_free_percent(
-					statistics => $self->{'_statistics'});
+					free_percent => (
+						$self->{'_bloat_statistics'}->{'free_percent'}));
 				$self->{'_is_processed'} = 1;
 			}
 		}
@@ -274,34 +281,38 @@ sub _process {
 
 	if (not $self->{'_is_processed'}) {
 		if ($self->{'_force'}) {
-			$self->_log_forced_processing(statistics => $self->{'_statistics'});
+			$self->_log_forced_processing(
+				size_statistics => $self->{'_size_statistics'},
+				bloat_statistics => $self->{'_bloat_statistics'});
 		} else {
-			$self->_log_processing(statistics => $self->{'_statistics'});
+			$self->_log_processing(
+				size_statistics => $self->{'_size_statistics'},
+				bloat_statistics => $self->{'_bloat_statistics'});
 		}
 
-		my $expected_page_count = $self->{'_statistics'}->{'page_count'};
+		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
 		my $column_ident = $self->{'_database'}->quote_ident(
 			string => $self->_get_update_column());
 		my $pages_per_round = $self->_get_pages_per_round(
-			statistics => $self->{'_statistics'});
+			page_count => $self->{'_size_statistics'}->{'page_count'});
 		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
-			statistics => $self->{'_statistics'});
+			page_count => $self->{'_size_statistics'}->{'page_count'});
 		$self->_log_column(name => $column_ident);
 		$self->_log_pages_per_round(value => $pages_per_round);
 		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
 
 		my $vacuum_page_count = 0;
-		my $initial_statistics = {%{$self->{'_statistics'}}};
-		my $to_page = $self->{'_statistics'}->{'page_count'} - 1;
+		my $initial_size_statistics = {%{$self->{'_size_statistics'}}};
+		my $to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
 		my $clean_pages_total_timing = 0;
-		my $last_loop = $self->{'_statistics'}->{'page_count'} + 1;
+		my $last_loop = $self->{'_size_statistics'}->{'page_count'} + 1;
 		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
 		my $expected_error_occurred = 0;
 
 		my $loop;
-		for ($loop = $self->{'_statistics'}->{'page_count'};
+		for ($loop = $self->{'_size_statistics'}->{'page_count'};
 			 $loop > 0 ; $loop--)
 		{
 			my $start_time = $self->_time();
@@ -309,7 +320,6 @@ sub _process {
 			my $last_to_page = $to_page;
 			eval {
 				$to_page = $self->_clean_pages(
-					statistics => $self->{'_statistics'},
 					timing => \ $timing,
 					column_ident => $column_ident,
 					to_page => $last_to_page,
@@ -341,7 +351,9 @@ sub _process {
 				$last_to_page != $to_page)
 			{
 				$self->_log_progress(
-					initial_statistics => $initial_statistics,
+					page_count => $initial_size_statistics->{'page_count'},
+					effective_page_count => (
+						$self->{'_bloat_statistics'}->{'effective_page_count'}),
 					to_page => $to_page);
 				$progress_report_time = $self->_time();
 			}
@@ -359,9 +371,9 @@ sub _process {
 				$last_loop = $loop;
 
 				$self->_do_vacuum(timing => \ $timing);
-				$self->{'_statistics'} = $self->_get_statistics();
+				$self->{'_size_statistics'} = $self->_get_size_statistics();
 				$self->_log_vacuum_complete(
-					statistics => $self->{'_statistics'},
+					page_count => $self->{'_size_statistics'}->{'page_count'},
 					timing => $timing,
 					to_page => $to_page,
 					pages_before_vacuum => $pages_before_vacuum,
@@ -371,7 +383,7 @@ sub _process {
 
 				my $last_pages_per_round = $pages_per_round;
 				$pages_per_round = $self->_get_pages_per_round(
-					statistics => $self->{'_statistics'});
+					page_count => $self->{'_size_statistics'}->{'page_count'});
 				if ($last_pages_per_round != $pages_per_round) {
 					$self->_log_pages_per_round(
 						value => $pages_per_round);
@@ -380,14 +392,16 @@ sub _process {
 				my $last_pages_before_vacuum = $pages_before_vacuum;
 				$pages_before_vacuum = $self->_get_pages_before_vacuum(
 					expected_page_count => $expected_page_count,
-					statistics => $self->{'_statistics'});
+					page_count => $self->{'_size_statistics'}->{'page_count'});
 				if ($last_pages_before_vacuum != $pages_before_vacuum) {
 					$self->_log_pages_before_vacuum(
 						value => $pages_before_vacuum);
 				}
 
-				if ($to_page > $self->{'_statistics'}->{'page_count'} - 1) {
-					$to_page = $self->{'_statistics'}->{'page_count'} - 1;
+				if ($to_page >
+					$self->{'_size_statistics'}->{'page_count'} - 1)
+				{
+					$to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
 				}
 			}
 		}
@@ -397,9 +411,10 @@ sub _process {
 		}
 
 		$self->_do_vacuum(timing => \ $timing);
-		$self->{'_statistics'} = $self->_get_statistics();
+		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+		$self->{'_size_statistics'} = $self->_get_size_statistics();
 		$self->_log_vacuum_complete(
-			statistics => $self->{'_statistics'},
+			page_count => $self->{'_size_statistics'}->{'page_count'},
 			timing => $timing,
 			to_page => $to_page + $pages_per_round,
 			pages_before_vacuum => $pages_before_vacuum,
@@ -412,30 +427,32 @@ sub _process {
 
 		$pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
-			statistics => $self->{'_statistics'});
+			page_count => $self->{'_size_statistics'}->{'page_count'});
 		$self->{'_is_processed'} = (
-			($self->{'_statistics'}->{'page_count'} <=
+			($self->{'_size_statistics'}->{'page_count'} <=
 			 $to_page + 1 + $pages_before_vacuum) and
 			not $expected_error_occurred);
 
 		if ($self->{'_is_processed'} and $self->{'_reindex'}) {
 			$self->_reindex(timing => \ $timing);
 			$self->_log_reindex_complete(timing => $timing);
+			$self->{'_size_statistics'} = $self->_get_size_statistics();
 		}
 
 		if ($self->{'_is_processed'} and $self->{'_print_reindex_queries'}) {
 			$self->_log_reindex_queries();
 		}
 
-		$self->{'_statistics'} = $self->_get_statistics();
 		if ($self->{'_is_processed'}) {
 			$self->_log_complete_processing(
-				statistics => $self->{'_statistics'},
-				base_statistics => $self->{'_base_statistics'});
+				size_statistics => $self->{'_size_statistics'},
+				bloat_statistics => $self->{'_bloat_statistics'},
+				base_size_statistics => $self->{'_base_size_statistics'});
 		} else {
 			$self->_log_incomplete_processing(
-				statistics => $self->{'_statistics'},
-				base_statistics => $self->{'_base_statistics'});
+				size_statistics => $self->{'_size_statistics'},
+				bloat_statistics => $self->{'_bloat_statistics'},
+				base_size_statistics => $self->{'_base_size_statistics'});
 		}
 	}
 
@@ -490,8 +507,8 @@ sub get_size_delta {
 	my $self = shift;
 
 	return
-		$self->{'_base_statistics'}->{'size'} -
-		$self->{'_statistics'}->{'size'};
+		$self->{'_base_size_statistics'}->{'size'} -
+		$self->{'_size_statistics'}->{'size'};
 }
 
 =head2 B<get_total_size_delta()>
@@ -508,8 +525,8 @@ sub get_total_size_delta {
 	my $self = shift;
 
 	return
-		$self->{'_base_statistics'}->{'total_size'} -
-		$self->{'_statistics'}->{'total_size'};
+		$self->{'_base_size_statistics'}->{'total_size'} -
+		$self->{'_size_statistics'}->{'total_size'};
 }
 
 sub _log_can_not_process_ar_triggers {
@@ -529,8 +546,8 @@ sub _log_skipping_min_page_count {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping processing: '.$arg_hash{'statistics'}->{'page_count'}.
-			' pages from '.$self->{'_min_page_count'}.' minimum required.'),
+			'Skipping processing: '.$arg_hash{'page_count'}.' pages from '.
+			$self->{'_min_page_count'}.' minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -540,10 +557,10 @@ sub _log_skipping_min_page_count {
 sub _log_vacuum_complete {
 	my ($self, %arg_hash) = @_;
 
-	if ($arg_hash{'statistics'}->{'page_count'} > $arg_hash{'to_page'} + 1) {
+	if ($arg_hash{'page_count'} > $arg_hash{'to_page'} + 1) {
 		my $level;
-		if ($arg_hash{'statistics'}->{'page_count'} -
-			($arg_hash{'to_page'} + 1) <= $arg_hash{'pages_before_vacuum'} * 2)
+		if ($arg_hash{'page_count'} - ($arg_hash{'to_page'} + 1) <=
+			$arg_hash{'pages_before_vacuum'} * 2)
 		{
 			$level = 'info';
 		} else {
@@ -554,17 +571,16 @@ sub _log_vacuum_complete {
 			message => (
 				'Vacuum '.$arg_hash{'phrase'}.': '.
 				sprintf("%.3f", $arg_hash{'timing'}).'s, can not clean '.
-				($arg_hash{'statistics'}->{'page_count'} -
-				 $arg_hash{'to_page'} - 1).' pages, '.
-				$arg_hash{'statistics'}->{'page_count'}.' pages left.'),
+				($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).' pages, '.
+				$arg_hash{'page_count'}.' pages left.'),
 			level => $level,
 			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
 				'Vacuum '.$arg_hash{'phrase'}.': '.
-				sprintf("%.3f", $arg_hash{'timing'}).
-				's, '.$arg_hash{'statistics'}->{'page_count'}.' pages left.'),
+				sprintf("%.3f", $arg_hash{'timing'}).'s, '.
+				$arg_hash{'page_count'}.' pages left.'),
 			level => 'info',
 			target => $self->{'_log_target'});
 	}
@@ -577,7 +593,7 @@ sub _log_skipping_min_free_percent {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping processing: '.$arg_hash{'statistics'}->{'free_percent'}.
+			'Skipping processing: '.$arg_hash{'free_percent'}.
 			'% space to compact from '.$self->{'_min_free_percent'}.
 			'% minimum required.'),
 		level => 'notice',
@@ -590,9 +606,11 @@ sub _log_forced_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Forced processing: '.
-					$self->_get_log_processing_expectations(
-						statistics => $arg_hash{'statistics'}).'.'),
+		message => (
+			'Forced processing: '.
+			$self->_get_log_processing_expectations(
+				size_statistics => $arg_hash{'size_statistics'},
+				bloat_statistics => $arg_hash{'bloat_statistics'}).'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -603,9 +621,11 @@ sub _log_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Processing: '.
-					$self->_get_log_processing_expectations(
-						statistics => $arg_hash{'statistics'}).'.'),
+		message => (
+			'Processing: '.
+			$self->_get_log_processing_expectations(
+				size_statistics => $arg_hash{'size_statistics'},
+				bloat_statistics => $arg_hash{'bloat_statistics'}).'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -616,14 +636,15 @@ sub _get_log_processing_expectations {
 	my ($self, %arg_hash) = @_;
 
 	return
-		'contains '.$arg_hash{'statistics'}->{'page_count'}.' pages ('.
-		$arg_hash{'statistics'}->{'total_page_count'}.
+		'contains '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+		$arg_hash{'size_statistics'}->{'total_page_count'}.
 		' including toasts and indexes), approximately '.
-		$arg_hash{'statistics'}->{'free_percent'}.'% ('.
-		($arg_hash{'statistics'}->{'page_count'} -
-		 $arg_hash{'statistics'}->{'effective_page_count'}).
+		$arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+		($arg_hash{'size_statistics'}->{'page_count'} -
+		 $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
 		' pages) are expected to be compacted reducing the size by '.
-		$arg_hash{'statistics'}->{'free_space'}.' bytes after this attempt';
+		$arg_hash{'bloat_statistics'}->{'free_space'}.
+		' bytes after this attempt';
 }
 
 sub _log_column {
@@ -682,18 +703,17 @@ sub _log_progress {
 	$self->{'_logger'}->write(
 		message => (
 			'Progress: '.
-			(defined $arg_hash{'initial_statistics'}->{'effective_page_count'} ?
+			(defined $arg_hash{'effective_page_count'} ?
 			 int(
 				 100 *
 				 ($arg_hash{'to_page'} ?
-				  ($arg_hash{'initial_statistics'}->{'page_count'} -
-				   $arg_hash{'to_page'} - 1) /
-				  ($arg_hash{'initial_statistics'}->{'page_count'} -
-				   $arg_hash{'initial_statistics'}->{'effective_page_count'}) :
+				  ($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1) /
+				  ($arg_hash{'page_count'} -
+				   $arg_hash{'effective_page_count'}) :
 				  1)
 			 ).'%, ' : ' ').
-			($arg_hash{'initial_statistics'}->{'page_count'} -
-			 $arg_hash{'to_page'} - 1).' pages completed.'),
+			($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).
+			' pages completed.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -750,11 +770,13 @@ sub _log_incomplete_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Processing incomplete: '.
-					$self->_get_log_processing_results(
-						statistics => $arg_hash{'statistics'},
-						base_statistics => $arg_hash{'base_statistics'}).
-					'.'),
+		message => (
+			'Processing incomplete: '.
+			$self->_get_log_processing_results(
+				size_statistics => $arg_hash{'size_statistics'},
+				bloat_statistics => $arg_hash{'bloat_statistics'},
+				base_size_statistics => $arg_hash{'base_size_statistics'}).
+			'.'),
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -765,11 +787,13 @@ sub _log_complete_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Processing complete: '.
-					$self->_get_log_processing_results(
-						statistics => $arg_hash{'statistics'},
-						base_statistics => $arg_hash{'base_statistics'}).
-					'.'),
+		message => (
+			'Processing complete: '.
+			$self->_get_log_processing_results(
+				size_statistics => $arg_hash{'size_statistics'},
+				bloat_statistics => $arg_hash{'bloat_statistics'},
+				base_size_statistics => $arg_hash{'base_size_statistics'}).
+			'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -780,19 +804,20 @@ sub _get_log_processing_results {
 	my ($self, %arg_hash) = @_;
 
 	return
-		'left '.$arg_hash{'statistics'}->{'page_count'}.' pages ('.
-		$arg_hash{'statistics'}->{'total_page_count'}.
+		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+		$arg_hash{'size_statistics'}->{'total_page_count'}.
 		' including toasts and indexes), size reduced by '.
-		($arg_hash{'base_statistics'}->{'size'} -
-		 $arg_hash{'statistics'}->{'size'}).' bytes ('.
-		($arg_hash{'base_statistics'}->{'total_size'} -
-		 $arg_hash{'statistics'}->{'total_size'}).
+		($arg_hash{'base_size_statistics'}->{'size'} -
+		 $arg_hash{'size_statistics'}->{'size'}).' bytes ('.
+		($arg_hash{'base_size_statistics'}->{'total_size'} -
+		 $arg_hash{'size_statistics'}->{'total_size'}).
 		' bytes including toasts and indexes) in total'.
-		($arg_hash{'statistics'}->{'free_percent'} > 0 ? ', approximately '.
-		 $arg_hash{'statistics'}->{'free_percent'}.'% ('.
-		 ($arg_hash{'statistics'}->{'page_count'} -
-		  $arg_hash{'statistics'}->{'effective_page_count'}).
-		 ' pages) that is '.$arg_hash{'statistics'}->{'free_space'}.
+		($arg_hash{'bloat_statistics'}->{'free_percent'} > 0 ?
+		 ', approximately '.
+		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+		 ($arg_hash{'size_statistics'}->{'page_count'} -
+		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
+		 ' pages) that is '.$arg_hash{'bloat_statistics'}->{'free_space'}.
 		 ' bytes more were expected to be compacted after this attempt' : '');
 }
 
@@ -877,7 +902,7 @@ SQL
 	return $result->[0]->[0];
 }
 
-sub _get_statistics {
+sub _get_bloat_statistics {
 	my $self = shift;
 
 	my $result;
@@ -885,36 +910,24 @@ sub _get_statistics {
 		$result = $self->{'_database'}->execute(
 			sql => <<SQL
 SELECT
-    $self->{'_pgstattuple_schema_ident'}.pg_relpages('$self->{'_ident'}')
-        AS page_count,
-    ceil(
-        pg_catalog.pg_total_relation_size('$self->{'_ident'}')::real /
-        current_setting('block_size')::integer
-    ) AS total_page_count,
     CASE
-        WHEN free_percent = 0
-        THEN $self->{'_pgstattuple_schema_ident'}.pg_relpages(
-            '$self->{'_ident'}')
-        ELSE
-            ceil(
-                $self->{'_pgstattuple_schema_ident'}.pg_relpages(
-                    '$self->{'_ident'}') *
-                (1 - free_percent / 100)
-            )
-        END as effective_page_count,
-    pg_catalog.pg_relation_size('$self->{'_ident'}') AS size,
-    pg_catalog.pg_total_relation_size('$self->{'_ident'}') AS total_size,
+        WHEN free_percent = 0 THEN page_count
+        ELSE ceil(page_count * (1 - free_percent / 100))
+        END AS effective_page_count,
     free_percent, free_space
-FROM $self->{'_pgstattuple_schema_ident'}.pgstattuple('$self->{'_ident'}');
+FROM $self->{'_pgstattuple_schema_ident'}.pgstattuple('$self->{'_ident'}')
+CROSS JOIN (
+    SELECT
+        pg_catalog.pg_relation_size('$self->{'_ident'}')::real /
+        current_setting('block_size')::integer AS page_count
+) AS sq
 SQL
 			);
 	} else {
 		$result = $self->{'_database'}->execute(
 			sql => <<SQL
 SELECT
-    page_count, total_page_count, effective_page_count,
-    pg_catalog.pg_relation_size('$self->{'_ident'}') AS size,
-    pg_catalog.pg_total_relation_size('$self->{'_ident'}') AS total_size,
+    effective_page_count,
     CASE
         WHEN
             effective_page_count = 0 OR page_count <= 1 OR
@@ -930,22 +943,12 @@ SELECT
         END AS free_percent,
     CASE
         WHEN page_count < effective_page_count THEN 0
-        ELSE
-            round(
-                current_setting('block_size')::integer *
-                (page_count - effective_page_count)
-            )
+        ELSE round(bs * (page_count - effective_page_count))
         END AS free_space
 FROM (
     SELECT
-        ceil(
-            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid)::real /
-            current_setting('block_size')::integer
-        ) AS page_count,
-        ceil(
-            pg_catalog.pg_total_relation_size(pg_catalog.pg_class.oid)::real /
-            current_setting('block_size')::integer
-        ) AS total_page_count,
+        bs,
+        ceil(size / bs) AS page_count,
         ceil(
             reltuples * (
                 max(stanullfrac) * ma * ceil(
@@ -964,26 +967,53 @@ FROM (
                         sum((1 - stanullfrac) * stawidth)
                     )::real / ma
                 )
-            )::real / (current_setting('block_size')::integer - 24)
+            )::real / (bs - 24)
         ) AS effective_page_count
     FROM pg_catalog.pg_class
     LEFT JOIN pg_catalog.pg_statistic ON starelid = pg_catalog.pg_class.oid
-    CROSS JOIN (SELECT 23 AS header_width, 8 AS ma) AS const
+    CROSS JOIN (
+        SELECT
+            23 AS header_width, 8 AS ma,
+            current_setting('block_size')::integer AS bs,
+            pg_catalog.pg_relation_size('$self->{'_ident'}')::real AS size
+    ) AS const
     WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
-    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma
+    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma, bs, size
 ) AS sq
 SQL
 			);
 	}
 
 	return {
-		'page_count' => $result->[0]->[0],
-		'total_page_count' => $result->[0]->[1],
-		'effective_page_count' => $result->[0]->[2],
-		'size' => $result->[0]->[3],
-		'total_size' => $result->[0]->[4],
-		'free_percent' => $result->[0]->[5],
-		'free_space' => $result->[0]->[6]};
+		'effective_page_count' => $result->[0]->[0],
+		'free_percent' => $result->[0]->[1],
+		'free_space' => $result->[0]->[2]};
+}
+
+sub _get_size_statistics {
+	my $self = shift;
+
+	my $result = $self->{'_database'}->execute(
+		sql => <<SQL
+SELECT
+    size,
+    total_size,
+    ceil(size::real / bs) AS page_count,
+    ceil(total_size::real / bs) AS total_page_count
+FROM (
+    SELECT
+        current_setting('block_size')::integer AS bs,
+        pg_catalog.pg_relation_size('$self->{'_ident'}') AS size,
+        pg_catalog.pg_total_relation_size('$self->{'_ident'}') AS total_size
+) AS sq
+SQL
+		);
+
+	return {
+		'size' => $result->[0]->[0],
+		'total_size' => $result->[0]->[1],
+		'page_count' => $result->[0]->[2],
+		'total_page_count' => $result->[0]->[3]};
 }
 
 sub _do_vacuum {
@@ -1134,7 +1164,7 @@ sub _get_pages_per_round {
 	return ceil(
 		(sort {$a <=> $b}
 		 (sort {$b <=> $a}
-		  $arg_hash{'statistics'}->{'page_count'} /
+		  $arg_hash{'page_count'} /
 		  $self->{'_pages_per_round_divisor'},
 		  1)[0],
 		 $self->{'_max_pages_per_round'})[0]);
@@ -1146,7 +1176,7 @@ sub _get_pages_before_vacuum {
 	return ceil(
 		(sort {$b <=> $a}
 		 (sort {$a <=> $b}
-		  $arg_hash{'statistics'}->{'page_count'} /
+		  $arg_hash{'page_count'} /
 		  $self->{'_pages_before_vacuum_lower_divisor'},
 		  $self->{'_pages_before_vacuum_lower_threshold'})[0],
 		 $arg_hash{'expected_page_count'} /
