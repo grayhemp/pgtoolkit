@@ -11,38 +11,55 @@ use Test::Exception;
 
 use PgToolkit::DatabaseStub;
 
+sub setup : Test(setup) {
+	my $self = shift;
+
+	$self->{'database_constructor'} = sub {
+		return PgToolkit::DatabaseTest::DatabaseStub->new(
+			dbname => 'somedb',
+			@_);
+	};
+}
+
 sub test_init : Test(2) {
-	is(PgToolkit::DatabaseTest::Database->new(dbname => 'somedb')->get_dbname(),
-	   'somedb');
+	my $self = shift;
+
+	is($self->{'database_constructor'}->()->get_dbname(), 'somedb');
 	is(
-		PgToolkit::DatabaseTest::Database->new(
-			dbname => 'anotherdb')->get_dbname(),
-	   'anotherdb');
+		$self->{'database_constructor'}->(dbname => 'anotherdb')->get_dbname(),
+		'anotherdb');
 }
 
 sub test_quote_ident_nothing_to_ident : Test(2) {
-	my $db = PgToolkit::DatabaseTest::Database->new(dbname => 'somedb');
+	my $self = shift;
 
 	throws_ok(
-		sub { $db->quote_ident(string => ''); },
+		sub { $self->{'database_constructor'}->()->quote_ident(string => ''); },
 		qr/DatabaseError Nothing to ident\./);
 	throws_ok(
-		sub { $db->quote_ident(string => undef); },
+		sub {
+			$self->{'database_constructor'}->()->quote_ident(
+				string => undef);
+		},
 		qr/DatabaseError Nothing to ident\./);
 }
 
 sub test_escaped_dbname : Test(2) {
-	is(PgToolkit::DatabaseTest::Database->new(dbname => 'some db')->
-	   get_escaped_dbname(),
-	   'some\ db');
-	is(PgToolkit::DatabaseTest::Database->new(dbname => 'another&db')->
-	   get_escaped_dbname(),
-	   'another\&db');
+	my $self = shift;
+
+	is(
+		$self->{'database_constructor'}->(dbname => 'some db')
+		->get_escaped_dbname(),
+		'some\ db');
+	is(
+		$self->{'database_constructor'}->(dbname => 'another&db')
+		->get_escaped_dbname(),
+		'another\&db');
 }
 
 1;
 
-package PgToolkit::DatabaseTest::Database;
+package PgToolkit::DatabaseTest::DatabaseStub;
 
 use base qw(PgToolkit::DatabaseStub);
 
