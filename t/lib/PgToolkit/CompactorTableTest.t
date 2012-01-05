@@ -489,11 +489,11 @@ sub test_delay_and_proggress_1 : Test(12) {
 
 	$table_compactor->process();
 
-	$table_compactor->{'mock'}->is_called(1, 'sleep', 2.5);
+	$table_compactor->{'mock'}->is_called(1, 'sleep', 1.5);
 	$table_compactor->{'mock'}->is_called(2, 'log_progress');
-	$table_compactor->{'mock'}->is_called(3, 'sleep', 2.5);
+	$table_compactor->{'mock'}->is_called(3, 'sleep', 1.5);
 	$table_compactor->{'mock'}->is_called(4, 'log_progress');
-	$table_compactor->{'mock'}->is_called(5, 'sleep', 2.5);
+	$table_compactor->{'mock'}->is_called(5, 'sleep', 1.5);
 	$table_compactor->{'mock'}->is_called(6, 'log_progress');
 }
 
@@ -503,14 +503,14 @@ sub test_delay_and_proggress_2 : Test(8) {
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		delay_constant => 2,
 		delay_ratio => 1,
-		progress_report_period => 10);
+		progress_report_period => 5);
 
 	$table_compactor->process();
 
-	$table_compactor->{'mock'}->is_called(1, 'sleep', 5);
-	$table_compactor->{'mock'}->is_called(2, 'sleep', 5);
+	$table_compactor->{'mock'}->is_called(1, 'sleep', 3);
+	$table_compactor->{'mock'}->is_called(2, 'sleep', 3);
 	$table_compactor->{'mock'}->is_called(3, 'log_progress');
-	$table_compactor->{'mock'}->is_called(4, 'sleep', 5);
+	$table_compactor->{'mock'}->is_called(4, 'sleep', 3);
 }
 
 1;

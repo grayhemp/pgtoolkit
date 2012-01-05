@@ -214,21 +214,23 @@ sub process {
 sub _process {
 	my $self = shift;
 
+	my $duration;
+
 	if ($self->_has_special_triggers()) {
 		$self->_log_can_not_process_ar_triggers();
 		$self->{'_is_processed'} = 1;
 	}
 
-	my $timing;
 	if (not $self->{'_is_processed'}) {
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 
 		if (not defined
 			$self->{'_bloat_statistics'}->{'effective_page_count'})
 		{
-			$self->_do_analyze(timing => \ $timing);
+			$self->_do_analyze();
 			$self->_log_analyze_complete(
-				timing => $timing, phrase => 'required initial');
+				duration => $self->{'_database'}->get_duration(),
+				phrase => 'required initial');
 			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		}
 
@@ -249,12 +251,15 @@ sub _process {
 	}
 
 	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
-		$self->_do_vacuum(timing => \ $timing);
+		$self->_do_vacuum();
+		$duration = $self->{'_database'}->get_duration();
+
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		$self->{'_size_statistics'} = $self->_get_size_statistics();
+
 		$self->_log_vacuum_complete(
 			page_count => $self->{'_size_statistics'}->{'page_count'},
-			timing => $timing,
+			duration => $duration,
 			to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
 			pages_before_vacuum => $self->{'_size_statistics'}->{'page_count'},
 			phrase => 'initial');
@@ -372,11 +377,14 @@ sub _process {
 				$clean_pages_total_duration = 0;
 				$last_loop = $loop;
 
-				$self->_do_vacuum(timing => \ $timing);
+				$self->_do_vacuum();
+				$duration = $self->{'_database'}->get_duration();
+
 				$self->{'_size_statistics'} = $self->_get_size_statistics();
+
 				$self->_log_vacuum_complete(
 					page_count => $self->{'_size_statistics'}->{'page_count'},
-					timing => $timing,
+					duration => $duration,
 					to_page => $to_page,
 					pages_before_vacuum => $pages_before_vacuum,
 					phrase => 'routine');
@@ -412,19 +420,24 @@ sub _process {
 			$self->_log_max_loops();
 		}
 
-		$self->_do_vacuum(timing => \ $timing);
+		$self->_do_vacuum();
+		$duration = $self->{'_database'}->get_duration();
+
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		$self->{'_size_statistics'} = $self->_get_size_statistics();
+
 		$self->_log_vacuum_complete(
 			page_count => $self->{'_size_statistics'}->{'page_count'},
-			timing => $timing,
+			duration => $duration,
 			to_page => $to_page + $pages_per_round,
 			pages_before_vacuum => $pages_before_vacuum,
 			phrase => 'final');
 
 		if (not $self->{'_no_final_analyze'}) {
-			$self->_do_analyze(timing => \ $timing);
-			$self->_log_analyze_complete(timing => $timing, phrase => 'final');
+			$self->_do_analyze();
+			$self->_log_analyze_complete(
+				duration => $self->{'_database'}->get_duration(),
+				phrase => 'final');
 		}
 
 		$pages_before_vacuum = $self->_get_pages_before_vacuum(
@@ -436,8 +449,9 @@ sub _process {
 			not $expected_error_occurred);
 
 		if ($self->{'_is_processed'} and $self->{'_reindex'}) {
-			$self->_reindex(timing => \ $timing);
-			$self->_log_reindex_complete(timing => $timing);
+			$self->_reindex();
+			$self->_log_reindex_complete(
+				duration => $self->{'_database'}->get_duration());
 			$self->{'_size_statistics'} = $self->_get_size_statistics();
 		}
 
@@ -572,7 +586,7 @@ sub _log_vacuum_complete {
 		$self->{'_logger'}->write(
 			message => (
 				'Vacuum '.$arg_hash{'phrase'}.': '.
-				sprintf("%.3f", $arg_hash{'timing'}).'s, can not clean '.
+				sprintf("%.3f", $arg_hash{'duration'}).'s, can not clean '.
 				($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).' pages, '.
 				$arg_hash{'page_count'}.' pages left.'),
 			level => $level,
@@ -581,7 +595,7 @@ sub _log_vacuum_complete {
 		$self->{'_logger'}->write(
 			message => (
 				'Vacuum '.$arg_hash{'phrase'}.': '.
-				sprintf("%.3f", $arg_hash{'timing'}).'s, '.
+				sprintf("%.3f", $arg_hash{'duration'}).'s, '.
 				$arg_hash{'page_count'}.' pages left.'),
 			level => 'info',
 			target => $self->{'_log_target'});
@@ -743,7 +757,7 @@ sub _log_analyze_complete {
 
 	$self->{'_logger'}->write(
 		message => ('Analyze '.$arg_hash{'phrase'}.': '.
-					sprintf("%.3f", $arg_hash{'timing'}).'s.'),
+					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -754,7 +768,7 @@ sub _log_reindex_complete {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Reindex: '.sprintf("%.3f", $arg_hash{'timing'}).'s.',
+		message => 'Reindex: '.sprintf("%.3f", $arg_hash{'duration'}).'s.',
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -1024,13 +1038,9 @@ SQL
 sub _do_vacuum {
 	my ($self, %arg_hash) = @_;
 
-	${$arg_hash{'timing'}} = $self->_time();
-
 	$self->_execute_and_log(
 		sql => ('VACUUM '.($arg_hash{'analyze'} ? 'ANALYZE ' : '').
 				$self->{'_ident'}));
-
-	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return;
 }
@@ -1038,11 +1048,7 @@ sub _do_vacuum {
 sub _do_analyze {
 	my ($self, %arg_hash) = @_;
 
-	${$arg_hash{'timing'}} = $self->_time();
-
 	$self->_execute_and_log(sql => 'ANALYZE '.$self->{'_ident'});
-
-	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return;
 }
@@ -1081,8 +1087,6 @@ SQL
 sub _clean_pages {
 	my ($self, %arg_hash) = @_;
 
-	${$arg_hash{'timing'}} = $self->_time();
-
 	my $result = $self->_execute_and_log(
 		level => 'debug1',
 		sql => <<SQL
@@ -1091,8 +1095,6 @@ SELECT public._clean_pages(
     $arg_hash{'pages_per_round'}, $arg_hash{'max_tupples_per_page'})
 SQL
 		);
-
-	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return $result->[0]->[0];
 }
@@ -1153,13 +1155,9 @@ SQL
 sub _reindex {
 	my ($self, %arg_hash) = @_;
 
-	${$arg_hash{'timing'}} = $self->_time();
-
 	for my $query (@{$self->_get_reindex_queries()}) {
 		$self->_execute_and_log(sql => $query);
 	}
-
-	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
 	return;
 }
