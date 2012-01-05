@@ -687,10 +687,15 @@ sub _log_clean_pages_average {
 
 	my $duration = sprintf("%.3f", $arg_hash{'average_duration'});
 
+	if ($arg_hash{'average_duration'} == 0) {
+		$arg_hash{'average_duration'} = 0.0001;
+	}
+
 	$self->{'_logger'}->write(
 		message => (
 			'Cleaning in average: '.
-			sprintf("%.1f", $arg_hash{'pages_per_round'} / $duration).
+			sprintf("%.1f", $arg_hash{'pages_per_round'} /
+					$arg_hash{'average_duration'}).
 			' pages/s ('.$duration.'s per '.$arg_hash{'pages_per_round'}.
 			' pages).'),
 		level => 'info',
