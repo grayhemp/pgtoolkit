@@ -246,7 +246,7 @@ sub _incomplete_count {
 sub _get_pgstattuple_schema_name {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT nspname FROM pg_catalog.pg_proc
 JOIN pg_catalog.pg_namespace AS n ON pronamespace = n.oid
@@ -260,7 +260,7 @@ SQL
 sub _get_schema_name_list {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT nspname FROM pg_catalog.pg_namespace
 WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname !~ 'pg_.*'
@@ -274,7 +274,7 @@ SQL
 sub _create_clean_pages_function {
 	my $self = shift;
 
-	$self->{'_database'}->execute(
+	$self->_execute_and_log(
 		sql => << 'SQL'
 CREATE OR REPLACE FUNCTION public._clean_pages(
     i_table_ident text,
@@ -361,7 +361,7 @@ SQL
 sub _drop_clean_pages_function {
 	my $self = shift;
 
-	$self->{'_database'}->execute(
+	$self->_execute_and_log(
 		sql => <<SQL
 DROP FUNCTION public._clean_pages(text, text, integer, integer, integer);
 SQL

@@ -65,12 +65,12 @@ sub _init {
 	$self->{'_database_constructor'} = $arg_hash{'database_constructor'};
 	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
 
-	$self->{'_postgres_database'} = $self->{'_database_constructor'}->
-		(dbname => 'postgres');
+	$self->{'_database'} =
+		$self->{'_database_constructor'}->(dbname => 'postgres');
 
 	$self->{'_logger'}->write(
 		message => ('Database connection method: '.
-					$self->{'_postgres_database'}->get_adapter_name().'.'),
+					$self->{'_database'}->get_adapter_name().'.'),
 		level => 'info');
 
 	my $dbname_list = $self->_get_dbname_list(
@@ -241,8 +241,7 @@ sub _get_dbname_list {
 			'\')';
 	}
 
-	my $result = $self->{'_postgres_database'}->
-		execute(
+	my $result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT datname FROM pg_catalog.pg_database
 WHERE datname NOT IN ('postgres', 'template0', 'template1') $datname_in

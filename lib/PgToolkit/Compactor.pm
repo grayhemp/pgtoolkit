@@ -107,6 +107,22 @@ sub _wrap {
 	return;
 }
 
+sub _execute_and_log {
+	my ($self, %arg_hash) = @_;
+
+	my $result = $self->{'_database'}->execute(sql => $arg_hash{'sql'});
+
+	my $duration = sprintf("%.3f", $self->{'_database'}->get_duration());
+
+	$self->{'_logger'}->write(
+		message => ('Executed SQL: duration '.$duration.'s, statement: '.
+					"\n".$arg_hash{'sql'}),
+		level => (defined $arg_hash{'level'} ? $arg_hash{'level'} : 'debug0'),
+		target => $self->{'_log_target'});
+
+	return $result;
+}
+
 =head1 SEE ALSO
 
 =over 4

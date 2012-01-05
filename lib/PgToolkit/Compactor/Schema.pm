@@ -229,7 +229,7 @@ sub _get_table_name_list {
 			'\')';
 	}
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT tablename FROM pg_catalog.pg_tables
 WHERE schemaname = '$self->{'_schema_name'}' $table_name_in
@@ -246,7 +246,7 @@ SQL
 sub _has_schema {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT count(1) FROM pg_catalog.pg_namespace
 WHERE nspname = '$self->{'_schema_name'}'

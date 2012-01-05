@@ -871,7 +871,7 @@ sub _time {
 sub _has_special_triggers {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT count(1) FROM pg_catalog.pg_trigger
 WHERE
@@ -887,7 +887,7 @@ SQL
 sub _get_max_tupples_per_page {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT ceil(current_setting('block_size')::real / sum(attlen))
 FROM pg_catalog.pg_attribute
@@ -905,7 +905,7 @@ sub _get_bloat_statistics {
 
 	my $result;
 	if ($self->{'_pgstattuple_schema_ident'}) {
-		$result = $self->{'_database'}->execute(
+		$result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT
     CASE
@@ -922,7 +922,7 @@ CROSS JOIN (
 SQL
 			);
 	} else {
-		$result = $self->{'_database'}->execute(
+		$result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT
     effective_page_count,
@@ -991,7 +991,7 @@ SQL
 sub _get_size_statistics {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT
     size,
@@ -1019,7 +1019,7 @@ sub _do_vacuum {
 
 	${$arg_hash{'timing'}} = $self->_time();
 
-	$self->{'_database'}->execute(
+	$self->_execute_and_log(
 		sql => ('VACUUM '.($arg_hash{'analyze'} ? 'ANALYZE ' : '').
 				$self->{'_ident'}));
 
@@ -1033,7 +1033,7 @@ sub _do_analyze {
 
 	${$arg_hash{'timing'}} = $self->_time();
 
-	$self->{'_database'}->execute(sql => 'ANALYZE '.$self->{'_ident'});
+	$self->_execute_and_log(sql => 'ANALYZE '.$self->{'_ident'});
 
 	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
 
@@ -1043,7 +1043,7 @@ sub _do_analyze {
 sub _get_update_column {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT attname
 FROM pg_catalog.pg_attribute
@@ -1076,7 +1076,7 @@ sub _clean_pages {
 
 	${$arg_hash{'timing'}} = $self->_time();
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT public._clean_pages(
     '$self->{'_ident'}', '$arg_hash{'column_ident'}', $arg_hash{'to_page'},
@@ -1092,7 +1092,7 @@ SQL
 sub _get_reindex_queries {
 	my $self = shift;
 
-	my $result = $self->{'_database'}->execute(
+	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT indexname, tablespace, indexdef FROM pg_catalog.pg_indexes
 WHERE
@@ -1148,7 +1148,7 @@ sub _reindex {
 	${$arg_hash{'timing'}} = $self->_time();
 
 	for my $query (@{$self->_get_reindex_queries()}) {
-		$self->{'_database'}->execute(sql => $query);
+		$self->_execute_and_log(sql => $query);
 	}
 
 	${$arg_hash{'timing'}} = $self->_time() - ${$arg_hash{'timing'}};
