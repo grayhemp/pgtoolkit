@@ -53,7 +53,7 @@ sub test_init : Test(6) {
 			 {
 				 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
 				 PrintWarn => 0, PrintError => 0,
-				 pg_server_prepare => 1, pg_enable_utf8 => 1
+				 pg_server_prepare => 0, pg_enable_utf8 => 1
 			 }]);
 		is($db->get_dbname(), $data_hash->{'dbname'});
 	}
