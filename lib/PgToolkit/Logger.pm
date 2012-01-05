@@ -54,8 +54,8 @@ when wrong logging level is specified.
 sub init {
 	my ($self, %arg_hash) = @_;
 
-	binmode(*STDOUT, ':utf8');
-	binmode(*STDERR, ':utf8');
+	binmode(*STDOUT, ':encoding(UTF-8)');
+	binmode(*STDERR, ':encoding(UTF-8)');
 
 	$self->{'_out_handle'} =
 		exists $arg_hash{'out_handle'} ? $arg_hash{'out_handle'} : \*STDOUT;
@@ -146,7 +146,9 @@ sub _get_level_code {
 		'error' => -1,
 		'warning' => 0,
 		'notice' => 1,
-		'info' => 2
+		'info' => 2,
+		'debug0' => 3,
+		'debug1' => 4
 	}->{$arg_hash{'level'}};
 
 	return $level;
