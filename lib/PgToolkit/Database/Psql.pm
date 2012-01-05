@@ -128,7 +128,7 @@ when problems appear during statement execution.
 
 =cut
 
-sub execute {
+sub _execute {
 	my ($self, %arg_hash) = @_;
 
 	my $raw_data = $self->_run_psql(

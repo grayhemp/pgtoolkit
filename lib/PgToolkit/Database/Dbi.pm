@@ -119,7 +119,7 @@ when the database raised an error during execution of the SQL.
 
 =cut
 
-sub execute {
+sub _execute {
 	my ($self, %arg_hash) = @_;
 
 	my $result;
