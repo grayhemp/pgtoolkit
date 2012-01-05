@@ -1,9 +1,8 @@
-PgToolkit from Postgresql-Consulting.com
-========================================
+PgToolkit from PostgreSQL-Consulting.com
 
 PgToolkit is a set of scripts and instructions for PostgreSQL database
 management. Initially it was an internal stuff of the
-Postgresql-Consulting.com community. However, some time ago we decided
+PostgreSQL-Consulting.com company. However, some time ago we decided
 to share our experience with public and started to make a box version
 from this.
 
@@ -26,3 +25,25 @@ Currently there is the only tool we have prepared for publishing:
 
 We have not adapted any instructions to the publication yet but they
 are comming soon.
+
+Release v1.0alpha6:
+
+- refactored out useless resource consuming pgstattuple calls
+- added DEBUG0 and DEBUG1 logging levels and applied to SQL queries
+  logging
+- turned off server side prepares for DBI drivers
+- made some minor changes.
+
+Release v1.0alpha5
+
+Release v1.0alpha4
+
+Release v1.0alpha3
+
+Release v1.0alpha2
+
+Release v1.0alpha1
+
+TODO License boilerplate
+
+
