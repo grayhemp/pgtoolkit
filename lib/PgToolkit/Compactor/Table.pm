@@ -1077,6 +1077,7 @@ sub _clean_pages {
 	${$arg_hash{'timing'}} = $self->_time();
 
 	my $result = $self->_execute_and_log(
+		level => 'debug1',
 		sql => <<SQL
 SELECT public._clean_pages(
     '$self->{'_ident'}', '$arg_hash{'column_ident'}', $arg_hash{'to_page'},
