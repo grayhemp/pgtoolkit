@@ -865,8 +865,6 @@ sub _sleep {
 }
 
 sub _time {
-	my ($self, $time) = @_;
-
 	return time();
 }
 

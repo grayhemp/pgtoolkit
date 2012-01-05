@@ -5,6 +5,9 @@ use base qw(PgToolkit::Class);
 use strict;
 use warnings;
 
+use POSIX;
+use Time::HiRes qw(time sleep);
+
 =head1 NAME
 
 B<PgToolkit::Database> - a database abstract class.
@@ -25,7 +28,7 @@ B<PgToolkit::Database> - a database abstract class.
 		return;
 	}
 
-	sub execute {
+	sub _execute {
 		# some implementation
 	}
 
@@ -59,7 +62,7 @@ sub init {
 
 Executes an SQL.
 
-The method must be implemented in derivative classes.
+The method _execute() must be implemented in derivative classes.
 
 =head3 Arguments
 
@@ -88,12 +91,40 @@ when the database raised an error during execution of the SQL.
 =cut
 
 sub execute {
+	my ($self, %arg_hash) = @_;
+
+	my $time = $self->_time();
+	my $result = $self->_execute(%arg_hash);
+	$self->{'_duration'} = $self->_time() - $time;
+
+	return $result;
+}
+
+sub _execute {
 	die('NotImplementedError');
+}
+
+=head2 B<get_duration()>
+
+Returns a duration of the last query.
+
+=head3 Returns
+
+A high resolution time in seconds.
+
+=cut
+
+sub get_duration {
+	my $self = shift;
+
+	return $self->{'_duration'};
 }
 
 =head2 B<get_adapter_name()>
 
 Returns the name of the adapter.
+
+This method must be implemented in derivative classes.
 
 =head3 Returns
 
@@ -183,6 +214,10 @@ sub _quote_ident {
 		sql => 'SELECT quote_ident(\''.$arg_hash{'string'}.'\')');
 
 	return $result->[0]->[0];
+}
+
+sub _time {
+	return time();
 }
 
 =head1 SEE ALSO

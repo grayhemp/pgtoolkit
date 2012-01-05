@@ -237,7 +237,7 @@ sub init {
 	return;
 }
 
-sub execute {
+sub _execute {
 	return shift->{'mock'}->execute(@_);
 }
 
