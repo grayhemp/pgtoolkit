@@ -306,7 +306,7 @@ sub _process {
 		my $initial_size_statistics = {%{$self->{'_size_statistics'}}};
 		my $to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
-		my $clean_pages_total_timing = 0;
+		my $clean_pages_total_duration = 0;
 		my $last_loop = $self->{'_size_statistics'}->{'page_count'} + 1;
 		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
 		my $expected_error_occurred = 0;
@@ -320,12 +320,13 @@ sub _process {
 			my $last_to_page = $to_page;
 			eval {
 				$to_page = $self->_clean_pages(
-					timing => \ $timing,
 					column_ident => $column_ident,
 					to_page => $last_to_page,
 					pages_per_round => $pages_per_round,
 					max_tupples_per_page => $max_tupples_per_page);
-				$clean_pages_total_timing = $clean_pages_total_timing + $timing;
+				$clean_pages_total_duration =
+					$clean_pages_total_duration +
+					$self->{'_database'}->get_duration();
 			};
 			if ($@) {
 				if ($@ =~ 'No more free space left in the table') {
@@ -366,8 +367,9 @@ sub _process {
 			{
 				$self->_log_clean_pages_average(
 					pages_per_round => $pages_per_round,
-					timing => $clean_pages_total_timing / ($last_loop - $loop));
-				$clean_pages_total_timing = 0;
+					average_duration => (
+						$clean_pages_total_duration / ($last_loop - $loop)));
+				$clean_pages_total_duration = 0;
 				$last_loop = $loop;
 
 				$self->_do_vacuum(timing => \ $timing);
@@ -683,13 +685,13 @@ sub _log_pages_before_vacuum {
 sub _log_clean_pages_average {
 	my ($self, %arg_hash) = @_;
 
-	my $timing = sprintf("%.3f", $arg_hash{'timing'});
+	my $duration = sprintf("%.3f", $arg_hash{'average_duration'});
 
 	$self->{'_logger'}->write(
 		message => (
 			'Cleaning in average: '.
-			sprintf("%.1f", $arg_hash{'pages_per_round'} / $timing).
-			' pages/s ('.$timing.'s per '.$arg_hash{'pages_per_round'}.
+			sprintf("%.1f", $arg_hash{'pages_per_round'} / $duration).
+			' pages/s ('.$duration.'s per '.$arg_hash{'pages_per_round'}.
 			' pages).'),
 		level => 'info',
 		target => $self->{'_log_target'});
