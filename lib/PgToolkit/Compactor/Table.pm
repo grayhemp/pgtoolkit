@@ -228,6 +228,27 @@ sub _process {
 	}
 
 	if (not $self->{'_is_processed'}) {
+		$self->{'_size_statistics'} = $self->_get_size_statistics();
+
+		if (not defined $self->{'_base_size_statistics'}) {
+			$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
+		}
+
+		if (not $self->{'_no_initial_vacuum'}) {
+			$self->_do_vacuum();
+			$duration = $self->{'_database'}->get_duration();
+
+			$self->{'_size_statistics'} = $self->_get_size_statistics();
+
+			$self->_log_vacuum_complete(
+				page_count => $self->{'_size_statistics'}->{'page_count'},
+				duration => $duration,
+				to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
+				pages_before_vacuum => (
+					$self->{'_size_statistics'}->{'page_count'}),
+				phrase => 'initial');
+		}
+
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 
 		if (not defined
@@ -239,54 +260,24 @@ sub _process {
 				phrase => 'required initial');
 			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		}
+	}
 
-		$self->{'_size_statistics'} = $self->_get_size_statistics();
-
-		if (not defined $self->{'_base_size_statistics'}) {
-			$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
-		}
-
-		if (not $self->{'_force'} and
-			$self->{'_size_statistics'}->{'page_count'} <
+	if (not $self->{'_is_processed'} and not $self->{'_force'}) {
+		if ($self->{'_size_statistics'}->{'page_count'} <
 			$self->{'_min_page_count'})
 		{
 			$self->_log_skipping_min_page_count(
 				page_count => $self->{'_size_statistics'}->{'page_count'});
 			$self->{'_is_processed'} = 1;
 		}
-	}
 
-	if (not $self->{'_is_processed'} and not $self->{'_no_initial_vacuum'}) {
-		$self->_do_vacuum();
-		$duration = $self->{'_database'}->get_duration();
-
-		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
-		$self->{'_size_statistics'} = $self->_get_size_statistics();
-
-		$self->_log_vacuum_complete(
-			page_count => $self->{'_size_statistics'}->{'page_count'},
-			duration => $duration,
-			to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
-			pages_before_vacuum => $self->{'_size_statistics'}->{'page_count'},
-			phrase => 'initial');
-
-		if (not $self->{'_force'}) {
-			if ($self->{'_size_statistics'}->{'page_count'} <
-				$self->{'_min_page_count'})
-			{
-				$self->_log_skipping_min_page_count(
-					page_count => $self->{'_size_statistics'}->{'page_count'});
-				$self->{'_is_processed'} = 1;
-			}
-
-			if ($self->{'_bloat_statistics'}->{'free_percent'} <
-				$self->{'_min_free_percent'} and not $self->{'_is_processed'})
-			{
-				$self->_log_skipping_min_free_percent(
-					free_percent => (
-						$self->{'_bloat_statistics'}->{'free_percent'}));
-				$self->{'_is_processed'} = 1;
-			}
+		if ($self->{'_bloat_statistics'}->{'free_percent'} <
+			$self->{'_min_free_percent'} and not $self->{'_is_processed'})
+		{
+			$self->_log_skipping_min_free_percent(
+				free_percent => (
+					$self->{'_bloat_statistics'}->{'free_percent'}));
+			$self->{'_is_processed'} = 1;
 		}
 	}
 
@@ -429,7 +420,6 @@ sub _process {
 		$self->_do_vacuum();
 		$duration = $self->{'_database'}->get_duration();
 
-		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		$self->{'_size_statistics'} = $self->_get_size_statistics();
 
 		$self->_log_vacuum_complete(
@@ -445,6 +435,8 @@ sub _process {
 				duration => $self->{'_database'}->get_duration(),
 				phrase => 'final');
 		}
+
+		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 
 		$pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
