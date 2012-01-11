@@ -907,8 +907,8 @@ sub _has_special_triggers {
 SELECT count(1) FROM pg_catalog.pg_trigger
 WHERE
     tgrelid = '$self->{'_ident'}'::regclass AND
-    tgtype & 16 = 8 AND
-    tgenabled IN ('A', 'R')
+    tgenabled IN ('A', 'R') AND
+    (tgtype & 16)::boolean
 SQL
 		);
 
