@@ -250,6 +250,10 @@ sub _process {
 		}
 
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+		if ($self->{'_pgstattuple_schema_ident'}) {
+			$self->_log_pgstattuple_duration(
+				duration => $self->{'_database'}->get_duration());
+		}
 
 		if (not defined
 			$self->{'_bloat_statistics'}->{'effective_page_count'})
@@ -259,6 +263,10 @@ sub _process {
 				duration => $self->{'_database'}->get_duration(),
 				phrase => 'required initial');
 			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+			if ($self->{'_pgstattuple_schema_ident'}) {
+				$self->_log_pgstattuple_duration(
+					duration => $self->{'_database'}->get_duration());
+			}
 		}
 	}
 
@@ -437,6 +445,10 @@ sub _process {
 		}
 
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+		if ($self->{'_pgstattuple_schema_ident'}) {
+			$self->_log_pgstattuple_duration(
+				duration => $self->{'_database'}->get_duration());
+		}
 
 		$pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
@@ -649,6 +661,8 @@ sub _log_processing {
 
 	return;
 }
+
+
 
 sub _get_log_processing_expectations {
 	my ($self, %arg_hash) = @_;
@@ -874,6 +888,18 @@ sub _log_relation_does_not_exist {
 		message => ('Stopped processing as a relation does not exist '.
 					'error has occurred.'),
 		level => 'warning',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_pgstattuple_duration {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('Bloat statistics with pgstattuple: '.
+					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
