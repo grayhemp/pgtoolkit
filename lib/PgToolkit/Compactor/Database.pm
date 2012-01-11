@@ -111,7 +111,7 @@ sub _init {
 }
 
 sub _process {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => 'Processing.',
@@ -120,7 +120,7 @@ sub _process {
 
 	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
 		if (not $schema_compactor->is_processed()) {
-			$schema_compactor->process();
+			$schema_compactor->process(attempt => $arg_hash{'attempt'});
 		}
 	}
 

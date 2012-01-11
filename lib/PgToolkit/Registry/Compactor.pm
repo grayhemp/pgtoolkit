@@ -151,7 +151,8 @@ sub get_table_compactor {
 		pages_per_round_divisor => 1000,
 		pages_before_vacuum_lower_divisor => 16,
 		pages_before_vacuum_lower_threshold => 1000,
-		pages_before_vacuum_upper_divisor => 50);
+		pages_before_vacuum_upper_divisor => 50,
+		max_retry_count => $options->get(name => 'max-retry-count'));
 }
 
 =head2 B<get_database_adapter()>

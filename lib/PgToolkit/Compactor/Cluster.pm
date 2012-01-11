@@ -114,7 +114,7 @@ sub _process {
 			for my $database_compactor (@{$self->{'_database_compactor_list'}})
 			{
 				if (not $database_compactor->is_processed()) {
-					$database_compactor->process();
+					$database_compactor->process(attempt => $attempt);
 				}
 			}
 

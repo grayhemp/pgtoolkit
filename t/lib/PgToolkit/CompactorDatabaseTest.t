@@ -104,13 +104,17 @@ sub test_init_creates_schema_compactors : Test(12) {
 	}
 }
 
-sub test_process_processes_schema_compactors : Test(2) {
+sub test_process_processes_schema_compactors : Test(4) {
 	my $self = shift;
 
-	$self->{'database_compactor_constructor'}->()->process();
+	$self->{'database_compactor_constructor'}->()->process(attempt => 2);
 
 	for my $i (0 .. @{$self->{'schema_compactor_mock_list'}} - 1) {
 		is($self->{'schema_compactor_mock_list'}->[$i]->call_pos(2), 'process');
+		is(
+			{'self',
+			 $self->{'schema_compactor_mock_list'}->[$i]->call_args(2)
+			}->{'attempt'}, 2);
 	}
 }
 
@@ -168,7 +172,7 @@ sub test_get_size_delta : Test {
 		$schema_compactor_mock->set_true('-is_processed');
 	}
 
-	$database_compactor->process();
+	$database_compactor->process(attempt => 2);
 
 	my $result = 0;
 	map($result += $_->get_size_delta(),
@@ -186,7 +190,7 @@ sub test_get_total_size_delta : Test {
 		$schema_compactor_mock->set_true('-is_processed');
 	}
 
-	$database_compactor->process();
+	$database_compactor->process(attempt => 2);
 
 	my $result = 0;
 	map($result += $_->get_total_size_delta(),

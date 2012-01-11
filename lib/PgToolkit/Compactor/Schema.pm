@@ -111,7 +111,7 @@ sub _init {
 }
 
 sub _process {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => 'Processing.',
@@ -120,7 +120,7 @@ sub _process {
 
 	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
 		if (not $table_compactor->is_processed()) {
-			$table_compactor->process();
+			$table_compactor->process(attempt => $arg_hash{'attempt'});
 		}
 	}
 

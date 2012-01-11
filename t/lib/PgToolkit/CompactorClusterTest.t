@@ -124,7 +124,7 @@ sub test_process_processes_database_compactors_in_their_order : Test(4) {
 	}
 }
 
-sub test_stop_retrying_on_max_retries_count : Test(6) {
+sub test_stop_retrying_on_max_retries_count : Test(10) {
 	my $self = shift;
 
 	$self->{'cluster_compactor_constructor'}->(max_retry_count => 1)->process();
@@ -132,8 +132,16 @@ sub test_stop_retrying_on_max_retries_count : Test(6) {
 	for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
 		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(2),
 		   'process');
+		is(
+			{'self',
+			 $self->{'database_compactor_mock_list'}->[$i]->call_args(2)
+			}->{'attempt'}, 0);
 		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(3),
 		   'process');
+		is(
+			{'self',
+			 $self->{'database_compactor_mock_list'}->[$i]->call_args(3)
+			}->{'attempt'}, 1);
 		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(4),
 		   undef);
 	}

@@ -124,13 +124,17 @@ sub test_init_creates_table_compactors_in_returning_order : Test(16) {
 	}
 }
 
-sub test_process_procecces_table_compactors_in_their_order  : Test(4) {
+sub test_process_procecces_table_compactors_in_their_order  : Test(6) {
 	my $self = shift;
 
-	$self->{'schema_compactor_constructor'}->()->process();
+	$self->{'schema_compactor_constructor'}->()->process(attempt => 2);
 
 	for my $i (0 .. @{$self->{'table_compactor_mock_list'}} - 1) {
 		is($self->{'table_compactor_mock_list'}->[$i]->call_pos(2), 'process');
+		is(
+			{'self',
+			 $self->{'table_compactor_mock_list'}->[$i]->call_args(2)
+			}->{'attempt'}, 2);
 		is($self->{'table_compactor_mock_list'}->[$i]->process_order(), $i);
 	}
 }
@@ -159,7 +163,7 @@ sub test_init_raises_error_when_no_schema : Test(1) {
 	->{'row_list'} = [[0]];
 
 	throws_ok(
-		sub { $self->{'schema_compactor_constructor'}->()->process(); },
+		sub { $self->{'schema_compactor_constructor'}->()->process(attempt => 2); },
 		qr/SchemaCompactorError There is no schema schema\./);
 }
 
@@ -188,7 +192,7 @@ sub test_get_size_delta : Test {
 		$table_compactor_mock->set_true('-is_processed');
 	}
 
-	$schema_compactor->process();
+	$schema_compactor->process(attempt => 2);
 
 	my $result = 0;
 	map($result += $_->get_size_delta(),
@@ -206,7 +210,7 @@ sub test_get_total_size_delta : Test {
 		$table_compactor_mock->set_true('-is_processed');
 	}
 
-	$schema_compactor->process();
+	$schema_compactor->process(attempt => 2);
 
 	my $result = 0;
 	map($result += $_->get_total_size_delta(),

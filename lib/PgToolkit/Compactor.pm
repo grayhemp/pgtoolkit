@@ -63,12 +63,22 @@ sub init {
 
 Runs a bloat reducing process.
 
+=head3 Arguments
+
+=over 4
+
+=item C<attempt>
+
+an attempt number of processing.
+
+=back
+
 =cut
 
 sub process {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
-	$self->_wrap(code => sub { $self->_process(); });
+	$self->_wrap(code => sub { $self->_process(%arg_hash); });
 
 	return;
 }

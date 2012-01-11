@@ -35,7 +35,8 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 		pages_per_round_divisor = 1000,
 		pages_before_vacuum_lower_divisor = 16,
 		pages_before_vacuum_lower_threshold = 1000,
-		pages_before_vacuum_upper_divisor = 50)
+		pages_before_vacuum_upper_divisor = 50,
+		max_retry_count => 10);
 
 	$table_compactor->process();
 
@@ -141,6 +142,10 @@ are used to calculate a pages before vacuum value, recommended to set to
      1/pages_before_vacuum_upper_divisor of the expected page count,
      1)
 
+=item C<max_retry_count>
+
+a maximum amount of attempts to compact cluster.
+
 =back
 
 =cut
@@ -173,6 +178,7 @@ sub _init {
 	$self->{'_force'} = $arg_hash{'force'};
 	$self->{'_reindex'} = $arg_hash{'reindex'};
 	$self->{'_print_reindex_queries'} = $arg_hash{'print_reindex_queries'};
+	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
 
 	$self->{'_progress_report_period'} = $arg_hash{'progress_report_period'};
 	if ($arg_hash{'pgstattuple_schema_name'}) {
@@ -194,10 +200,10 @@ sub _init {
 }
 
 sub process {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	eval {
-		$self->_process();
+		$self->_process(%arg_hash);
 	};
 	if ($@) {
 		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
@@ -212,7 +218,7 @@ sub process {
 }
 
 sub _process {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	my $duration;
 
@@ -448,15 +454,19 @@ sub _process {
 			 $to_page + 1 + $pages_before_vacuum) and
 			not $expected_error_occurred);
 
-		if ($self->{'_is_processed'} and $self->{'_reindex'}) {
-			$self->_reindex();
-			$self->_log_reindex_complete(
-				duration => $self->{'_database'}->get_duration());
-			$self->{'_size_statistics'} = $self->_get_size_statistics();
-		}
+		if ($self->{'_is_processed'} or
+			$arg_hash{'attempt'} == $self->{'_max_retry_count'})
+		{
+			if ($self->{'_reindex'}) {
+				$self->_reindex();
+				$self->_log_reindex_complete(
+					duration => $self->{'_database'}->get_duration());
+				$self->{'_size_statistics'} = $self->_get_size_statistics();
+			}
 
-		if ($self->{'_is_processed'} and $self->{'_print_reindex_queries'}) {
-			$self->_log_reindex_queries();
+			if ($self->{'_print_reindex_queries'}) {
+				$self->_log_reindex_queries();
+			}
 		}
 
 		if ($self->{'_is_processed'}) {
