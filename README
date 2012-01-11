@@ -26,6 +26,16 @@ Currently there is the only tool we have prepared for publishing:
 We have not adapted any instructions to the publication yet but they
 are comming soon.
 
+Release v1.0alpha7:
+
+- reworked reindex to be performed in any case when a table has been
+  compacted or it has not (after the last iteration)
+- fixed the query for testing "always" and "replica" triggers
+- refactored the logic of bloat statistics to lower the amount of
+  heavy pgstattuple calls
+- fixed the final statistics
+- added bloat statistics requests duration.
+
 Release v1.0alpha6:
 
 - refactored out useless resource consuming pgstattuple calls
