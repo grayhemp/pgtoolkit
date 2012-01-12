@@ -30,6 +30,7 @@ sub setup : Test(setup) {
 			database => $self->{'database'},
 			logger => PgToolkit::Logger->new(
 				level => 'info', err_handle => \*STDOUT),
+			dry_run => 0,
 			schema_name => 'schema',
 			table_compactor_constructor => sub {
 				return $self->create_table_compactor_mock(@_);

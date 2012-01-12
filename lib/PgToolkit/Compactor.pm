@@ -41,7 +41,9 @@ to have target define the _log_target property.
 
 =item C<logger>
 
-a logger object.
+a logger object
+
+=item C<dry_run>
 
 =back
 
@@ -51,6 +53,7 @@ sub init {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'} = $arg_hash{'logger'};
+	$self->{'_dry_run'} = $arg_hash{'dry_run'};
 
 	$self->_wrap(code => sub { $self->_init(%arg_hash); });
 

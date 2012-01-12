@@ -31,7 +31,7 @@ pg_compactor [OPTION...]
 
 =item Options controlling the behaviour:
 
-[-IRLSrsf] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
+[-IRLSrsfu] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
 [-y RATIO] [-z SECONDS]
 
 =back
@@ -191,6 +191,12 @@ A table to exclude from processing.
 =head2 Options controlling the behaviour
 
 =over 4
+
+=item B<-u>
+
+=item B<--dry-run>
+
+Print statistics only without affecting data.
 
 =item B<-I>
 

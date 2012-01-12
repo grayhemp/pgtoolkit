@@ -15,6 +15,7 @@ reducing.
 	my $database_compactor = PgToolkit::Compactor::Database->new(
 		database => $database,
 		logger => $logger,
+		dry_run => 0,
 		schema_compactor_constructor => $schema_compactor_constructor,
 		schema_name_list => ['schema1', 'schema2'],
 		excluded_schema_name_list => [],
@@ -38,6 +39,8 @@ a database object
 =item C<logger>
 
 a logger object
+
+=item C<dry_run>
 
 =item C<schema_compactor_constructor>
 
@@ -69,11 +72,13 @@ sub _init {
 
 	$self->{'_log_target'} = $self->{'_ident'};
 
-	$self->_create_clean_pages_function();
-	$self->{'_logger'}->write(
-		message => 'Created environment.',
-		level => 'info',
-		target => $self->{'_log_target'});
+	if (not $self->{'_dry_run'}) {
+		$self->_create_clean_pages_function();
+		$self->{'_logger'}->write(
+			message => 'Created environment.',
+			level => 'info',
+			target => $self->{'_log_target'});
+	}
 
 	my %schema_name_hash = map(
 		($_ => 1), @{$arg_hash{'schema_name_list'}} ?
@@ -113,34 +118,32 @@ sub _init {
 sub _process {
 	my ($self, %arg_hash) = @_;
 
-	$self->{'_logger'}->write(
-		message => 'Processing.',
-		level => 'info',
-		target => $self->{'_log_target'});
-
 	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
 		if (not $schema_compactor->is_processed()) {
 			$schema_compactor->process(attempt => $arg_hash{'attempt'});
 		}
 	}
 
-	if ($self->is_processed()) {
-		$self->{'_logger'}->write(
-			message => (
-				'Processing complete: size reduced by '.$self->get_size_delta().
-				' bytes ('.$self->get_total_size_delta().' bytes including '.
-				'toasts and indexes) in total.'),
-			level => 'info',
-			target => $self->{'_log_target'});
-	} else {
-		$self->{'_logger'}->write(
-			message => (
-				'Processing incomplete: '.$self->_incomplete_count().
-				' schemas left, size reduced by '.$self->get_size_delta().
-				' bytes ('.$self->get_total_size_delta().' bytes including '.
-				'toasts and indexes) in total.'),
-			level => 'warning',
-			target => $self->{'_log_target'});
+	if (not $self->{'_dry_run'}) {
+		if ($self->is_processed()) {
+			$self->{'_logger'}->write(
+				message => (
+					'Processing complete: size reduced by '.
+					$self->get_size_delta().' bytes ('.
+					$self->get_total_size_delta().' bytes including '.
+					'toasts and indexes) in total.'),
+				level => 'info',
+				target => $self->{'_log_target'});
+		} else {
+			$self->{'_logger'}->write(
+				message => (
+					'Processing incomplete: '.$self->_incomplete_count().
+					' schemas left, size reduced by '.$self->get_size_delta().
+					' bytes ('.$self->get_total_size_delta().
+					' bytes including toasts and indexes) in total.'),
+				level => 'warning',
+				target => $self->{'_log_target'});
+		}
 	}
 
 	return;
@@ -226,11 +229,13 @@ sub get_log_target {
 sub DESTROY {
 	my $self = shift;
 
-	$self->_drop_clean_pages_function();
-	$self->{'_logger'}->write(
-		message => 'Dropped environment.',
-		level => 'info',
-		target => $self->{'_log_target'});
+	if (not $self->{'_dry_run'}) {
+		$self->_drop_clean_pages_function();
+		$self->{'_logger'}->write(
+			message => 'Dropped environment.',
+			level => 'info',
+			target => $self->{'_log_target'});
+	}
 }
 
 sub _incomplete_count {

@@ -35,6 +35,7 @@ sub setup : Test(setup) {
 			schema_name_list => [],
 			excluded_schema_name_list => [],
 			no_pgstatuple => 0,
+			dry_run => 0,
 			@_);
 	};
 }
@@ -118,7 +119,7 @@ sub test_process_processes_schema_compactors : Test(4) {
 	}
 }
 
-sub test_creates_and_drops_clean_pages_stored_function : Test(4) {
+sub test_creates_and_drops_environment : Test(4) {
 	my $self = shift;
 
 	{
@@ -126,6 +127,18 @@ sub test_creates_and_drops_clean_pages_stored_function : Test(4) {
 		$self->{'database'}->{'mock'}->is_called(1, 'create_clean_pages');
 	}
 	$self->{'database'}->{'mock'}->is_called(4, 'drop_clean_pages');
+}
+
+sub test_does_not_create_and_drop_environment_if_dry_run : Test(5) {
+	my $self = shift;
+
+	{
+		$self->{'database_compactor_constructor'}->(dry_run => 1);
+		$self->{'database'}->{'mock'}->is_called(1, 'get_schema_name_list');
+		$self->{'database'}->{'mock'}->is_called(
+			2, 'get_pgstattuple_schema_name');
+	}
+	$self->{'database'}->{'mock'}->is_called(3, undef);
 }
 
 sub test_init_passes_pgstattuple_schema_name_to_schema_constructor : Test(8) {

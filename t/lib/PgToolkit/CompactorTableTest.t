@@ -23,6 +23,7 @@ sub setup : Test(setup) {
 			database => $self->{'database'},
 			logger => PgToolkit::Logger->new(
 				level => 'info', err_handle => \*STDOUT),
+			dry_run => 0,
 			schema_name => 'schema',
 			table_name => 'table',
 			min_page_count => 100,
@@ -46,6 +47,22 @@ sub setup : Test(setup) {
 	};
 }
 
+sub test_dry_run : Test(8) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		dry_run => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	$self->{'database'}->{'mock'}->is_called(1, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		2, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(3, 'has_special_triggers');
+	$self->{'database'}->{'mock'}->is_called(4, undef);
+	ok($table_compactor->is_processed());
+}
+
 sub test_check_special_triggers : Test(4) {
 	my $self = shift;
 
@@ -56,8 +73,8 @@ sub test_check_special_triggers : Test(4) {
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(1, 'has_special_triggers');
-	$self->{'database'}->{'mock'}->is_called(2, undef);
+	$self->{'database'}->{'mock'}->is_called(5, 'has_special_triggers');
+	$self->{'database'}->{'mock'}->is_called(6, undef);
 	ok($table_compactor->is_processed());
 }
 
@@ -74,10 +91,10 @@ sub test_no_initial_vacuum : Test(6) {
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(2, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(1, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
-		3, 'get_approximate_bloat_statistics');
-	$self->{'database'}->{'mock'}->is_called(4, 'get_column');
+		2, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(3, 'has_special_triggers');
 }
 
 sub test_analyze_if_not_analyzed : Test(11) {
@@ -93,17 +110,17 @@ sub test_analyze_if_not_analyzed : Test(11) {
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(4, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(3, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_approximate_bloat_statistics');
-	$self->{'database'}->{'mock'}->is_called(6, 'analyze');
+		4, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(5, 'analyze');
 	$self->{'database'}->{'mock'}->is_called(
-		7, 'get_approximate_bloat_statistics');
-	$self->{'database'}->{'mock'}->is_called(8, 'get_column');
+		6, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(7, 'has_special_triggers');
 	ok($table_compactor->is_processed());
 }
 
-sub test_min_page_count : Test(10) {
+sub test_min_page_count : Test(4) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -114,16 +131,12 @@ sub test_min_page_count : Test(10) {
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(2, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(3, 'vacuum');
-	$self->{'database'}->{'mock'}->is_called(4, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(5, 'has_special_triggers');
 	$self->{'database'}->{'mock'}->is_called(6, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_min_free_percent : Test(10) {
+sub test_min_free_percent : Test(4) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -134,16 +147,12 @@ sub test_min_free_percent : Test(10) {
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(2, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(3, 'vacuum');
-	$self->{'database'}->{'mock'}->is_called(4, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(5, 'has_special_triggers');
 	$self->{'database'}->{'mock'}->is_called(6, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_force_processing : Test(10) {
+sub test_force_processing : Test(4) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -161,11 +170,7 @@ sub test_force_processing : Test(10) {
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(2, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(3, 'vacuum');
-	$self->{'database'}->{'mock'}->is_called(4, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(5, 'has_special_triggers');
 	$self->{'database'}->{'mock'}->is_called(6, 'get_column');
 }
 
@@ -452,7 +457,7 @@ sub test_get_pgstattuple_bloat_statistics : Test(2) {
 	$table_compactor->process(attempt => 1);
 
 	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_pgstattuple_bloat_statistics');
+		4, 'get_pgstattuple_bloat_statistics');
 }
 
 sub test_no_final_analyze : Test(5) {
@@ -520,15 +525,15 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(7) {
 sub test_stop_processing_on_relation_does_not_exist : Test(4) {
 	my $self = shift;
 
-	$self->{'database'}->{'mock'}->{'data_hash'}->{'has_special_triggers'}
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'vacuum'}
 	->{'row_list'} = 'relation "schema.table" does not exist';
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
 	$table_compactor->process(attempt => 1);
 
-	$self->{'database'}->{'mock'}->is_called(1, 'has_special_triggers');
-	$self->{'database'}->{'mock'}->is_called(2, undef);
+	$self->{'database'}->{'mock'}->is_called(2, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(3, undef);
 	ok($table_compactor->is_processed());
 }
 

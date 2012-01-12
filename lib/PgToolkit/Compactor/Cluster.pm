@@ -15,6 +15,7 @@ reducing.
 	my $cluster_compactor = PgToolkit::Compactor::Cluster->new(
 		database_constructor => $database_constructor,
 		logger => $logger,
+		dry_run => 0,
 		database_compactor_constructor => $database_compactor_constructor,
 		dbname_list => $dbname_list,
 		excluded_dbname_list => $excluded_dbname_list,
@@ -38,6 +39,8 @@ a database constructor code reference
 =item C<logger>
 
 a logger object
+
+=item C<dry_run>
 
 =item C<database_compactor_constructor>
 
@@ -94,18 +97,13 @@ sub _process {
 	my $self = shift;
 
 	if (@{$self->{'_database_compactor_list'}}) {
-		$self->{'_logger'}->write(
-			message => 'Processing.',
-			level => 'info',
-			target => $self->{'_log_target'});
-
 		my $attempt = 0;
 		while (not $self->is_processed() and
 			   $attempt <= $self->{'_max_retry_count'})
 		{
 			if ($attempt != 0) {
 				$self->{'_logger'}->write(
-					message => ('Retrying processing, attempt: '.$attempt.
+					message => ('Retrying to process, attempt: '.$attempt.
 								' from '.$self->{'_max_retry_count'}.', '.
 								$self->_incomplete_count().' databases left.'),
 					level => 'notice');
@@ -128,26 +126,28 @@ sub _process {
 				$_->get_log_target(),
 				@{$self->{'_database_compactor_list'}}));
 
-		if ($self->is_processed()) {
-			$self->{'_logger'}->write(
-				message => (
-					'Processing complete: '.($attempt - 1).' retries from '.
-					$self->{'_max_retry_count'}.', size reduced by '.
-					$self->get_size_delta().' bytes ('.
-					$self->get_total_size_delta().' bytes including '.
-					'toasts and indexes) in total, '.
-					$databases_size_delta_report.'.'),
-				level => 'notice');
-		} else {
-			$self->{'_logger'}->write(
-				message => (
-					'Processing incomplete: '.$self->_incomplete_count().
-					' databases left, size reduced by '.
-					$self->get_size_delta().' bytes ('.
-					$self->get_total_size_delta().' bytes including '.
-					'toasts and indexes) in total, '.
-					$databases_size_delta_report.'.'),
-				level => 'warning');
+		if (not $self->{'_dry_run'}) {
+			if ($self->is_processed()) {
+				$self->{'_logger'}->write(
+					message => (
+						'Processing complete: '.($attempt - 1).' retries from '.
+						$self->{'_max_retry_count'}.', size reduced by '.
+						$self->get_size_delta().' bytes ('.
+						$self->get_total_size_delta().' bytes including '.
+						'toasts and indexes) in total, '.
+						$databases_size_delta_report.'.'),
+					level => 'notice');
+			} else {
+				$self->{'_logger'}->write(
+					message => (
+						'Processing incomplete: '.$self->_incomplete_count().
+						' databases left, size reduced by '.
+						$self->get_size_delta().' bytes ('.
+						$self->get_total_size_delta().' bytes including '.
+						'toasts and indexes) in total, '.
+						$databases_size_delta_report.'.'),
+					level => 'warning');
+			}
 		}
 	} else {
 		$self->{'_logger'}->write(

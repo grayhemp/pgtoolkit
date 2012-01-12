@@ -17,6 +17,7 @@ B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
 	my $table_compactor = PgToolkit::Compactor::Table->new(
 		database => $database,
 		logger => $logger,
+		dry_run => 0,
 		schema_name => $schema_name,
 		table_name => $table_name,
 		min_page_count => 100,
@@ -56,6 +57,8 @@ a database object
 =item C<logger>
 
 a logger object
+
+=item C<dry_run>
 
 =item C<schema_name>
 
@@ -222,82 +225,84 @@ sub _process {
 
 	my $duration;
 
-	if ($self->_has_special_triggers()) {
-		$self->_log_can_not_process_ar_triggers();
-		$self->{'_is_processed'} = 1;
+	$self->{'_size_statistics'} = $self->_get_size_statistics();
+
+	if (not defined $self->{'_base_size_statistics'}) {
+		$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
 	}
 
-	if (not $self->{'_is_processed'}) {
+	if (not $self->{'_dry_run'} and not $self->{'_no_initial_vacuum'}) {
+		$self->_do_vacuum();
+		$duration = $self->{'_database'}->get_duration();
+
 		$self->{'_size_statistics'} = $self->_get_size_statistics();
 
-		if (not defined $self->{'_base_size_statistics'}) {
-			$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
-		}
+		$self->_log_vacuum_complete(
+			page_count => $self->{'_size_statistics'}->{'page_count'},
+			duration => $duration,
+			to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
+			pages_before_vacuum => (
+				$self->{'_size_statistics'}->{'page_count'}),
+			phrase => 'initial');
+	}
 
-		if (not $self->{'_no_initial_vacuum'}) {
-			$self->_do_vacuum();
-			$duration = $self->{'_database'}->get_duration();
+	$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+	if ($self->{'_pgstattuple_schema_ident'}) {
+		$self->_log_pgstattuple_duration(
+			duration => $self->{'_database'}->get_duration());
+	}
 
-			$self->{'_size_statistics'} = $self->_get_size_statistics();
-
-			$self->_log_vacuum_complete(
-				page_count => $self->{'_size_statistics'}->{'page_count'},
-				duration => $duration,
-				to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
-				pages_before_vacuum => (
-					$self->{'_size_statistics'}->{'page_count'}),
-				phrase => 'initial');
-		}
-
+	if (not defined
+		$self->{'_bloat_statistics'}->{'effective_page_count'})
+	{
+		$self->_do_analyze();
+		$self->_log_analyze_complete(
+			duration => $self->{'_database'}->get_duration(),
+			phrase => 'required initial');
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		if ($self->{'_pgstattuple_schema_ident'}) {
 			$self->_log_pgstattuple_duration(
 				duration => $self->{'_database'}->get_duration());
 		}
+	}
 
-		if (not defined
-			$self->{'_bloat_statistics'}->{'effective_page_count'})
-		{
-			$self->_do_analyze();
-			$self->_log_analyze_complete(
-				duration => $self->{'_database'}->get_duration(),
-				phrase => 'required initial');
-			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
-			if ($self->{'_pgstattuple_schema_ident'}) {
-				$self->_log_pgstattuple_duration(
-					duration => $self->{'_database'}->get_duration());
+	$self->_log_statistics(
+		size_statistics => $self->{'_size_statistics'},
+		bloat_statistics => $self->{'_bloat_statistics'});
+
+	if (not $self->{'_is_processed'}) {
+		if ($self->_has_special_triggers()) {
+			$self->_log_can_not_process_ar_triggers();
+			$self->{'_is_processed'} = 1;
+		}
+
+		if (not $self->{'_force'}) {
+			if ($self->{'_size_statistics'}->{'page_count'} <
+				$self->{'_min_page_count'})
+			{
+				$self->_log_skipping_min_page_count(
+					page_count => $self->{'_size_statistics'}->{'page_count'});
+				$self->{'_is_processed'} = 1;
+			}
+
+			if ($self->{'_bloat_statistics'}->{'free_percent'} <
+				$self->{'_min_free_percent'})
+			{
+				$self->_log_skipping_min_free_percent(
+					free_percent => (
+						$self->{'_bloat_statistics'}->{'free_percent'}));
+				$self->{'_is_processed'} = 1;
 			}
 		}
 	}
 
-	if (not $self->{'_is_processed'} and not $self->{'_force'}) {
-		if ($self->{'_size_statistics'}->{'page_count'} <
-			$self->{'_min_page_count'})
-		{
-			$self->_log_skipping_min_page_count(
-				page_count => $self->{'_size_statistics'}->{'page_count'});
-			$self->{'_is_processed'} = 1;
-		}
-
-		if ($self->{'_bloat_statistics'}->{'free_percent'} <
-			$self->{'_min_free_percent'} and not $self->{'_is_processed'})
-		{
-			$self->_log_skipping_min_free_percent(
-				free_percent => (
-					$self->{'_bloat_statistics'}->{'free_percent'}));
-			$self->{'_is_processed'} = 1;
-		}
+	if ($self->{'_dry_run'}) {
+		$self->{'_is_processed'} = 1;
 	}
 
 	if (not $self->{'_is_processed'}) {
 		if ($self->{'_force'}) {
-			$self->_log_forced_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'});
-		} else {
-			$self->_log_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'});
+			$self->_log_processing_forced();
 		}
 
 		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
@@ -632,51 +637,36 @@ sub _log_skipping_min_free_percent {
 	return;
 }
 
-sub _log_forced_processing {
+sub _log_processing_forced {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Forced processing: '.
-			$self->_get_log_processing_expectations(
-				size_statistics => $arg_hash{'size_statistics'},
-				bloat_statistics => $arg_hash{'bloat_statistics'}).'.'),
+		message => 'Processing forced.',
 		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
 }
 
-sub _log_processing {
+sub _log_statistics {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
-			'Processing: '.
-			$self->_get_log_processing_expectations(
-				size_statistics => $arg_hash{'size_statistics'},
-				bloat_statistics => $arg_hash{'bloat_statistics'}).'.'),
+			'Statistics: '.
+			$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+			$arg_hash{'size_statistics'}->{'total_page_count'}.
+			' including toasts and indexes), approximately '.
+			$arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+			($arg_hash{'size_statistics'}->{'page_count'} -
+			 $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
+			' pages) can be compacted reducing the size by '.
+			$arg_hash{'bloat_statistics'}->{'free_space'}.
+			' bytes.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
-}
-
-
-
-sub _get_log_processing_expectations {
-	my ($self, %arg_hash) = @_;
-
-	return
-		'contains '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
-		$arg_hash{'size_statistics'}->{'total_page_count'}.
-		' including toasts and indexes), approximately '.
-		$arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
-		($arg_hash{'size_statistics'}->{'page_count'} -
-		 $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-		' pages) are expected to be compacted reducing the size by '.
-		$arg_hash{'bloat_statistics'}->{'free_space'}.
-		' bytes after this attempt';
 }
 
 sub _log_column {

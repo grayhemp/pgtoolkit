@@ -52,6 +52,7 @@ sub get_cluster_compactor {
 				dbname => $arg_hash{'dbname'});
 		},
 		logger => $self->get_logger(),
+		dry_run => $options->get(name => 'dry-run'),
 		database_compactor_constructor => sub {
 			my %arg_hash = @_;
 			return $self->get_database_compactor(
@@ -76,6 +77,7 @@ sub get_database_compactor {
 	return PgToolkit::Compactor::Database->new(
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
+		dry_run => $options->get(name => 'dry-run'),
 		schema_compactor_constructor => sub {
 			my %arg_hash = @_;
 			return $self->get_schema_compactor(
@@ -103,6 +105,7 @@ sub get_schema_compactor {
 	return PgToolkit::Compactor::Schema->new(
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
+		dry_run => $options->get(name => 'dry-run'),
 		schema_name => $arg_hash{'schema_name'},
 		table_compactor_constructor => sub {
 			my %arg_hash = @_;
@@ -132,6 +135,7 @@ sub get_table_compactor {
 	return PgToolkit::Compactor::Table->new(
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
+		dry_run => $options->get(name => 'dry-run'),
 		schema_name => $arg_hash{'schema_name'},
 		table_name => $arg_hash{'table_name'},
 		min_page_count => $options->get(name => 'min-page-count'),
@@ -237,6 +241,7 @@ sub get_options {
 				'exclude-schema|N:s@' => [],
 				'exclude-table|T:s@' => [],
 				# behaviour
+				'dry-run|u' => 0,
 				'no-initial-vacuum|I' => 0,
 				'no-routine-vacuum|R' => 0,
 				'no-final-analyze|L' => 0,

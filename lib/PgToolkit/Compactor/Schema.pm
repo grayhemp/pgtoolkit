@@ -14,6 +14,7 @@ B<PgToolkit::Compactor::Schema> - a schema level processing for bloat reducing.
 	my $schema_compactor = PgToolkit::Compactor::Schema->new(
 		database => $database,
 		logger => $logger,
+		dry_run => 0,
 		schema_name => $schema_name,
 		table_compactor_constructor => $table_compactor_constructor,
 		table_name_list => $table_name_list,
@@ -38,6 +39,8 @@ a database object
 =item C<logger>
 
 a logger object
+
+=item C<dry_run>
 
 =item C<schema_name>
 
@@ -113,34 +116,32 @@ sub _init {
 sub _process {
 	my ($self, %arg_hash) = @_;
 
-	$self->{'_logger'}->write(
-		message => 'Processing.',
-		level => 'info',
-		target => $self->{'_log_target'});
-
 	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
 		if (not $table_compactor->is_processed()) {
 			$table_compactor->process(attempt => $arg_hash{'attempt'});
 		}
 	}
 
-	if ($self->is_processed()) {
-		$self->{'_logger'}->write(
-			message => (
-				'Processing complete: size reduced by '.$self->get_size_delta().
-				' bytes ('.$self->get_total_size_delta().' bytes including '.
-				'toasts and indexes) in total.'),
-			level => 'info',
-			target => $self->{'_log_target'});
-	} else {
-		$self->{'_logger'}->write(
-			message => (
-				'Processing incomplete: '.$self->_incomplete_count().
-				' tables left, size reduced by '.$self->get_size_delta().
-				' bytes ('.$self->get_total_size_delta().' bytes including '.
-				'toasts and indexes) in total.'),
-			level => 'warning',
-			target => $self->{'_log_target'});
+	if (not $self->{'_dry_run'}) {
+		if ($self->is_processed()) {
+			$self->{'_logger'}->write(
+				message => (
+					'Processing complete: size reduced by '.
+					$self->get_size_delta().' bytes ('.
+					$self->get_total_size_delta().' bytes including '.
+					'toasts and indexes) in total.'),
+				level => 'info',
+				target => $self->{'_log_target'});
+		} else {
+			$self->{'_logger'}->write(
+				message => (
+					'Processing incomplete: '.$self->_incomplete_count().
+					' tables left, size reduced by '.$self->get_size_delta().
+					' bytes ('.$self->get_total_size_delta().
+					' bytes including toasts and indexes) in total.'),
+				level => 'warning',
+				target => $self->{'_log_target'});
+		}
 	}
 
 	return;
