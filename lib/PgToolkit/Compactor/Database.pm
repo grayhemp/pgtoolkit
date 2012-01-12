@@ -69,11 +69,11 @@ sub _init {
 
 	$self->{'_log_target'} = $self->{'_ident'};
 
+	$self->_create_clean_pages_function();
 	$self->{'_logger'}->write(
-		message => 'Creating environment.',
+		message => 'Created environment.',
 		level => 'info',
 		target => $self->{'_log_target'});
-	$self->_create_clean_pages_function();
 
 	my %schema_name_hash = map(
 		($_ => 1), @{$arg_hash{'schema_name_list'}} ?
@@ -228,7 +228,7 @@ sub DESTROY {
 
 	$self->_drop_clean_pages_function();
 	$self->{'_logger'}->write(
-		message => 'Dropping environment.',
+		message => 'Dropped environment.',
 		level => 'info',
 		target => $self->{'_log_target'});
 }
