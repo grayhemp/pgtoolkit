@@ -8,7 +8,7 @@ CREATE DATABASE dbname1;
 CREATE DATABASE dbname2;
 --
 \c dbname1
---\i /usr/share/postgresql-9.0/contrib/pgstattuple.sql
+--
 CREATE EXTENSION pgstattuple;
 --
 CREATE TABLE table1 AS
@@ -35,7 +35,25 @@ ALTER DATABASE dbname1 SET search_path TO dummy;
 --
 \c dbname2
 --
-CREATE TABLE table1 AS
+--CREATE EXTENSION pgstattuple;
+--
+CREATE TABLE table1 ("primary" integer, float_column real)
+WITH (fillfactor=50);
+INSERT INTO table1
+SELECT
+    i AS "primary",
+    random() * 10000 AS float_column
+FROM generate_series(1, 8000) i;
+DELETE FROM table1 WHERE random() < 0.5;
+--
+CREATE TABLE table2 AS
+SELECT
+    i AS "primary",
+    random() * 10000 AS float_column
+FROM generate_series(1, 5000) i;
+DELETE FROM table2 WHERE random() < 0.5;
+--
+CREATE TABLE table3 AS
 SELECT
     i AS id,
     random() * 10000 AS float_column,
@@ -44,14 +62,7 @@ SELECT
         THEN random()
         ELSE NULL END AS partially_null_column
 FROM generate_series(1, 5000) i;
-DELETE FROM table1 WHERE random() < 0.05;
---
-CREATE TABLE table2 AS
-SELECT
-    i AS "primary",
-    random() * 10000 AS float_column
-FROM generate_series(1, 5000) i;
-DELETE FROM table2 WHERE random() < 0.5;
+DELETE FROM table3 WHERE random() < 0.05;
 --
 CREATE SCHEMA schema1;
 --
@@ -165,8 +176,8 @@ SELECT
 FROM (
     SELECT
         current_setting('block_size')::integer AS bs,
-        pg_catalog.pg_relation_size('public.table1') AS size,
-        pg_catalog.pg_total_relation_size('public.table1') AS total_size
+        pg_catalog.pg_relation_size('public.t2') AS size,
+        pg_catalog.pg_total_relation_size('public.t2') AS total_size
 ) AS sq;
 
 SELECT
@@ -193,7 +204,8 @@ FROM (
         bs,
         ceil(size / bs) AS page_count,
         ceil(
-            reltuples * (
+            (fillfactor::real / 100) * size / bs + reltuples *
+            (
                 max(stanullfrac) * ma * ceil(
                     (
                         ma * ceil(
@@ -212,29 +224,48 @@ FROM (
                 )
             )::real / (bs - 24)
         ) AS effective_page_count
-    FROM pg_catalog.pg_class
-    LEFT JOIN pg_catalog.pg_statistic ON starelid = pg_catalog.pg_class.oid
-    CROSS JOIN (
+    FROM (
         SELECT
+            pg_catalog.pg_class.oid AS class_oid,
+            reltuples,
             23 AS header_width, 8 AS ma,
             current_setting('block_size')::integer AS bs,
-            pg_catalog.pg_relation_size('public.table1')::real AS size
+            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
+            coalesce(
+                regexp_replace(
+                    reloptions::text,'.*fillfactor=(\d+).*', '\1'),
+                '10')::integer AS fillfactor
+        FROM pg_catalog.pg_class
+        WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
     ) AS const
-    WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
-    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma, bs, size
+    LEFT JOIN pg_catalog.pg_statistic ON starelid = class_oid
+    GROUP BY bs, class_oid, fillfactor, ma, size, reltuples, header_width
 ) AS sq;
 
 SELECT
     CASE
         WHEN free_percent = 0 THEN page_count
-        ELSE ceil(page_count * (1 - free_percent / 100))
+        ELSE ceil(page_count * (1 - free_percent::real / 100))
         END AS effective_page_count,
-    free_percent, free_space
-FROM public.pgstattuple('public.table1')
-CROSS JOIN (
+    CASE WHEN free_percent < 0 THEN 0 ELSE free_percent END AS free_percent,
+    CASE WHEN free_space < 0 THEN 0 ELSE free_space END AS free_space
+FROM (
     SELECT
-        pg_catalog.pg_relation_size('public.table1')::real /
-        current_setting('block_size')::integer AS page_count
+        free_percent - fillfactor AS free_percent,
+        free_space - ceil(size::real * fillfactor / 100) AS free_space,
+        ceil(size::real / bs) AS page_count
+    FROM public.pgstattuple('public.table1')
+    CROSS JOIN (
+        SELECT
+            current_setting('block_size')::integer AS bs,
+            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
+            coalesce(
+                regexp_replace(
+                    reloptions::text,'.*fillfactor=(\d+).*', '\1'),
+                '10')::integer AS fillfactor
+        FROM pg_catalog.pg_class
+        WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
+    ) AS const
 ) AS sq;
 
 CREATE TABLE public.table1 AS

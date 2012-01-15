@@ -112,16 +112,16 @@ sub init {
 			'row_list' => [[10]]},
 		'get_approximate_bloat_statistics' => {
 			'sql_pattern' => (
-				qr/SELECT.+effective_page_count,.+/s.
+				qr/SELECT\s+effective_page_count,.+/s.
 				qr/END AS free_percent,.+END AS free_space.+/s.
-				qr/pg_relation_size\('schema\.table'\)::real AS size.+/s.
 				qr/pg_catalog\.pg_class\.oid = 'schema\.table'::regclass/),
 			'row_list_sequence' => $bloat_statistics_row_list_sequence},
 		'get_pgstattuple_bloat_statistics' => {
 			'sql_pattern' => (
-				qr/END AS effective_page_count.+free_percent, free_space.+/s.
+				qr/SELECT.+END AS effective_page_count,.+/s.
+				qr/END AS free_percent,.+END AS free_space.+/s.
 				qr/pgstattuple\('schema\.table'\).+/s.
-				qr/pg_catalog\.pg_relation_size\('schema\.table'\)/),
+				qr/pg_catalog\.pg_class\.oid = 'schema\.table'::regclass/),
 			'row_list_sequence' => $bloat_statistics_row_list_sequence},
 		'get_size_statistics' => {
 			'sql_pattern' => (

@@ -259,18 +259,26 @@ sub _process {
 		$self->_log_analyze_complete(
 			duration => $self->{'_database'}->get_duration(),
 			phrase => 'required initial');
+
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		if ($self->{'_pgstattuple_schema_ident'}) {
 			$self->_log_pgstattuple_duration(
 				duration => $self->{'_database'}->get_duration());
 		}
+
+		if (not defined
+			$self->{'_bloat_statistics'}->{'effective_page_count'})
+		{
+			$self->_log_skipping_can_not_get_bloat_statistics();
+			$self->{'_is_processed'} = 1;
+		}
 	}
 
-	$self->_log_statistics(
-		size_statistics => $self->{'_size_statistics'},
-		bloat_statistics => $self->{'_bloat_statistics'});
-
 	if (not $self->{'_is_processed'}) {
+		$self->_log_statistics(
+			size_statistics => $self->{'_size_statistics'},
+			bloat_statistics => $self->{'_bloat_statistics'});
+
 		if ($self->_has_special_triggers()) {
 			$self->_log_can_not_process_ar_triggers();
 			$self->{'_is_processed'} = 1;
@@ -568,8 +576,7 @@ sub _log_can_not_process_ar_triggers {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Can not process: "always" or "replica" triggers are on.'),
+		message => 'Can not process: "always" or "replica" triggers are on.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -637,6 +644,17 @@ sub _log_skipping_min_free_percent {
 	return;
 }
 
+sub _log_skipping_can_not_get_bloat_statistics {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => 'Skipping processing: can not get bloat statistics.',
+		level => 'warning',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
 sub _log_processing_forced {
 	my ($self, %arg_hash) = @_;
 
@@ -651,18 +669,24 @@ sub _log_processing_forced {
 sub _log_statistics {
 	my ($self, %arg_hash) = @_;
 
+	my $can_be_compacted = (
+		$arg_hash{'bloat_statistics'}->{'free_percent'} > 0 and
+		$arg_hash{'size_statistics'}->{'page_count'} >
+		$arg_hash{'bloat_statistics'}->{'effective_page_count'});
+
 	$self->{'_logger'}->write(
 		message => (
 			'Statistics: '.
 			$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
 			$arg_hash{'size_statistics'}->{'total_page_count'}.
-			' including toasts and indexes), approximately '.
-			$arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
-			($arg_hash{'size_statistics'}->{'page_count'} -
-			 $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-			' pages) can be compacted reducing the size by '.
-			$arg_hash{'bloat_statistics'}->{'free_space'}.
-			' bytes.'),
+			' including toasts and indexes)'.
+			($can_be_compacted ? ', approximately '.
+			 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+			 ($arg_hash{'size_statistics'}->{'page_count'} -
+			  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
+			 ' pages) can be compacted reducing the size by '.
+			 $arg_hash{'bloat_statistics'}->{'free_space'}.
+			 ' bytes' : '').'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -802,8 +826,7 @@ sub _log_incomplete_processing {
 			$self->_get_log_processing_results(
 				size_statistics => $arg_hash{'size_statistics'},
 				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'}).
-			'.'),
+				base_size_statistics => $arg_hash{'base_size_statistics'})),
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -819,8 +842,7 @@ sub _log_complete_processing {
 			$self->_get_log_processing_results(
 				size_statistics => $arg_hash{'size_statistics'},
 				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'}).
-			'.'),
+				base_size_statistics => $arg_hash{'base_size_statistics'})),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -829,6 +851,11 @@ sub _log_complete_processing {
 
 sub _get_log_processing_results {
 	my ($self, %arg_hash) = @_;
+
+	my $can_be_compacted = (
+		$arg_hash{'bloat_statistics'}->{'free_percent'} > 0 and
+		$arg_hash{'size_statistics'}->{'page_count'} >
+		$arg_hash{'bloat_statistics'}->{'effective_page_count'});
 
 	return
 		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
@@ -839,13 +866,13 @@ sub _get_log_processing_results {
 		($arg_hash{'base_size_statistics'}->{'total_size'} -
 		 $arg_hash{'size_statistics'}->{'total_size'}).
 		' bytes including toasts and indexes) in total'.
-		($arg_hash{'bloat_statistics'}->{'free_percent'} > 0 ?
-		 ', approximately '.
+		($can_be_compacted ? ', approximately '.
 		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 		 ($arg_hash{'size_statistics'}->{'page_count'} -
 		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
 		 ' pages) that is '.$arg_hash{'bloat_statistics'}->{'free_space'}.
-		 ' bytes more were expected to be compacted after this attempt' : '');
+		 ' bytes more were expected to be compacted after this attempt' :
+		 '').'.';
 }
 
 sub _log_deadlock_detected {
@@ -949,14 +976,27 @@ sub _get_bloat_statistics {
 SELECT
     CASE
         WHEN free_percent = 0 THEN page_count
-        ELSE ceil(page_count * (1 - free_percent / 100))
+        ELSE ceil(page_count * (1 - free_percent::real / 100))
         END AS effective_page_count,
-    free_percent, free_space
-FROM $self->{'_pgstattuple_schema_ident'}.pgstattuple('$self->{'_ident'}')
-CROSS JOIN (
+    CASE WHEN free_percent < 0 THEN 0 ELSE free_percent END AS free_percent,
+    CASE WHEN free_space < 0 THEN 0 ELSE free_space END AS free_space
+FROM (
     SELECT
-        pg_catalog.pg_relation_size('$self->{'_ident'}')::real /
-        current_setting('block_size')::integer AS page_count
+        free_percent - fillfactor AS free_percent,
+        free_space - ceil(size::real * fillfactor / 100) AS free_space,
+        ceil(size::real / bs) AS page_count
+    FROM public.pgstattuple('$self->{'_ident'}')
+    CROSS JOIN (
+        SELECT
+            current_setting('block_size')::integer AS bs,
+            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
+            coalesce(
+                regexp_replace(
+                    reloptions::text,'.*fillfactor=(\\d+).*', '\\1'),
+                '10')::integer AS fillfactor
+        FROM pg_catalog.pg_class
+        WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
+    ) AS const
 ) AS sq
 SQL
 			);
@@ -987,7 +1027,8 @@ FROM (
         bs,
         ceil(size / bs) AS page_count,
         ceil(
-            reltuples * (
+            (fillfactor::real / 100) * size / bs + reltuples *
+            (
                 max(stanullfrac) * ma * ceil(
                     (
                         ma * ceil(
@@ -1006,16 +1047,22 @@ FROM (
                 )
             )::real / (bs - 24)
         ) AS effective_page_count
-    FROM pg_catalog.pg_class
-    LEFT JOIN pg_catalog.pg_statistic ON starelid = pg_catalog.pg_class.oid
-    CROSS JOIN (
+    FROM (
         SELECT
+            pg_catalog.pg_class.oid AS class_oid,
+            reltuples,
             23 AS header_width, 8 AS ma,
             current_setting('block_size')::integer AS bs,
-            pg_catalog.pg_relation_size('$self->{'_ident'}')::real AS size
+            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
+            coalesce(
+                regexp_replace(
+                    reloptions::text,'.*fillfactor=(\\d+).*', '\\1'),
+                '10')::integer AS fillfactor
+        FROM pg_catalog.pg_class
+        WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
     ) AS const
-    WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
-    GROUP BY pg_catalog.pg_class.oid, reltuples, header_width, ma, bs, size
+    LEFT JOIN pg_catalog.pg_statistic ON starelid = class_oid
+    GROUP BY bs, class_oid, fillfactor, ma, size, reltuples, header_width
 ) AS sq
 SQL
 			);
