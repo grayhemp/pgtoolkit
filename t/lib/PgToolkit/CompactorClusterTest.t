@@ -69,41 +69,32 @@ sub create_database_compactor_mock {
 	return $mock;
 }
 
-sub test_init_creates_database_compactors_in_the_returning_order : Test(16) {
+sub test_init_creates_database_compactors_in_the_returning_order : Test(8) {
 	my $self = shift;
 
 	my $dbname_list1 = [
 		map($_->[0],
-			@{$self->{'database'}->{'mock'}->{'data_hash'}->
-			  {'get_dbname_list1'}->{'row_list'}})];
+			@{$self->{'database'}->{'mock'}->{'data_hash'}
+			  ->{'get_dbname_list1'}->{'row_list'}})];
+
 	my $dbname_list2 = [
 		map($_->[0],
-			@{$self->{'database'}->{'mock'}->{'data_hash'}->
-			  {'get_dbname_list2'}->{'row_list'}})];
+			@{$self->{'database'}->{'mock'}->{'data_hash'}
+			  ->{'get_dbname_list2'}->{'row_list'}})];
 
 	my $data_hash_list = [
-		{'args' => {
-			'dbname_list' => [reverse @{$dbname_list2}],
-			'excluded_dbname_list' => []},
-		 'expected' => $dbname_list2},
 		{'args' => {
 			'dbname_list' => [],
 			'excluded_dbname_list' => []},
 		 'expected' => $dbname_list1},
 		{'args' => {
-			'dbname_list' => [reverse @{$dbname_list2}],
-			'excluded_dbname_list' => [$dbname_list2->[0]]},
-		 'expected' => [$dbname_list2->[1]]},
-		{'args' => {
-			'dbname_list' => [],
-			'excluded_dbname_list' => [$dbname_list1->[1]]},
-		 'expected' => [$dbname_list1->[0]]}];
+			'dbname_list' => $dbname_list2,
+			'excluded_dbname_list' => $dbname_list1},
+		 'expected' => $dbname_list2}];
 
 	for my $data_hash (@{$data_hash_list}) {
 		$self->{'cluster_compactor_constructor'}->(%{$data_hash->{'args'}});
 
-		is(@{$self->{'database_compactor_mock_list'}},
-		   @{$data_hash->{'expected'}});
 		for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
 			my $mock = $self->{'database_compactor_mock_list'}->[$i];
 			is($mock->call_pos(1), 'init');
@@ -176,7 +167,12 @@ sub test_get_size_delta : Test {
 
 	for my $database_compactor_mock (@{$self->{'database_compactor_mock_list'}})
 	{
-		$database_compactor_mock->set_true('-is_processed');
+		$database_compactor_mock->mock(
+			'-is_processed',
+			sub {
+				shift->set_true('-is_processed');
+				return 0;
+			});
 	}
 
 	$cluster_compactor->process();
@@ -195,7 +191,12 @@ sub test_get_total_size_delta : Test {
 
 	for my $database_compactor_mock (@{$self->{'database_compactor_mock_list'}})
 	{
-		$database_compactor_mock->set_true('-is_processed');
+		$database_compactor_mock->mock(
+			'-is_processed',
+			sub {
+				shift->set_true('-is_processed');
+				return 0;
+			});
 	}
 
 	$cluster_compactor->process();

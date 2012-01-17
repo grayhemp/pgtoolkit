@@ -318,4 +318,28 @@ SELECT nspname FROM pg_catalog.pg_proc
 JOIN pg_catalog.pg_namespace AS n ON pronamespace = n.oid
 WHERE proname = 'pgstattuple' LIMIT 1;
 
+-- Get dbname list
+
+SELECT datname FROM pg_catalog.pg_database
+WHERE
+    --datname IN ('dbname1') AND
+    --datname NOT IN ('dbname1') AND
+    datname NOT IN ('postgres', 'template0', 'template1')
+ORDER BY pg_catalog.pg_database_size(datname), datname;
+
+-- Get table name list
+
+SELECT schemaname, tablename FROM pg_catalog.pg_tables
+WHERE
+    --schemaname IN ('public') AND
+    --schemaname NOT IN ('public') AND
+    --tablename IN ('table1') AND
+    --tablename NOT IN ('table1') AND
+    schemaname NOT IN ('pg_catalog', 'information_schema') AND
+    schemaname !~ 'pg_.*'
+ORDER BY
+    pg_catalog.pg_relation_size(
+        quote_ident(schemaname) || '.' || quote_ident(tablename)),
+    schemaname, tablename;
+
 --

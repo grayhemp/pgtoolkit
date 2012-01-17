@@ -82,19 +82,6 @@ sub test_get_table_compactor : Test(2) {
 		class_name => 'PgToolkit::Compactor::Table');
 }
 
-sub test_get_schema_compactor : Test(2) {
-	my $self = shift;
-
-	$self->is_prototype(
-		code_reference => sub {
-			return $self->{'registry'}->get_schema_compactor(
-				database => $self->{'database'},
-				schema_name => 'schema',
-				use_pgstattuple => 0);
-		},
-		class_name => 'PgToolkit::Compactor::Schema');
-}
-
 sub test_get_database_compactor : Test(2) {
 	my $self = shift;
 

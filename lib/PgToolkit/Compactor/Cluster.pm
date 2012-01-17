@@ -77,17 +77,16 @@ sub _init {
 		level => 'info');
 
 	my $dbname_list = $self->_get_dbname_list(
-		dbname_list => $arg_hash{'dbname_list'});
+		dbname_list => $arg_hash{'dbname_list'},
+		excluded_dbname_list => $arg_hash{'excluded_dbname_list'});
 
 	$self->{'_database_compactor_list'} = [];
 	for my $dbname (@{$dbname_list}) {
-		if (not grep($_ eq $dbname, @{$arg_hash{'excluded_dbname_list'}})) {
-			my $database_compactor =
-				$arg_hash{'database_compactor_constructor'}->
-				(database => $self->{'_database_constructor'}->(
-					 dbname => $dbname));
-			push(@{$self->{'_database_compactor_list'}}, $database_compactor);
-		}
+		my $database_compactor =
+			$arg_hash{'database_compactor_constructor'}->(
+				database => $self->{'_database_constructor'}->(
+					dbname => $dbname));
+		push(@{$self->{'_database_compactor_list'}}, $database_compactor);
 	}
 
 	return;
@@ -130,8 +129,10 @@ sub _process {
 			if ($self->is_processed()) {
 				$self->{'_logger'}->write(
 					message => (
-						'Processing complete: '.($attempt - 1).' retries from '.
-						$self->{'_max_retry_count'}.', size reduced by '.
+						'Processing complete: '.
+						($attempt ? ($attempt - 1).' retries from '.
+						 $self->{'_max_retry_count'} : ' no attempts to '.
+						 'process have been done') .', size reduced by '.
 						$self->get_size_delta().' bytes ('.
 						$self->get_total_size_delta().' bytes including '.
 						'toasts and indexes) in total, '.
@@ -233,18 +234,29 @@ sub _incomplete_count {
 sub _get_dbname_list {
 	my ($self, %arg_hash) = @_;
 
-	my $datname_in = '';
+	my $in = '';
 	if (@{$arg_hash{'dbname_list'}}) {
-		$datname_in =
-			'AND datname IN (\''.
-			join('\', \'', @{$arg_hash{'dbname_list'}}).
-			'\')';
+		$in =
+			'datname IN ('.
+			join(', ', map("'$_'", @{$arg_hash{'dbname_list'}})).
+			') AND';
+	}
+
+	my $not_in = '';
+	if (@{$arg_hash{'dbname_list'}}) {
+		$not_in =
+			'datname NOT IN ('.
+			join(', ', map("'$_'", @{$arg_hash{'excluded_dbname_list'}})).
+			') AND';
 	}
 
 	my $result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT datname FROM pg_catalog.pg_database
-WHERE datname NOT IN ('postgres', 'template0', 'template1') $datname_in
+WHERE
+    $in
+    $not_in
+    datname NOT IN ('postgres', 'template0', 'template1')
 ORDER BY pg_catalog.pg_database_size(datname), datname
 SQL
 		);

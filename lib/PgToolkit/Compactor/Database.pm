@@ -16,9 +16,11 @@ reducing.
 		database => $database,
 		logger => $logger,
 		dry_run => 0,
-		schema_compactor_constructor => $schema_compactor_constructor,
+		table_compactor_constructor => $table_compactor_constructor,
 		schema_name_list => ['schema1', 'schema2'],
 		excluded_schema_name_list => [],
+		table_name_list => ['table1', 'table2'],
+		excluded_table_name_list => [],
 		no_pgstatuple => 0);
 
 	$database_compactor->process();
@@ -42,9 +44,9 @@ a logger object
 
 =item C<dry_run>
 
-=item C<schema_compactor_constructor>
+=item C<table_compactor_constructor>
 
-a schema compactor constructor code reference
+a table compactor constructor code reference
 
 =item C<schema_name_list>
 
@@ -53,6 +55,14 @@ a list of schema names to process
 =item C<excluded_schema_name_list>
 
 a list of schema names to exclude from processing
+
+=item C<table_name_list>
+
+a list of table names to process
+
+=item C<excluded_table_name_list>
+
+a list of table names to exclude from processing
 
 =item C<no_pgstatuple>
 
@@ -80,12 +90,6 @@ sub _init {
 			target => $self->{'_log_target'});
 	}
 
-	my %schema_name_hash = map(
-		($_ => 1), @{$arg_hash{'schema_name_list'}} ?
-		@{$arg_hash{'schema_name_list'}} : @{$self->_get_schema_name_list()});
-
-	delete @schema_name_hash{@{$arg_hash{'excluded_schema_name_list'}}};
-
 	my $pgstattuple_schema_name;
 	if (not $arg_hash{'no_pgstatuple'}) {
 		$pgstattuple_schema_name = $self->_get_pgstattuple_schema_name();
@@ -103,13 +107,20 @@ sub _init {
 			target => $self->{'_log_target'});
 	}
 
-	$self->{'_schema_compactor_list'} = [];
-	for my $schema_name (sort keys %schema_name_hash) {
-		my $schema_compactor = $arg_hash{'schema_compactor_constructor'}->(
+	my $table_data_list = $self->_get_table_data_list(
+		schema_name_list => $arg_hash{'schema_name_list'},
+		excluded_schema_name_list => $arg_hash{'excluded_schema_name_list'},
+		table_name_list => $arg_hash{'table_name_list'},
+		excluded_table_name_list => $arg_hash{'excluded_table_name_list'});
+
+	$self->{'_table_compactor_list'} = [];
+	for my $table_data (@{$table_data_list}) {
+		my $table_compactor = $arg_hash{'table_compactor_constructor'}->(
 			database => $self->{'_database'},
-			schema_name => $schema_name,
+			schema_name => $table_data->{'schema_name'},
+			table_name => $table_data->{'table_name'},
 			pgstattuple_schema_name => $pgstattuple_schema_name);
-		push(@{$self->{'_schema_compactor_list'}}, $schema_compactor);
+		push(@{$self->{'_table_compactor_list'}}, $table_compactor);
 	}
 
 	return;
@@ -118,9 +129,9 @@ sub _init {
 sub _process {
 	my ($self, %arg_hash) = @_;
 
-	for my $schema_compactor (@{$self->{'_schema_compactor_list'}}) {
-		if (not $schema_compactor->is_processed()) {
-			$schema_compactor->process(attempt => $arg_hash{'attempt'});
+	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
+		if (not $table_compactor->is_processed()) {
+			$table_compactor->process(attempt => $arg_hash{'attempt'});
 		}
 	}
 
@@ -138,7 +149,7 @@ sub _process {
 			$self->{'_logger'}->write(
 				message => (
 					'Processing incomplete: '.$self->_incomplete_count().
-					' schemas left, size reduced by '.$self->get_size_delta().
+					' tables left, size reduced by '.$self->get_size_delta().
 					' bytes ('.$self->get_total_size_delta().
 					' bytes including toasts and indexes) in total.'),
 				level => 'warning',
@@ -165,7 +176,7 @@ sub is_processed {
 	my $self = shift;
 
 	my $result = 1;
-	map(($result &&= $_->is_processed()), @{$self->{'_schema_compactor_list'}});
+	map(($result &&= $_->is_processed()), @{$self->{'_table_compactor_list'}});
 
 	return $result;
 }
@@ -185,7 +196,7 @@ sub get_size_delta {
 
 	my $result = 0;
 	map($result += $_->get_size_delta(),
-		@{$self->{'_schema_compactor_list'}});
+		@{$self->{'_table_compactor_list'}});
 
 	return $result;
 }
@@ -205,7 +216,7 @@ sub get_total_size_delta {
 
 	my $result = 0;
 	map($result += $_->get_total_size_delta(),
-		@{$self->{'_schema_compactor_list'}});
+		@{$self->{'_table_compactor_list'}});
 
 	return $result;
 }
@@ -243,7 +254,7 @@ sub _incomplete_count {
 
 	my $result = 0;
 	map(($result += not $_->is_processed()),
-		@{$self->{'_schema_compactor_list'}});
+		@{$self->{'_table_compactor_list'}});
 
 	return $result;
 }
@@ -262,18 +273,60 @@ SQL
 	return @{$result} ? $result->[0]->[0] : undef;
 }
 
-sub _get_schema_name_list {
-	my $self = shift;
+sub _get_table_data_list {
+	my ($self, %arg_hash) = @_;
+
+	my $table_in = '';
+	if (@{$arg_hash{'table_name_list'}}) {
+		$table_in =
+			'tablename IN ('.
+			join(', ', map("'$_'", @{$arg_hash{'table_name_list'}})).
+			') AND';
+	}
+
+	my $table_not_in = '';
+	if (@{$arg_hash{'table_name_list'}}) {
+		$table_not_in =
+			'tablename NOT IN ('.
+			join(', ', map("'$_'", @{$arg_hash{'excluded_table_name_list'}})).
+			') AND';
+	}
+
+	my $schema_in = '';
+	if (@{$arg_hash{'schema_name_list'}}) {
+		$schema_in =
+			'schemaname IN ('.
+			join(', ', map("'$_'", @{$arg_hash{'schema_name_list'}})).
+			') AND';
+	}
+
+	my $schema_not_in = '';
+	if (@{$arg_hash{'schema_name_list'}}) {
+		$schema_not_in =
+			'schemaname NOT IN ('.
+			join(', ', map("'$_'", @{$arg_hash{'excluded_schema_name_list'}})).
+			') AND';
+	}
 
 	my $result = $self->_execute_and_log(
 			sql => <<SQL
-SELECT nspname FROM pg_catalog.pg_namespace
-WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname !~ 'pg_.*'
-ORDER BY 1
+SELECT schemaname, tablename FROM pg_catalog.pg_tables
+WHERE
+    $schema_in
+    $schema_not_in
+    $table_in
+    $table_not_in
+    schemaname NOT IN ('pg_catalog', 'information_schema') AND
+    schemaname !~ 'pg_.*'
+ORDER BY
+    pg_catalog.pg_relation_size(
+        quote_ident(schemaname) || '.' || quote_ident(tablename)),
+    schemaname, tablename
 SQL
 		);
 
-	return [map($_->[0], @{$result})];
+	return [map({'schema_name' => $_->[0], 'table_name' => $_->[1]},
+				@{$result})];
 }
 
 sub _create_clean_pages_function {

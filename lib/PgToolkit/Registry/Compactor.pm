@@ -7,7 +7,6 @@ use warnings;
 
 use PgToolkit::Compactor::Cluster;
 use PgToolkit::Compactor::Database;
-use PgToolkit::Compactor::Schema;
 use PgToolkit::Compactor::Table;
 use PgToolkit::Database::Dbi;
 use PgToolkit::Database::Psql;
@@ -78,35 +77,6 @@ sub get_database_compactor {
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
 		dry_run => $options->get(name => 'dry-run'),
-		schema_compactor_constructor => sub {
-			my %arg_hash = @_;
-			return $self->get_schema_compactor(
-				database => $arg_hash{'database'},
-				schema_name => $arg_hash{'schema_name'},
-				pgstattuple_schema_name => (
-					$arg_hash{'pgstattuple_schema_name'}));
-		},
-		schema_name_list => $options->get(name => 'schema'),
-		excluded_schema_name_list => $options->get(name => 'exclude-schema'),
-		no_pgstatuple => $options->get(name => 'no-pgstattuple'));
-}
-
-=head2 B<get_schema_compactor()>
-
-A schema compactor prototype service.
-
-=cut
-
-sub get_schema_compactor {
-	my ($self, %arg_hash) = @_;
-
-	my $options = $self->get_options();
-
-	return PgToolkit::Compactor::Schema->new(
-		database => $arg_hash{'database'},
-		logger => $self->get_logger(),
-		dry_run => $options->get(name => 'dry-run'),
-		schema_name => $arg_hash{'schema_name'},
 		table_compactor_constructor => sub {
 			my %arg_hash = @_;
 			return $self->get_table_compactor(
@@ -116,9 +86,11 @@ sub get_schema_compactor {
 				pgstattuple_schema_name => (
 					$arg_hash{'pgstattuple_schema_name'}));
 		},
+		schema_name_list => $options->get(name => 'schema'),
+		excluded_schema_name_list => $options->get(name => 'exclude-schema'),
 		table_name_list => $options->get(name => 'table'),
 		excluded_table_name_list => $options->get(name => 'exclude-table'),
-		pgstattuple_schema_name => $arg_hash{'pgstattuple_schema_name'});
+		no_pgstatuple => $options->get(name => 'no-pgstattuple'));
 }
 
 =head2 B<get_table_compactor()>

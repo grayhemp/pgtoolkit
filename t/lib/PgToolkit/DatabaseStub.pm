@@ -184,28 +184,24 @@ sub init {
 				qr/ALTER INDEX schema\.i_compactor_$$ /.
 				qr/RENAME TO i_table__idx2; END;/,
 			'row_list' => []},
-		'get_table_name_list1' => {
+		'get_table_data_list1' => {
 			'sql_pattern' =>
-				qr/SELECT tablename FROM pg_catalog\.pg_tables\n/.
-				qr/WHERE schemaname = 'schema\d?' \n/.
-				qr/ORDER BY\n    pg_catalog\.pg_relation_size/,
-			'row_list' => [['table1'],['table2']]},
-		'get_table_name_list2' => {
+				qr/SELECT schemaname, tablename /.
+				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
+				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+			'row_list' => [['schema1', 'table1'],['schema2', 'table2']]},
+		'get_table_data_list2' => {
 			'sql_pattern' =>
-				qr/SELECT tablename FROM pg_catalog\.pg_tables\n/.
-				qr/WHERE schemaname = 'schema\d?' /.
-				qr/AND tablename IN \('table2', 'table1'\)\n/.
-				qr/ORDER BY\n    pg_catalog\.pg_relation_size/,
-			'row_list' => [['table1'],['table2']]},
-		'has_schema' => {
-			'sql_pattern' =>
-				qr/SELECT count\(1\) FROM pg_catalog\.pg_namespace\n/.
-				qr/WHERE nspname = 'schema\d?'/,
-			'row_list' => [[1]]},
-		'get_schema_name_list' => {
-			'sql_pattern' =>
-				qr/SELECT nspname FROM pg_catalog\.pg_namespace/,
-			'row_list' => [['schema1'],['schema2']]},
+				qr/SELECT schemaname, tablename /.
+				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
+				qr/schemaname IN \('schema3', 'schema4'\) AND\s+/s.
+				qr/schemaname NOT IN \('schema1', 'schema2'\) AND\s+/s.
+				qr/tablename IN \('table3', 'table4'\) AND\s+/s.
+				qr/tablename NOT IN \('table1', 'table2'\) AND\s+/s.
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
+				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+			'row_list' => [['schema3', 'table3'],['schema4', 'table4']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
 				qr/CREATE OR REPLACE FUNCTION public\._clean_pages/,
@@ -216,22 +212,23 @@ sub init {
 			'row_list' => []},
 		'get_dbname_list1' => {
 			'sql_pattern' =>
-				qr/SELECT datname FROM pg_catalog\.pg_database\n/.
-				qr/WHERE datname NOT IN \([^\(]*\) \n/.
+				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
+				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname2']]},
 		'get_dbname_list2' => {
 			'sql_pattern' =>
-				qr/SELECT datname FROM pg_catalog\.pg_database\n/.
-				qr/WHERE datname NOT IN \([^\(]*\) /.
-				qr/AND datname IN \('dbname2', 'dbname1'\)\n/.
+				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
+				qr/datname IN \('dbname3', 'dbname4'\) AND\s+/s.
+				qr/datname NOT IN \('dbname1', 'dbname2'\) AND\s+/s.
+				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
-			'row_list' => [['dbname1'], ['dbname2']]},
+			'row_list' => [['dbname3'], ['dbname4']]},
 		'get_pgstattuple_schema_name' => {
 			'sql_pattern' =>
 				qr/SELECT nspname FROM pg_catalog\.pg_proc.+/s.
 				qr/WHERE proname = 'pgstattuple' LIMIT 1/,
-				'row_list' => [[0]]}};
+				'row_list' => []}};
 
 	return;
 }
