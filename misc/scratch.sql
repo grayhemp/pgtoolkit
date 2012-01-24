@@ -17,15 +17,18 @@ SELECT
     repeat('blabla'||i::text, (random() * 500)::integer) AS text_column,
     now() - '1 year'::interval * random() AS timestamp_column,
     random() < 0.5 AS boolean_column,
-    random() * 10000 AS float_column,
+    random() + i * 2 AS float_column,
     null::text AS null_column,
     CASE
         WHEN random() < 0.5
         THEN random()
         ELSE NULL END AS partially_null_column
 FROM generate_series(1, 10000) i;
-DELETE FROM table1 WHERE random() < 0.5;
+ALTER TABLE table1 ADD CONSTRAINT table1_pk PRIMARY KEY (id);
+ALTER TABLE table1 ADD CONSTRAINT table1_u UNIQUE (float_column);
 CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
+DELETE FROM table1 WHERE random() < 0.5;
+CREATE INDEX i_table1__index2 ON table1 (text_column, float_column);
 --
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
 --
@@ -290,23 +293,47 @@ WHERE
 
 -- Get index definitions
 
-SELECT indexname, tablespace, indexdef FROM pg_catalog.pg_indexes
-WHERE
-    schemaname = 'public' AND
-    tablename = 'table1' AND
-    NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_depend
-        WHERE
-            deptype='i' AND
-            objid = (quote_ident(schemaname) || '.' ||
-                     quote_ident(indexname))::regclass) AND
-    NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_depend
-        WHERE
-            deptype='n' AND
-            refobjid = (quote_ident(schemaname) || '.' ||
-                        quote_ident(indexname))::regclass)
-ORDER BY indexdef;
+SELECT DISTINCT
+    indexname, tablespace, indexdef, conname,
+    CASE
+        WHEN conname IS NOT NULL
+        THEN
+            CASE
+                WHEN contype = 'p'
+                    THEN 'PRIMARY KEY'
+                ELSE 'UNIQUE' END
+        ELSE NULL END AS contypedef,
+    pg_catalog.pg_relation_size(indexoid)
+FROM (
+    SELECT
+        indexname, tablespace, indexdef,
+        (
+            quote_ident(schemaname) || '.' ||
+            quote_ident(indexname))::regclass AS indexoid,
+        string_to_array(
+            regexp_replace(version(),'.*PostgreSQL (\d+\.\d+).*', '\1'),
+            '.')::integer[] AS version
+    FROM pg_catalog.pg_indexes
+    WHERE
+        schemaname = 'public' AND
+        tablename = 'table1'
+) AS sq
+JOIN pg_catalog.pg_depend ON
+    (
+        objid = indexoid AND
+        CASE
+            WHEN version < array[9,1]
+                THEN NOT deptype = 'i'
+            ELSE true END
+    ) OR (
+        refobjid = indexoid AND
+        NOT deptype = 'n'
+    )
+LEFT JOIN pg_catalog.pg_constraint ON
+    conindid = indexoid AND
+    contype IN ('p', 'u') AND
+    conislocal
+ORDER BY pg_catalog.pg_relation_size(indexoid);
 
 -- Check schema existence
 

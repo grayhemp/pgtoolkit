@@ -1169,23 +1169,47 @@ sub _get_reindex_queries {
 
 	my $result = $self->_execute_and_log(
 		sql => <<SQL
-SELECT indexname, tablespace, indexdef FROM pg_catalog.pg_indexes
-WHERE
-    schemaname = '$self->{'_schema_name'}' AND
-    tablename = '$self->{'_table_name'}' AND
-    NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_depend
-        WHERE
-            deptype='i' AND
-            objid = (quote_ident(schemaname) || '.' ||
-                     quote_ident(indexname))::regclass) AND
-    NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_depend
-        WHERE
-            deptype='n' AND
-            refobjid = (quote_ident(schemaname) || '.' ||
-                        quote_ident(indexname))::regclass)
-ORDER BY indexdef
+SELECT DISTINCT
+    indexname, tablespace, indexdef, conname,
+    CASE
+        WHEN conname IS NOT NULL
+        THEN
+            CASE
+                WHEN contype = 'p'
+                    THEN 'PRIMARY KEY'
+                ELSE 'UNIQUE' END
+        ELSE NULL END AS contypedef,
+    pg_catalog.pg_relation_size(indexoid)
+FROM (
+    SELECT
+        indexname, tablespace, indexdef,
+        (
+            quote_ident(schemaname) || '.' ||
+            quote_ident(indexname))::regclass AS indexoid,
+        string_to_array(
+            regexp_replace(version(),'.*PostgreSQL (\\d+\\.\\d+).*', '\\1'),
+            '.')::integer[] AS version
+    FROM pg_catalog.pg_indexes
+    WHERE
+        schemaname = '$self->{'_schema_name'}' AND
+        tablename = '$self->{'_table_name'}'
+) AS sq
+JOIN pg_catalog.pg_depend ON
+    (
+        objid = indexoid AND
+        CASE
+            WHEN version < array[9,1]
+                THEN NOT deptype = 'i'
+            ELSE true END
+    ) OR (
+        refobjid = indexoid AND
+        NOT deptype = 'n'
+    )
+LEFT JOIN pg_catalog.pg_constraint ON
+    conindid = indexoid AND
+    contype IN ('p', 'u') AND
+    conislocal
+ORDER BY pg_catalog.pg_relation_size(indexoid);
 SQL
 		);
 
@@ -1194,7 +1218,8 @@ SQL
 
 	my $query_list = [];
 	for my $row (@{$result}) {
-		my ($indexname, $tablespace, $definition) = @{$row};
+		my ($indexname, $tablespace, $definition, $conname,
+			$contype) = @{$row};
 
 		$definition =~ s/INDEX (\S+)/INDEX CONCURRENTLY i_compactor_$$/;
 		if (defined $tablespace) {
@@ -1208,9 +1233,17 @@ SQL
 		push(
 			@{$query_list},
 			'BEGIN; '.
-			'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-			'ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.' '.
-			'RENAME TO '.$index_ident.'; '.
+			($conname
+			 ? (
+				 'ALTER TABLE '.$self->{'_ident'}.
+				 ' DROP CONSTRAINT '.$conname.'; '.
+				 'ALTER TABLE '.$self->{'_ident'}.
+				 ' ADD CONSTRAINT '.$conname.' '.$contype.
+				 ' USING INDEX i_compactor_'.$$.'; ')
+			 : (
+				 'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
+				 'ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.
+				 ' RENAME TO '.$index_ident.'; ')).
 			'END;');
 	}
 

@@ -152,19 +152,22 @@ sub init {
 			'row_list' => [[undef]]},
 		'reindex_select' => {
 			'sql_pattern' => (
-				qr/SELECT indexname, tablespace, indexdef.+/s.
-				qr/schemaname = 'schema'.+tablename = 'table'/s),
+				qr/SELECT DISTINCT\s+/s.
+				qr/indexname, tablespace, indexdef, conname,.+/s.
+				qr/schemaname = 'schema' AND\s+tablename = 'table'/s),
 			'row_list' => [
-				['i_table__idx1', undef,
-				 'CREATE INDEX i_table__idx1 ON schema.table '.
-				 'USING btree (column1)'],
+				['i_table__pk', undef,
+				 'CREATE UNIQUE INDEX i_table__pk ON schema.table '.
+				 'USING btree (column1)',
+				 'table_pk', 'PRIMARY KEY', 1000],
 				['i_table__idx2', 'tablespace',
 				 'CREATE INDEX i_table__idx2 ON schema.table '.
-				 'USING btree (column2) WHERE column2 = 1']]},
+				 'USING btree (column2) WHERE column2 = 1',
+				 undef, undef, 2000]]},
 		'reindex_create1' => {
 			'sql_pattern' =>
-				qr/CREATE INDEX CONCURRENTLY i_compactor_$$ ON schema\.table /.
-				qr/USING btree \(column1\)/,
+				qr/CREATE UNIQUE INDEX CONCURRENTLY i_compactor_$$/.
+				qr/ ON schema\.table USING btree \(column1\)/,
 			'row_list' => []},
 		'reindex_create2' => {
 			'sql_pattern' =>
@@ -174,9 +177,9 @@ sub init {
 			'row_list' => []},
 		'reindex_drop_alter1' => {
 			'sql_pattern' =>
-				qr/BEGIN; DROP INDEX schema\.i_table__idx1; /.
-				qr/ALTER INDEX schema\.i_compactor_$$ /.
-				qr/RENAME TO i_table__idx1; END;/,
+				qr/BEGIN; ALTER TABLE schema\.table DROP CONSTRAINT table_pk; /.
+				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pk /.
+				qr/PRIMARY KEY USING INDEX i_compactor_$$; END;/,
 			'row_list' => []},
 		'reindex_drop_alter2' => {
 			'sql_pattern' =>
