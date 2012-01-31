@@ -471,18 +471,39 @@ sub _process {
 			 $to_page + 1 + $pages_before_vacuum) and
 			not $expected_error_occurred);
 
-		if ($self->{'_is_processed'} or
-			$arg_hash{'attempt'} == $self->{'_max_retry_count'})
+		if (
+			($self->{'_is_processed'} or
+			 $arg_hash{'attempt'} == $self->{'_max_retry_count'}) and
+			($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
 		{
-			if ($self->{'_reindex'}) {
-				$self->_reindex();
-				$self->_log_reindex_complete(
-					duration => $self->{'_database'}->get_duration());
-				$self->{'_size_statistics'} = $self->_get_size_statistics();
+			for my $index_data (@{$self->_get_index_data_list()}) {
+				if ($self->{'_pgstattuple_schema_ident'}) {
+					my $index_statistics = $self->_get_index_statistics(
+						name => $index_data->{'name'});
+					if ($index_statistics->{'free_percent'} <
+						$self->{'_min_free_percent'})
+					{
+						$self->_log_skipping_reindex_min_free_percent(
+							name => $index_data->{'name'},
+							free_percent => (
+								$index_statistics->{'free_percent'}));
+						next;
+					}
+				}
+
+				if ($self->{'_reindex'}) {
+					$self->_reindex(data => $index_data);
+					$self->_log_reindex_complete(
+						duration => $self->{'_database'}->get_duration());
+				}
+
+				if ($self->{'_print_reindex_queries'}) {
+					$self->_log_reindex_queries(data => $index_data);
+				}
 			}
 
-			if ($self->{'_print_reindex_queries'}) {
-				$self->_log_reindex_queries();
+			if ($self->{'_reindex'}) {
+				$self->{'_size_statistics'} = $self->_get_size_statistics();
 			}
 		}
 
@@ -655,6 +676,25 @@ sub _log_skipping_can_not_get_bloat_statistics {
 	return;
 }
 
+sub _log_skipping_reindex_min_free_percent {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'name'});
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping reindex: '.$schema_ident.'.'.$index_ident.
+			$arg_hash{'free_percent'}.'% space to compact from '.
+			$self->{'_min_free_percent'}.'% minimum required.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
 sub _log_processing_forced {
 	my ($self, %arg_hash) = @_;
 
@@ -806,11 +846,11 @@ sub _log_reindex_complete {
 }
 
 sub _log_reindex_queries {
-	my $self = shift;
+	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => ('Reindex queries:'."\n".
-					join("\n", @{$self->_get_reindex_queries()})),
+					$self->_get_reindex_query( data => $arg_hash{'data'})),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -985,7 +1025,7 @@ FROM (
         free_percent - fillfactor AS free_percent,
         free_space - ceil(size::real * fillfactor / 100) AS free_space,
         ceil(size::real / bs) AS page_count
-    FROM public.pgstattuple('$self->{'_ident'}')
+    FROM $self->{'_pgstattuple_schema_ident'}.pgstattuple('$self->{'_ident'}')
     CROSS JOIN (
         SELECT
             current_setting('block_size')::integer AS bs,
@@ -1164,7 +1204,7 @@ SQL
 	return $result->[0]->[0];
 }
 
-sub _get_reindex_queries {
+sub _get_index_data_list {
 	my $self = shift;
 
 	my $result = $self->_execute_and_log(
@@ -1213,49 +1253,96 @@ ORDER BY pg_catalog.pg_relation_size(indexoid);
 SQL
 		);
 
+	return [
+		map(
+			{'name' => $_->[0],
+			 'tablespace' => $_->[1],
+			 'definition' => $_->[2],
+			 'conname' => $_->[3],
+			 'contype' => $_->[4]},
+			@{$result})];
+}
+
+sub _get_index_statistics {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'name'});
+
+	my $result = $self->_execute_and_log(
+		sql => <<SQL
+SELECT
+    index_size AS size,
+    (100 - avg_leaf_density) - fillfactor AS free_percent,
+    ceil(
+        index_size::real *
+        ((100 - avg_leaf_density) - fillfactor) / 100) AS free_space
+FROM (
+    SELECT
+        index_size, avg_leaf_density,
+        coalesce(
+            regexp_replace(
+                reloptions::text,'.*fillfactor=(\\d+).*', '\\1'),
+            '10')::integer AS fillfactor
+    FROM pg_catalog.pg_classp
+    CROSS JOIN (
+        SELECT * FROM
+        $self->{'_pgstattuple_schema_ident'}.pgstatindex(
+            '$schema_ident.$index_ident')) AS sq
+    WHERE pg_catalog.pg_class.oid = '$schema_ident.$index_ident'::regclass
+) AS oq
+SQL
+		);
+
+	return {
+		'size' => $result->[0]->[0],
+		'free_percent' => $result->[0]->[1],
+		'free_space' => $result->[0]->[2]};
+}
+
+sub _get_reindex_query {
+	my ($self, %arg_hash) = @_;
+
 	my $schema_ident = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
 
-	my $query_list = [];
-	for my $row (@{$result}) {
-		my ($indexname, $tablespace, $definition, $conname,
-			$contype) = @{$row};
-
-		$definition =~ s/INDEX (\S+)/INDEX CONCURRENTLY i_compactor_$$/;
-		if (defined $tablespace) {
-			$definition =~ s/(WHERE .*)?$/TABLESPACE $tablespace $1/;
-		}
-
-		my $index_ident = $self->{'_database'}->quote_ident(
-			string => $indexname);
-
-		push(@{$query_list}, $definition.';');
-		push(
-			@{$query_list},
-			'BEGIN; '.
-			($conname
-			 ? (
-				 'ALTER TABLE '.$self->{'_ident'}.
-				 ' DROP CONSTRAINT '.$conname.'; '.
-				 'ALTER TABLE '.$self->{'_ident'}.
-				 ' ADD CONSTRAINT '.$conname.' '.$contype.
-				 ' USING INDEX i_compactor_'.$$.'; ')
-			 : (
-				 'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-				 'ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.
-				 ' RENAME TO '.$index_ident.'; ')).
-			'END;');
+	my $create_sql = $arg_hash{'data'}->{'definition'};
+	$create_sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY i_compactor_$$/;
+	if (defined $arg_hash{'data'}->{'tablespace'}) {
+		$create_sql =~
+			s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
 	}
+	$create_sql = $create_sql.';';
 
-	return $query_list;
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	my $alter_sql =
+		'BEGIN; '.
+		($arg_hash{'data'}->{'conname'}
+		 ? (
+			 'ALTER TABLE '.$self->{'_ident'}.
+			 ' DROP CONSTRAINT '.$arg_hash{'data'}->{'conname'}.'; '.
+			 'ALTER TABLE '.$self->{'_ident'}.
+			 ' ADD CONSTRAINT '.$arg_hash{'data'}->{'conname'}.' '.
+			 $arg_hash{'data'}->{'contype'}.' USING INDEX i_compactor_'.$$.'; ')
+		 : (
+			 'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
+			 'ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.
+			 ' RENAME TO '.$index_ident.'; ')).
+		'END;';
+
+	return $create_sql.' '.$alter_sql;
+
 }
 
 sub _reindex {
 	my ($self, %arg_hash) = @_;
 
-	for my $query (@{$self->_get_reindex_queries()}) {
-		$self->_execute_and_log(sql => $query);
-	}
+	$self->_execute_and_log(
+		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
 
 	return;
 }

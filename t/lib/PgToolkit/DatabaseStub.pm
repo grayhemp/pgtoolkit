@@ -150,7 +150,13 @@ sub init {
 		'analyze' => {
 			'sql_pattern' => qr/ANALYZE schema\.table/,
 			'row_list' => [[undef]]},
-		'reindex_select' => {
+		'get_index_statistics' => {
+			'sql_pattern' => (
+				qr/SELECT\s+index_size, avg_leaf_density,.+/s.
+				qr/public\.pgstatindex\(\s+'schema\.<name>'\).+/s.
+				qr/pg_catalog\.pg_class.oid = 'schema\.<name>'/),
+			'row_list_sequence' => [[[500, 15]], [[1000, 15]]]},
+		'get_index_data_list' => {
 			'sql_pattern' => (
 				qr/SELECT DISTINCT\s+/s.
 				qr/indexname, tablespace, indexdef, conname,.+/s.
@@ -164,25 +170,19 @@ sub init {
 				 'CREATE INDEX i_table__idx2 ON schema.table '.
 				 'USING btree (column2) WHERE column2 = 1',
 				 undef, undef, 2000]]},
-		'reindex_create1' => {
+		'reindex1' => {
 			'sql_pattern' =>
 				qr/CREATE UNIQUE INDEX CONCURRENTLY i_compactor_$$/.
-				qr/ ON schema\.table USING btree \(column1\)/,
-			'row_list' => []},
-		'reindex_create2' => {
-			'sql_pattern' =>
-				qr/CREATE INDEX CONCURRENTLY i_compactor_$$ ON schema\.table /.
-				qr/USING btree \(column2\) TABLESPACE tablespace /.
-				qr/WHERE column2 = 1/,
-			'row_list' => []},
-		'reindex_drop_alter1' => {
-			'sql_pattern' =>
+				qr/ ON schema\.table USING btree \(column1\); /.
 				qr/BEGIN; ALTER TABLE schema\.table DROP CONSTRAINT table_pk; /.
 				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pk /.
 				qr/PRIMARY KEY USING INDEX i_compactor_$$; END;/,
 			'row_list' => []},
-		'reindex_drop_alter2' => {
+		'reindex2' => {
 			'sql_pattern' =>
+				qr/CREATE INDEX CONCURRENTLY i_compactor_$$ ON schema\.table /.
+				qr/USING btree \(column2\) TABLESPACE tablespace /.
+				qr/WHERE column2 = 1; /.
 				qr/BEGIN; DROP INDEX schema\.i_table__idx2; /.
 				qr/ALTER INDEX schema\.i_compactor_$$ /.
 				qr/RENAME TO i_table__idx2; END;/,

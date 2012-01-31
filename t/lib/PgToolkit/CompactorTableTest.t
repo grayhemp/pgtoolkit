@@ -339,7 +339,7 @@ sub test_main_processing_no_routine_vacuum : Test(16) {
 		$i++, 'get_size_statistics');
 }
 
-sub test_reindex_if_last_attempt_and_not_processed : Test(19) {
+sub test_reindex_if_last_attempt_and_not_processed : Test(15) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -370,22 +370,18 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(19) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_select');
+		$i++, 'get_index_data_list');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_create1');
+		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_drop_alter1');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_create2');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_drop_alter2');
+		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_not_last_attempt_and_processed : Test(19) {
+sub test_reindex_if_not_last_attempt_and_processed : Test(15) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -402,15 +398,11 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(19) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_select');
+		$i++, 'get_index_data_list');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_create1');
+		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_drop_alter1');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_create2');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_drop_alter2');
+		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -482,7 +474,7 @@ sub test_reindex_queries_if_last_attempt_and_not_processed : Test(9) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_select');
+		$i++, 'get_index_data_list');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
@@ -504,7 +496,7 @@ sub test_reindex_queries_if_not_last_attempt_and_processed : Test(9) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'reindex_select');
+		$i++, 'get_index_data_list');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
@@ -539,6 +531,40 @@ sub test_no_reindex_queries_if_not_last_attempt_and_not_processed : Test(7) {
 		$i++, 'analyze');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_no_reindex_if_in_min_free_percent : Test(17) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		pgstattuple_schema_name => 'public',
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_pgstattuple_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_statistics', name => 'i_table__pk');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_statistics', name => 'i_table__idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
