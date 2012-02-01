@@ -689,7 +689,7 @@ sub _log_skipping_reindex_min_free_percent {
 	$self->{'_logger'}->write(
 		message => (
 			'Skipping reindex: '.$schema_ident.'.'.$index_ident.
-			$arg_hash{'free_percent'}.'% space to compact from '.
+			$arg_hash{'free_percent'}.' % space to compact from '.
 			$self->{'_min_free_percent'}.'% minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
