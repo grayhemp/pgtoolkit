@@ -26,6 +26,20 @@ Currently there is the only tool we have prepared for publishing:
 We have not adapted any instructions to the publication yet but they
 are comming soon.
 
+Release v1.0beta1:
+
+- (!) renamed pg_compactor tool to pgcompactor 
+- added --dry-run
+- added fillfactor to all the statistics calculations
+- fixed the reindex duration bug
+- got rid of the schema as a middle level
+- tables are sorted by size inside their database
+- added the ability of reindexing internal indexes like PRIMARY KEY
+  and UNIQUE
+- added the reindexing necessity check based on the pgstattuple
+  statistics
+- a lot of minor changes.
+
 Release v1.0alpha7:
 
 - reworked reindex to be performed in any case when a table has been
