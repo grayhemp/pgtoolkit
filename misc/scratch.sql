@@ -24,12 +24,12 @@ SELECT
         THEN random()
         ELSE NULL END AS partially_null_column
 FROM generate_series(1, 10000) i;
-ALTER TABLE table1 ADD CONSTRAINT table1_pk PRIMARY KEY (id);
-ALTER TABLE table1 ADD CONSTRAINT table1_u UNIQUE (float_column)
+ALTER TABLE table1 ADD CONSTRAINT table1_pkey PRIMARY KEY (id);
+ALTER TABLE table1 ADD CONSTRAINT table1_uidx UNIQUE (float_column)
 WITH (fillfactor=50);
-CREATE INDEX i_table1__index1 ON table1 (text_column, float_column);
+CREATE INDEX table1_idx1 ON table1 (text_column, float_column);
 DELETE FROM table1 WHERE random() < 0.5;
-CREATE INDEX i_table1__index2 ON table1 (text_column, float_column);
+CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
 --
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
 --
@@ -350,8 +350,8 @@ FROM (
                 reloptions::text,'.*fillfactor=(\d+).*', '\1'),
             '10')::integer AS fillfactor
     FROM pg_catalog.pg_class
-    CROSS JOIN (SELECT * FROM public.pgstatindex('public.table1_u')) AS sq
-    WHERE pg_catalog.pg_class.oid = 'public.table1_u'::regclass
+    CROSS JOIN (SELECT * FROM public.pgstatindex('public.table1_uidx')) AS sq
+    WHERE pg_catalog.pg_class.oid = 'public.table1_uidx'::regclass
 ) AS oq;
 
 -- Check schema existence

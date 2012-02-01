@@ -279,8 +279,8 @@ default it is 10.
 
 =item B<--min-free-percent> RATIO
 
-A minimum free space percent required to be in the table to process
-it. By default it is 5.
+A minimum free space percent required to be in the table or its
+indexes to process it. By default it is 20.
 
 =item B<-z> SECONDS
 

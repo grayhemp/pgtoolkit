@@ -74,7 +74,8 @@ a minimum number of pages that is worth to compact with
 
 =item C<min_free_percent>
 
-a mininum free space percent that is worth to compact with
+a mininum free space percent that is worth to compact with for both
+tables and indexes
 
 =item C<max_pages_per_round>
 
@@ -1326,7 +1327,7 @@ sub _get_reindex_query {
 		string => $self->{'_schema_name'});
 
 	my $create_sql = $arg_hash{'data'}->{'definition'};
-	$create_sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY i_compactor_$$/;
+	$create_sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
 	if (defined $arg_hash{'data'}->{'tablespace'}) {
 		$create_sql =~
 			s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
@@ -1344,10 +1345,11 @@ sub _get_reindex_query {
 			 ' DROP CONSTRAINT '.$arg_hash{'data'}->{'conname'}.'; '.
 			 'ALTER TABLE '.$self->{'_ident'}.
 			 ' ADD CONSTRAINT '.$arg_hash{'data'}->{'conname'}.' '.
-			 $arg_hash{'data'}->{'contype'}.' USING INDEX i_compactor_'.$$.'; ')
+			 $arg_hash{'data'}->{'contype'}.
+			 ' USING INDEX pgcompactor_tmp'.$$.'; ')
 		 : (
 			 'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-			 'ALTER INDEX '.$schema_ident.'.i_compactor_'.$$.
+			 'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
 			 ' RENAME TO '.$index_ident.'; ')).
 		'END;';
 

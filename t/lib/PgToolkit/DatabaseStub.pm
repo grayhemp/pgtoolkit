@@ -162,30 +162,30 @@ sub init {
 				qr/indexname, tablespace, indexdef, conname,.+/s.
 				qr/schemaname = 'schema' AND\s+tablename = 'table'/s),
 			'row_list' => [
-				['i_table__pk', undef,
-				 'CREATE UNIQUE INDEX i_table__pk ON schema.table '.
+				['table_pkey', undef,
+				 'CREATE UNIQUE INDEX table_pkey ON schema.table '.
 				 'USING btree (column1)',
-				 'table_pk', 'PRIMARY KEY', 1000],
-				['i_table__idx2', 'tablespace',
-				 'CREATE INDEX i_table__idx2 ON schema.table '.
+				 'table_pkey', 'PRIMARY KEY', 1000],
+				['table_idx2', 'tablespace',
+				 'CREATE INDEX table_idx2 ON schema.table '.
 				 'USING btree (column2) WHERE column2 = 1',
 				 undef, undef, 2000]]},
 		'reindex1' => {
 			'sql_pattern' =>
-				qr/CREATE UNIQUE INDEX CONCURRENTLY i_compactor_$$/.
-				qr/ ON schema\.table USING btree \(column1\); /.
-				qr/BEGIN; ALTER TABLE schema\.table DROP CONSTRAINT table_pk; /.
-				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pk /.
-				qr/PRIMARY KEY USING INDEX i_compactor_$$; END;/,
+				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompactor_tmp$$/.
+				qr/ ON schema\.table USING btree \(column1\); BEGIN; /.
+				qr/ALTER TABLE schema\.table DROP CONSTRAINT table_pkey; /.
+				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pkey /.
+				qr/PRIMARY KEY USING INDEX pgcompactor_tmp$$; END;/,
 			'row_list' => []},
 		'reindex2' => {
 			'sql_pattern' =>
-				qr/CREATE INDEX CONCURRENTLY i_compactor_$$ ON schema\.table /.
-				qr/USING btree \(column2\) TABLESPACE tablespace /.
-				qr/WHERE column2 = 1; /.
-				qr/BEGIN; DROP INDEX schema\.i_table__idx2; /.
-				qr/ALTER INDEX schema\.i_compactor_$$ /.
-				qr/RENAME TO i_table__idx2; END;/,
+				qr/CREATE INDEX CONCURRENTLY pgcompactor_tmp$$ ON /.
+				qr/schema\.table USING btree \(column2\) /.
+				qr/TABLESPACE tablespace WHERE column2 = 1; /.
+				qr/BEGIN; DROP INDEX schema\.table_idx2; /.
+				qr/ALTER INDEX schema\.pgcompactor_tmp$$ /.
+				qr/RENAME TO table_idx2; END;/,
 			'row_list' => []},
 		'get_table_data_list1' => {
 			'sql_pattern' =>

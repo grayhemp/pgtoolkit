@@ -559,11 +559,11 @@ sub test_no_reindex_if_in_min_free_percent : Test(17) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_data_list');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_index_statistics', name => 'i_table__pk');
+		$i++, 'get_index_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_index_statistics', name => 'i_table__idx2');
+		$i++, 'get_index_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -626,9 +626,9 @@ sub test_no_reindex_queries_if_in_min_free_percent : Test(13) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_data_list');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_index_statistics', name => 'i_table__pk');
+		$i++, 'get_index_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_index_statistics', name => 'i_table__idx2');
+		$i++, 'get_index_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
