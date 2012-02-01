@@ -36,6 +36,7 @@ sub setup : Test(setup) {
 			delay_ratio => 0.5,
 			force => 0,
 			reindex => 0,
+			print_reindex_queries => 0,
 			progress_report_period => 3,
 			pgstattuple_schema_name => undef,
 			pages_per_round_divisor => 1,
@@ -598,6 +599,36 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(15) {
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_no_reindex_queries_if_in_min_free_percent : Test(13) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		pgstattuple_schema_name => 'public',
+		print_reindex_queries => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_pgstattuple_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_statistics', name => 'i_table__pk');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_statistics', name => 'i_table__idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
