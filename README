@@ -21,7 +21,7 @@ To get more information about any tool run it with the --man option.
 
 Currently there is the only tool we have prepared for publishing:
 
-- pg_compactor - a PostgreSQL table bloat reducing tool.
+- pgcompactor - a PostgreSQL table bloat reducing tool.
 
 We have not adapted any instructions to the publication yet but they
 are comming soon.

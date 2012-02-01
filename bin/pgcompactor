@@ -7,11 +7,11 @@ use PgToolkit::Registry::Compactor;
 
 =head1 NAME
 
-B<pg_compactor> - a PostgreSQL table bloat reducing tool.
+B<pgcompactor> - a PostgreSQL table bloat reducing tool.
 
 =head1 SYNOPSIS
 
-pg_compactor [OPTION...]
+pgcompactor [OPTION...]
 
 =over 4
 
@@ -38,7 +38,7 @@ pg_compactor [OPTION...]
 
 =head1 DESCRIPTION
 
-B<pg_compactor> is a maintenance tool for PostgreSQL to reduce bloat
+B<pgcompactor> is a maintenance tool for PostgreSQL to reduce bloat
 for tables without heavily locking them.
 
 The tool is an automation of the solutions described on the pages:
@@ -55,7 +55,7 @@ by Hubert Lubaczewski (aka Depesz).
 
 =back
 
-If pgstattuple is installed B<pg_compactor> uses it to gather a better
+If pgstattuple is installed B<pgcompactor> uses it to gather a better
 statistics. It is highly recommended if there are a lot of toast data
 in the database.
 
@@ -94,7 +94,7 @@ C<debug0> and C<debug1>. By default C<notice>.
 
 =head2 Connection options
 
-The B<pg_compactor> tries to connect to the database with the DBI
+The B<pgcompactor> tries to connect to the database with the DBI
 Perl module using either DBD::Pg or DBD::PgPP driver first. If it
 fails the utility tries to work via psql.
 

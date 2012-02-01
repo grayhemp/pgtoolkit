@@ -14,7 +14,7 @@
 # Copyright 2010-2011 postgresql-consulting.com
 
 # List of scripts to fatpack
-SCRIPTLIST='pg_compactor'
+SCRIPTLIST='pgcompactor'
 DESTDIR=files
 SRCDIR=bin
 
