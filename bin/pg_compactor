@@ -87,8 +87,8 @@ Do not display progress messages. The same as C<-v warning>.
 
 =item B<--verbosity> LEVEL
 
-A verbosity level. One of C<error>, C<warning>, C<notice>, C<info>. By
-default C<notice>.
+A verbosity level. One of C<error>, C<warning>, C<notice>, C<info>,
+C<debug0> and C<debug1>. By default C<notice>.
 
 =back
 
@@ -305,7 +305,7 @@ if (__PACKAGE__ eq 'main') {
 
 =head1 VERSION
 
-1.0alpha7
+1.0beta1
 
 =head1 LICENSE AND COPYRIGHT
 

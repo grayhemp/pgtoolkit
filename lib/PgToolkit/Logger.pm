@@ -35,7 +35,7 @@ C<warning> messages are written to this filehandle
 =item C<level>
 
 a minimum logging level, allowed symbols are C<error>, C<warning>,
-C<notice> and C<info>.
+C<notice>, C<info>, C<debug0> and C<debug1>.
 
 =back
 
@@ -97,7 +97,7 @@ Loggs a message.
 =item C<level>
 
 the level of the message, allowed symbols are C<error>, C<warning>,
-C<notice> and C<info>
+C<notice>, C<info>, C<debug0> and C<debug1>
 
 =item C<target>
 
