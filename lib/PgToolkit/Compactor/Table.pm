@@ -477,7 +477,9 @@ sub _process {
 			($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
 		{
 			for my $index_data (@{$self->_get_index_data_list()}) {
-				if ($self->{'_pgstattuple_schema_ident'}) {
+				if ($self->{'_pgstattuple_schema_ident'} and
+					not $self->{'_force'})
+				{
 					my $index_statistics = $self->_get_index_statistics(
 						name => $index_data->{'name'});
 					if ($index_statistics->{'free_percent'} <

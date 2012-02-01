@@ -569,6 +569,39 @@ sub test_no_reindex_if_in_min_free_percent : Test(17) {
 		$i++, undef);
 }
 
+sub test_reindex_if_in_min_free_percent_and_forced : Test(15) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		pgstattuple_schema_name => 'public',
+		reindex => 1,
+		force => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_pgstattuple_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
 sub test_loops_count : Test(4) {
 	my $self = shift;
 
