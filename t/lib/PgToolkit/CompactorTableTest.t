@@ -540,7 +540,7 @@ sub test_no_reindex_if_in_min_free_percent : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14, 140]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		pgstattuple_schema_name => 'public',
@@ -574,7 +574,7 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(15) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14, 140]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		pgstattuple_schema_name => 'public',
@@ -607,7 +607,7 @@ sub test_no_reindex_queries_if_in_min_free_percent : Test(13) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14, 140]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		pgstattuple_schema_name => 'public',
@@ -637,7 +637,7 @@ sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(9) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14]];
+	->{'get_index_statistics'}->{'row_list_sequence'}->[1] = [[1000, 14, 140]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		pgstattuple_schema_name => 'public',

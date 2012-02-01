@@ -155,7 +155,7 @@ sub init {
 				qr/SELECT\s+index_size, avg_leaf_density,.+/s.
 				qr/public\.pgstatindex\(\s+'schema\.<name>'\).+/s.
 				qr/pg_catalog\.pg_class.oid = 'schema\.<name>'/),
-			'row_list_sequence' => [[[500, 15]], [[1000, 15]]]},
+			'row_list_sequence' => [[[500, 15, 75]], [[1000, 15, 150]]]},
 		'get_index_data_list' => {
 			'sql_pattern' => (
 				qr/SELECT DISTINCT\s+/s.

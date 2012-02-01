@@ -477,30 +477,41 @@ sub _process {
 			($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
 		{
 			for my $index_data (@{$self->_get_index_data_list()}) {
+				my $index_ident =
+					$self->{'_database'}->quote_ident(
+						string => $self->{'_schema_name'}).'.'.
+					$self->{'_database'}->quote_ident(
+						string => $index_data->{'name'});
+
+				my $index_statistics;
 				if ($self->{'_pgstattuple_schema_ident'} and
 					not $self->{'_force'})
 				{
-					my $index_statistics = $self->_get_index_statistics(
-						name => $index_data->{'name'});
+					$index_statistics = $self->_get_index_statistics(
+						ident => $index_ident);
 					if ($index_statistics->{'free_percent'} <
 						$self->{'_min_free_percent'})
 					{
 						$self->_log_skipping_reindex_min_free_percent(
-							name => $index_data->{'name'},
-							free_percent => (
-								$index_statistics->{'free_percent'}));
+							ident => $index_ident,
+							statistics => $index_statistics);
 						next;
 					}
 				}
 
 				if ($self->{'_reindex'}) {
 					$self->_reindex(data => $index_data);
-					$self->_log_reindex_complete(
+					$self->_log_reindex(
+						ident => $index_ident,
+						statistics => $index_statistics,
 						duration => $self->{'_database'}->get_duration());
 				}
 
 				if ($self->{'_print_reindex_queries'}) {
-					$self->_log_reindex_queries(data => $index_data);
+					$self->_log_reindex_queries(
+						ident => $index_ident,
+						statistics => $index_statistics,
+						data => $index_data);
 				}
 			}
 
@@ -611,7 +622,7 @@ sub _log_skipping_min_page_count {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping processing: '.$arg_hash{'page_count'}.' pages from '.
+			'Skipping processing: '.$arg_hash{'page_count'}.'p from '.
 			$self->{'_min_page_count'}.' minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
@@ -634,18 +645,18 @@ sub _log_vacuum_complete {
 
 		$self->{'_logger'}->write(
 			message => (
-				'Vacuum '.$arg_hash{'phrase'}.': '.
-				sprintf("%.3f", $arg_hash{'duration'}).'s, can not clean '.
-				($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).' pages, '.
-				$arg_hash{'page_count'}.' pages left.'),
+				'Vacuum '.$arg_hash{'phrase'}.': can not clean '.
+				($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).'p, '.
+				$arg_hash{'page_count'}.'p left, duration '.
+				sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 			level => $level,
 			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
-				'Vacuum '.$arg_hash{'phrase'}.': '.
-				sprintf("%.3f", $arg_hash{'duration'}).'s, '.
-				$arg_hash{'page_count'}.' pages left.'),
+				'Vacuum '.$arg_hash{'phrase'}.': '.$arg_hash{'page_count'}.
+				'p left, duration '.sprintf("%.3f", $arg_hash{'duration'}).
+				's.'),
 			level => 'info',
 			target => $self->{'_log_target'});
 	}
@@ -658,9 +669,9 @@ sub _log_skipping_min_free_percent {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping processing: '.$arg_hash{'free_percent'}.
-			'% space to compact from '.$self->{'_min_free_percent'}.
-			'% minimum required.'),
+			'Skipping processing: '.
+			$arg_hash{'free_percent'}.'% space to compact from '.
+			$self->{'_min_free_percent'}.'% minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -673,25 +684,6 @@ sub _log_skipping_can_not_get_bloat_statistics {
 	$self->{'_logger'}->write(
 		message => 'Skipping processing: can not get bloat statistics.',
 		level => 'warning',
-		target => $self->{'_log_target'});
-
-	return;
-}
-
-sub _log_skipping_reindex_min_free_percent {
-	my ($self, %arg_hash) = @_;
-
-	my $schema_ident = $self->{'_database'}->quote_ident(
-		string => $self->{'_schema_name'});
-	my $index_ident = $self->{'_database'}->quote_ident(
-		string => $arg_hash{'name'});
-
-	$self->{'_logger'}->write(
-		message => (
-			'Skipping reindex: '.$schema_ident.'.'.$index_ident.
-			$arg_hash{'free_percent'}.' % space to compact from '.
-			$self->{'_min_free_percent'}.'% minimum required.'),
-		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
@@ -719,16 +711,16 @@ sub _log_statistics {
 	$self->{'_logger'}->write(
 		message => (
 			'Statistics: '.
-			$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+			$arg_hash{'size_statistics'}->{'page_count'}.'p ('.
 			$arg_hash{'size_statistics'}->{'total_page_count'}.
-			' including toasts and indexes)'.
+			'p including toasts and indexes)'.
 			($can_be_compacted ? ', approximately '.
 			 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 			 ($arg_hash{'size_statistics'}->{'page_count'} -
 			  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-			 ' pages) can be compacted reducing the size by '.
+			 'p) can be compacted reducing the size by '.
 			 $arg_hash{'bloat_statistics'}->{'free_space'}.
-			 ' bytes' : '').'.'),
+			 'b' : '').'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -739,7 +731,7 @@ sub _log_column {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Column to perform updates by: '.$arg_hash{'name'}.'.',
+		message => 'Update by column: '.$arg_hash{'name'}.'.',
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -750,7 +742,7 @@ sub _log_pages_per_round {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Pages to process per round: '.$arg_hash{'value'}.'.',
+		message => 'Set p/round: '.$arg_hash{'value'}.'.',
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -761,7 +753,7 @@ sub _log_pages_before_vacuum {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Pages to process before vacuum: '.$arg_hash{'value'}.'.',
+		message => 'Set p/vacuum: '.$arg_hash{'value'}.'.',
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -782,8 +774,8 @@ sub _log_clean_pages_average {
 			'Cleaning in average: '.
 			sprintf("%.1f", $arg_hash{'pages_per_round'} /
 					$arg_hash{'average_duration'}).
-			' pages/s ('.$duration.'s per '.$arg_hash{'pages_per_round'}.
-			' pages).'),
+			'p/s ('.$duration.'s per '.$arg_hash{'pages_per_round'}.
+			'p).'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -806,7 +798,7 @@ sub _log_progress {
 				  1)
 			 ).'%, ' : ' ').
 			($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).
-			' pages completed.'),
+			'p completed.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -828,7 +820,7 @@ sub _log_analyze_complete {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Analyze '.$arg_hash{'phrase'}.': '.
+		message => ('Analyze '.$arg_hash{'phrase'}.': duration '.
 					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 		level => 'info',
 		target => $self->{'_log_target'});
@@ -836,11 +828,33 @@ sub _log_analyze_complete {
 	return;
 }
 
-sub _log_reindex_complete {
+sub _log_skipping_reindex_min_free_percent {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Reindex: '.sprintf("%.3f", $arg_hash{'duration'}).'s.',
+		message => (
+			'Skipping reindex: '.$arg_hash{'ident'}.', '.
+			$arg_hash{'statistics'}->{'free_percent'}.
+			'% space to compact from '.$self->{'_min_free_percent'}.
+			'% minimum required.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_reindex {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Reindex'.($self->{'_force'} ? ' forced' : '').': '.
+			$arg_hash{'ident'}.', '.
+			($arg_hash{'statistics'} ? 'initial size '.
+			 $arg_hash{'statistics'}->{'size'}.'b, has been reduced by '.
+			 $arg_hash{'statistics'}->{'free_percent'}.'% ('.
+			 $arg_hash{'statistics'}->{'free_space'}.'b), ' : '').
+			'duration '.sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -851,8 +865,14 @@ sub _log_reindex_queries {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Reindex queries:'."\n".
-					$self->_get_reindex_query( data => $arg_hash{'data'})),
+		message => (
+			'Reindex queries'.($self->{'_force'} ? ' forced' : '').': '.
+			$arg_hash{'ident'}.
+			($arg_hash{'statistics'} ? ', initial size '.
+			 $arg_hash{'statistics'}->{'size'}.'b, will be reduced by '.
+			 $arg_hash{'statistics'}->{'free_percent'}.'% ('.
+			 $arg_hash{'statistics'}->{'free_space'}.'b).' : '.')."\n".
+			$self->_get_reindex_query( data => $arg_hash{'data'})),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -900,20 +920,20 @@ sub _get_log_processing_results {
 		$arg_hash{'bloat_statistics'}->{'effective_page_count'});
 
 	return
-		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+		'left '.$arg_hash{'size_statistics'}->{'page_count'}.'p ('.
 		$arg_hash{'size_statistics'}->{'total_page_count'}.
-		' including toasts and indexes), size reduced by '.
+		'p including toasts and indexes), size reduced by '.
 		($arg_hash{'base_size_statistics'}->{'size'} -
-		 $arg_hash{'size_statistics'}->{'size'}).' bytes ('.
+		 $arg_hash{'size_statistics'}->{'size'}).'b ('.
 		($arg_hash{'base_size_statistics'}->{'total_size'} -
 		 $arg_hash{'size_statistics'}->{'total_size'}).
-		' bytes including toasts and indexes) in total'.
+		'b including toasts and indexes) in total'.
 		($can_be_compacted ? ', approximately '.
 		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 		 ($arg_hash{'size_statistics'}->{'page_count'} -
 		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-		 ' pages) that is '.$arg_hash{'bloat_statistics'}->{'free_space'}.
-		 ' bytes more were expected to be compacted after this attempt' :
+		 'p) that is '.$arg_hash{'bloat_statistics'}->{'free_space'}.
+		 'b more were expected to be compacted after this attempt' :
 		 '').'.';
 }
 
@@ -956,7 +976,7 @@ sub _log_pgstattuple_duration {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => ('Bloat statistics with pgstattuple: '.
+		message => ('Bloat statistics with pgstattuple: duration '.
 					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 		level => 'info',
 		target => $self->{'_log_target'});
@@ -1268,11 +1288,6 @@ SQL
 sub _get_index_statistics {
 	my ($self, %arg_hash) = @_;
 
-	my $schema_ident = $self->{'_database'}->quote_ident(
-		string => $self->{'_schema_name'});
-	my $index_ident = $self->{'_database'}->quote_ident(
-		string => $arg_hash{'name'});
-
 	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT
@@ -1292,8 +1307,8 @@ FROM (
     CROSS JOIN (
         SELECT * FROM
         $self->{'_pgstattuple_schema_ident'}.pgstatindex(
-            '$schema_ident.$index_ident')) AS sq
-    WHERE pg_catalog.pg_class.oid = '$schema_ident.$index_ident'::regclass
+            '$arg_hash{'ident'}')) AS sq
+    WHERE pg_catalog.pg_class.oid = '$arg_hash{'ident'}'::regclass
 ) AS oq
 SQL
 		);
