@@ -502,10 +502,13 @@ sub _process {
 
 				if ($self->{'_reindex'}) {
 					$self->_reindex(data => $index_data);
+					$duration = $self->{'_database'}->get_duration();
+					$self->_alter_index(data => $index_data);
+					$duration += $self->{'_database'}->get_duration();
 					$self->_log_reindex(
 						ident => $index_ident,
 						statistics => $index_statistics,
-						duration => $self->{'_database'}->get_duration());
+						duration => $duration);
 				}
 
 				if ($self->{'_print_reindex_queries'}) {
@@ -873,7 +876,8 @@ sub _log_reindex_queries {
 			 $arg_hash{'statistics'}->{'size'}.'b, will be reduced by '.
 			 $arg_hash{'statistics'}->{'free_percent'}.'% ('.
 			 $arg_hash{'statistics'}->{'free_space'}.'b).' : '.')."\n".
-			$self->_get_reindex_query( data => $arg_hash{'data'})),
+			$self->_get_reindex_query(data => $arg_hash{'data'})."\n".
+			$self->_get_alter_index_query(data => $arg_hash{'data'})),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1304,7 +1308,7 @@ FROM (
             regexp_replace(
                 reloptions::text,'.*fillfactor=(\\d+).*', '\\1'),
             '10')::integer AS fillfactor
-    FROM pg_catalog.pg_classp
+    FROM pg_catalog.pg_class
     CROSS JOIN (
         SELECT * FROM
         $self->{'_pgstattuple_schema_ident'}.pgstatindex(
@@ -1323,21 +1327,26 @@ SQL
 sub _get_reindex_query {
 	my ($self, %arg_hash) = @_;
 
+	my $sql = $arg_hash{'data'}->{'definition'};
+	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
+	if (defined $arg_hash{'data'}->{'tablespace'}) {
+		$sql =~ s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
+	}
+	$sql .= ';';
+
+	return $sql;
+
+}
+
+sub _get_alter_index_query {
+	my ($self, %arg_hash) = @_;
+
 	my $schema_ident = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
-
-	my $create_sql = $arg_hash{'data'}->{'definition'};
-	$create_sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
-	if (defined $arg_hash{'data'}->{'tablespace'}) {
-		$create_sql =~
-			s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
-	}
-	$create_sql = $create_sql.';';
-
 	my $index_ident = $self->{'_database'}->quote_ident(
 		string => $arg_hash{'data'}->{'name'});
 
-	my $alter_sql =
+	return
 		'BEGIN; '.
 		($arg_hash{'data'}->{'conname'}
 		 ? (
@@ -1352,9 +1361,6 @@ sub _get_reindex_query {
 			 'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
 			 ' RENAME TO '.$index_ident.'; ')).
 		'END;';
-
-	return $create_sql.' '.$alter_sql;
-
 }
 
 sub _reindex {
@@ -1362,6 +1368,15 @@ sub _reindex {
 
 	$self->_execute_and_log(
 		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+
+	return;
+}
+
+sub _alter_index {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(
+		sql => $self->_get_alter_index_query(data => $arg_hash{'data'}));
 
 	return;
 }

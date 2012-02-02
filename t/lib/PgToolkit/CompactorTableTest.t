@@ -340,7 +340,7 @@ sub test_main_processing_no_routine_vacuum : Test(16) {
 		$i++, 'get_size_statistics');
 }
 
-sub test_reindex_if_last_attempt_and_not_processed : Test(15) {
+sub test_reindex_if_last_attempt_and_not_processed : Test(19) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -375,14 +375,18 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_not_last_attempt_and_processed : Test(15) {
+sub test_reindex_if_not_last_attempt_and_processed : Test(19) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -403,7 +407,11 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -536,7 +544,7 @@ sub test_no_reindex_queries_if_not_last_attempt_and_not_processed : Test(7) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_in_min_free_percent : Test(17) {
+sub test_no_reindex_if_in_min_free_percent : Test(19) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -563,6 +571,8 @@ sub test_no_reindex_if_in_min_free_percent : Test(17) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -570,7 +580,7 @@ sub test_no_reindex_if_in_min_free_percent : Test(17) {
 		$i++, undef);
 }
 
-sub test_reindex_if_in_min_free_percent_and_forced : Test(15) {
+sub test_reindex_if_in_min_free_percent_and_forced : Test(19) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -596,7 +606,11 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(

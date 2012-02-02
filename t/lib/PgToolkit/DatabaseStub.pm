@@ -172,17 +172,23 @@ sub init {
 				 undef, undef, 2000]]},
 		'reindex1' => {
 			'sql_pattern' =>
-				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompactor_tmp$$/.
-				qr/ ON schema\.table USING btree \(column1\); BEGIN; /.
-				qr/ALTER TABLE schema\.table DROP CONSTRAINT table_pkey; /.
-				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pkey /.
-				qr/PRIMARY KEY USING INDEX pgcompactor_tmp$$; END;/,
+				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompactor_tmp$$ /.
+				qr/ON schema\.table USING btree \(column1\);/,
+			'row_list' => []},
+		'alter_index1' => {
+			'sql_pattern' =>
+				qr/BEGIN; ALTER TABLE schema\.table DROP CONSTRAINT /.
+				qr/table_pkey; ALTER TABLE schema\.table ADD CONSTRAINT /.
+				qr/table_pkey PRIMARY KEY USING INDEX pgcompactor_tmp$$; END;/,
 			'row_list' => []},
 		'reindex2' => {
 			'sql_pattern' =>
 				qr/CREATE INDEX CONCURRENTLY pgcompactor_tmp$$ ON /.
 				qr/schema\.table USING btree \(column2\) /.
-				qr/TABLESPACE tablespace WHERE column2 = 1; /.
+				qr/TABLESPACE tablespace WHERE column2 = 1;/,
+			'row_list' => []},
+		'alter_index2' => {
+			'sql_pattern' =>
 				qr/BEGIN; DROP INDEX schema\.table_idx2; /.
 				qr/ALTER INDEX schema\.pgcompactor_tmp$$ /.
 				qr/RENAME TO table_idx2; END;/,
