@@ -172,7 +172,7 @@ sub _run_psql {
 
 	my $err_output = join('', <CHLD_ERR>);
 
-	if ($exit_status or $err_output) {
+	if ($exit_status or ($err_output and $err_output =~ /^ERROR: /)) {
 		die(join("\n", ('DatabaseError Can not execute the command',
 						$arg_hash{'command'}, $arg_hash{'sql'},
 						join('', <CHLD_OUT>), $err_output)));
