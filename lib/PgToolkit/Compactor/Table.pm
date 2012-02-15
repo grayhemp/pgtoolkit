@@ -1346,15 +1346,20 @@ sub _get_alter_index_query {
 		string => $self->{'_schema_name'});
 	my $index_ident = $self->{'_database'}->quote_ident(
 		string => $arg_hash{'data'}->{'name'});
+	my $constraint_ident;
+	if ($arg_hash{'data'}->{'conname'}) {
+		$constraint_ident = $self->{'_database'}->quote_ident(
+			string => $arg_hash{'data'}->{'conname'});
+	}
 
 	return
 		'BEGIN; '.
 		($arg_hash{'data'}->{'conname'}
 		 ? (
 			 'ALTER TABLE '.$self->{'_ident'}.
-			 ' DROP CONSTRAINT '.$arg_hash{'data'}->{'conname'}.'; '.
+			 ' DROP CONSTRAINT '.$constraint_ident.'; '.
 			 'ALTER TABLE '.$self->{'_ident'}.
-			 ' ADD CONSTRAINT '.$arg_hash{'data'}->{'conname'}.' '.
+			 ' ADD CONSTRAINT '.$constraint_ident.' '.
 			 $arg_hash{'data'}->{'contype'}.
 			 ' USING INDEX pgcompactor_tmp'.$$.'; ')
 		 : (
