@@ -243,7 +243,7 @@ sub _get_dbname_list {
 	}
 
 	my $not_in = '';
-	if (@{$arg_hash{'dbname_list'}}) {
+	if (@{$arg_hash{'excluded_dbname_list'}}) {
 		$not_in =
 			'datname NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_dbname_list'}})).

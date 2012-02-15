@@ -285,7 +285,7 @@ sub _get_table_data_list {
 	}
 
 	my $table_not_in = '';
-	if (@{$arg_hash{'table_name_list'}}) {
+	if (@{$arg_hash{'excluded_table_name_list'}}) {
 		$table_not_in =
 			'tablename NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_table_name_list'}})).
@@ -301,7 +301,7 @@ sub _get_table_data_list {
 	}
 
 	my $schema_not_in = '';
-	if (@{$arg_hash{'schema_name_list'}}) {
+	if (@{$arg_hash{'excluded_schema_name_list'}}) {
 		$schema_not_in =
 			'schemaname NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_schema_name_list'}})).

@@ -69,28 +69,31 @@ sub create_database_compactor_mock {
 	return $mock;
 }
 
-sub test_init_creates_database_compactors_in_the_returning_order : Test(8) {
+sub test_init_creates_database_compactors_in_the_returning_order : Test(20) {
 	my $self = shift;
 
-	my $dbname_list1 = [
+	my $dbname_list = [
 		map($_->[0],
 			@{$self->{'database'}->{'mock'}->{'data_hash'}
 			  ->{'get_dbname_list1'}->{'row_list'}})];
-
-	my $dbname_list2 = [
-		map($_->[0],
-			@{$self->{'database'}->{'mock'}->{'data_hash'}
-			  ->{'get_dbname_list2'}->{'row_list'}})];
 
 	my $data_hash_list = [
 		{'args' => {
 			'dbname_list' => [],
 			'excluded_dbname_list' => []},
-		 'expected' => $dbname_list1},
+		 'expected' => $dbname_list},
 		{'args' => {
-			'dbname_list' => $dbname_list2,
-			'excluded_dbname_list' => $dbname_list1},
-		 'expected' => $dbname_list2}];
+			'dbname_list' => [@{$dbname_list}[0, 1]],
+			'excluded_dbname_list' => []},
+		 'expected' => [@{$dbname_list}[0, 1]]},
+		{'args' => {
+			'dbname_list' => [],
+			'excluded_dbname_list' => [@{$dbname_list}[0, 1]]},
+		 'expected' => [@{$dbname_list}[2, 3]]},
+		{'args' => {
+			'dbname_list' => [@{$dbname_list}[0, 2]],
+			'excluded_dbname_list' => [@{$dbname_list}[1, 3]]},
+		 'expected' => [@{$dbname_list}[0, 2]]}];
 
 	for my $data_hash (@{$data_hash_list}) {
 		$self->{'cluster_compactor_constructor'}->(%{$data_hash->{'args'}});
@@ -104,7 +107,7 @@ sub test_init_creates_database_compactors_in_the_returning_order : Test(8) {
 	}
 }
 
-sub test_process_processes_database_compactors_in_their_order : Test(4) {
+sub test_process_processes_database_compactors_in_their_order : Test(8) {
 	my $self = shift;
 
 	$self->{'cluster_compactor_constructor'}->()->process();
@@ -116,7 +119,7 @@ sub test_process_processes_database_compactors_in_their_order : Test(4) {
 	}
 }
 
-sub test_stop_retrying_on_max_retries_count : Test(10) {
+sub test_stop_retrying_on_max_retries_count : Test(20) {
 	my $self = shift;
 
 	$self->{'cluster_compactor_constructor'}->(max_retry_count => 1)->process();
@@ -139,7 +142,7 @@ sub test_stop_retrying_on_max_retries_count : Test(10) {
 	}
 }
 
-sub test_stop_retrying_after_everything_is_processed : Test(4) {
+sub test_stop_retrying_after_everything_is_processed : Test(8) {
 	my $self = shift;
 
 	my $cluster_compactor =

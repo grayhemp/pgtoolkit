@@ -199,18 +199,35 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
 				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
-			'row_list' => [['schema1', 'table1'],['schema2', 'table2']]},
+			'row_list' => [['schema1', 'table1'], ['schema1', 'table2'],
+						   ['schema2', 'table1'], ['schema2', 'table2']]},
 		'get_table_data_list2' => {
 			'sql_pattern' =>
 				qr/SELECT schemaname, tablename /.
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
-				qr/schemaname IN \('schema3', 'schema4'\) AND\s+/s.
-				qr/schemaname NOT IN \('schema1', 'schema2'\) AND\s+/s.
-				qr/tablename IN \('table3', 'table4'\) AND\s+/s.
-				qr/tablename NOT IN \('table1', 'table2'\) AND\s+/s.
+				qr/schemaname IN \('schema1', 'schema2'\) AND\s+/s.
+				qr/schemaname NOT IN \('schema2'\) AND\s+/s.
 				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
 				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
-			'row_list' => [['schema3', 'table3'],['schema4', 'table4']]},
+			'row_list' => [['schema1', 'table1'], ['schema1', 'table2']]},
+		'get_table_data_list3' => {
+			'sql_pattern' =>
+				qr/SELECT schemaname, tablename /.
+				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
+				qr/schemaname NOT IN \('schema1'\) AND\s+/s.
+				qr/tablename IN \('table1', 'table2'\) AND\s+/s.
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
+				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+			'row_list' => [['schema2', 'table1'], ['schema2', 'table2']]},
+		'get_table_data_list4' => {
+			'sql_pattern' =>
+				qr/SELECT schemaname, tablename /.
+				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
+				qr/tablename IN \('table1', 'table2'\) AND\s+/s.
+				qr/tablename NOT IN \('table2'\) AND\s+/s.
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
+				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+			'row_list' => [['schema1', 'table1'], ['schema2', 'table1']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
 				qr/CREATE OR REPLACE FUNCTION public\._clean_pages/,
@@ -224,15 +241,29 @@ sub init {
 				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
 				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
-			'row_list' => [['dbname1'], ['dbname2']]},
+			'row_list' => [['dbname1'], ['dbname2'], ['dbname3'], ['dbname4']]},
 		'get_dbname_list2' => {
 			'sql_pattern' =>
 				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
-				qr/datname IN \('dbname3', 'dbname4'\) AND\s+/s.
+				qr/datname IN \('dbname1', 'dbname2'\) AND\s+/s.
+				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
+				qr/ORDER BY pg_catalog\.pg_database_size/,
+			'row_list' => [['dbname1'], ['dbname2']]},
+		'get_dbname_list3' => {
+			'sql_pattern' =>
+				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
 				qr/datname NOT IN \('dbname1', 'dbname2'\) AND\s+/s.
 				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname3'], ['dbname4']]},
+		'get_dbname_list4' => {
+			'sql_pattern' =>
+				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
+				qr/datname IN \('dbname1', 'dbname3'\) AND\s+/s.
+				qr/datname NOT IN \('dbname2', 'dbname4'\) AND\s+/s.
+				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
+				qr/ORDER BY pg_catalog\.pg_database_size/,
+			'row_list' => [['dbname1'], ['dbname3']]},
 		'get_pgstattuple_schema_name' => {
 			'sql_pattern' =>
 				qr/SELECT nspname FROM pg_catalog\.pg_proc.+/s.

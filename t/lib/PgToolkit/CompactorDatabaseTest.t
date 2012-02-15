@@ -76,28 +76,18 @@ sub create_table_compactor_mock {
 	return $mock;
 }
 
-sub test_init_creates_table_compactors_in_the_returning_order : Test(8) {
+sub test_init_creates_table_compactors_in_the_returning_order : Test(20) {
 	my $self = shift;
 
-	my $schema_name_list1 = [
+	my $schema_name_list = [
 		map($_->[0],
 			@{$self->{'database'}->{'mock'}->{'data_hash'}
 			  ->{'get_table_data_list1'}->{'row_list'}})];
 
-	my $schema_name_list2 = [
-		map($_->[0],
-			@{$self->{'database'}->{'mock'}->{'data_hash'}
-			  ->{'get_table_data_list2'}->{'row_list'}})];
-
-	my $table_name_list1 = [
+	my $table_name_list = [
 		map($_->[1],
 			@{$self->{'database'}->{'mock'}->{'data_hash'}
 			  ->{'get_table_data_list1'}->{'row_list'}})];
-
-	my $table_name_list2 = [
-		map($_->[1],
-			@{$self->{'database'}->{'mock'}->{'data_hash'}
-			  ->{'get_table_data_list2'}->{'row_list'}})];
 
 	my $data_hash_list = [
 		{'arg' => {
@@ -105,13 +95,28 @@ sub test_init_creates_table_compactors_in_the_returning_order : Test(8) {
 			'excluded_schema_name_list' => [],
 			'table_name_list' => [],
 			'excluded_table_name_list' => []},
-		 'expected' => [$schema_name_list1, $table_name_list1]},
+		 'expected' => [$schema_name_list, $table_name_list]},
 		{'arg' => {
-			'schema_name_list' => $schema_name_list2,
-			'excluded_schema_name_list' => $schema_name_list1,
-			'table_name_list' => $table_name_list2,
-			'excluded_table_name_list' => $table_name_list1},
-		 'expected' => [$schema_name_list2, $table_name_list2]}];
+			'schema_name_list' => [@{$schema_name_list}[0, 2]],
+			'excluded_schema_name_list' => [@{$schema_name_list}[2]],
+			'table_name_list' => [],
+			'excluded_table_name_list' => []},
+		 'expected' => [[@{$schema_name_list}[0, 0]],
+						[@{$table_name_list}[0, 1]]]},
+		{'arg' => {
+			'schema_name_list' => [],
+			'excluded_schema_name_list' => [@{$schema_name_list}[0]],
+			'table_name_list' => [@{$table_name_list}[0, 1]],
+			'excluded_table_name_list' => []},
+		 'expected' => [[@{$schema_name_list}[2, 2]],
+						[@{$table_name_list}[0, 1]]]},
+		{'arg' => {
+			'schema_name_list' => [],
+			'excluded_schema_name_list' => [],
+			'table_name_list' => [@{$table_name_list}[0, 1]],
+			'excluded_table_name_list' => [@{$table_name_list}[1]]},
+		 'expected' => [[@{$schema_name_list}[0, 2]],
+						[@{$table_name_list}[0, 0]]]}];
 
 	for my $data_hash (@{$data_hash_list}) {
 		$self->{'database_compactor_constructor'}->(
@@ -135,7 +140,7 @@ sub test_init_creates_table_compactors_in_the_returning_order : Test(8) {
 	}
 }
 
-sub test_process_procecces_table_compactors_in_their_order  : Test(6) {
+sub test_process_procecces_table_compactors_in_their_order  : Test(12) {
 	my $self = shift;
 
 	$self->{'database_compactor_constructor'}->()->process(attempt => 2);
@@ -153,7 +158,14 @@ sub test_process_procecces_table_compactors_in_their_order  : Test(6) {
 sub test_processing_status_depends_on_table_compactors : Test(4) {
 	my $self = shift;
 
-	my $database_compactor = $self->{'database_compactor_constructor'}->();
+	my $schema_name_list = [
+		map($_->[0],
+			@{$self->{'database'}->{'mock'}->{'data_hash'}
+			  ->{'get_table_data_list1'}->{'row_list'}})];
+
+	my $database_compactor = $self->{'database_compactor_constructor'}->(
+		'schema_name_list' => [@{$schema_name_list}[0, 2]],
+		'excluded_schema_name_list' => [@{$schema_name_list}[2]]);
 
 	for my $j (0 .. 3) {
 		my $expected = [($j & 1) ? 1 : 0, ($j & 2) ? 1 : 0];
@@ -191,7 +203,7 @@ sub test_does_not_create_and_drop_environment_if_dry_run : Test(5) {
 	$self->{'database'}->{'mock'}->is_called(3, undef);
 }
 
-sub test_init_passes_pgstattuple_schema_name_to_table_constructor : Test(8) {
+sub test_init_passes_pgstattuple_schema_name_to_table_constructor : Test(16) {
 	my $self = shift;
 
 	for my $pgstattuple_schema_name (undef, 'public') {
@@ -211,7 +223,7 @@ sub test_init_passes_pgstattuple_schema_name_to_table_constructor : Test(8) {
 	}
 }
 
-sub test_init_no_pgstatuple_passes_nothing_to_table_constructor : Test(4) {
+sub test_init_no_pgstatuple_passes_nothing_to_table_constructor : Test(8) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
