@@ -81,7 +81,7 @@ sub init {
 		{
 			 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
 			 PrintWarn => 0, PrintError => 0,
-			 pg_server_prepare => 0, pg_enable_utf8 => 1
+			 pg_server_prepare => 0, pg_enable_utf8 => 0
 		});
 
 	return;

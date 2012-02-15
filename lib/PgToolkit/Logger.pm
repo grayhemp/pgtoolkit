@@ -54,9 +54,6 @@ when wrong logging level is specified.
 sub init {
 	my ($self, %arg_hash) = @_;
 
-	binmode(*STDOUT, ':encoding(UTF-8)');
-	binmode(*STDERR, ':encoding(UTF-8)');
-
 	$self->{'_out_handle'} =
 		exists $arg_hash{'out_handle'} ? $arg_hash{'out_handle'} : \*STDOUT;
 	$self->{'_err_handle'} =
