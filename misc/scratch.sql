@@ -237,7 +237,7 @@ FROM (
             pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
             coalesce(
                 regexp_replace(
-                    reloptions::text,'.*fillfactor=(\d+).*', '\1'),
+                    reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
                 '10')::integer AS fillfactor
         FROM pg_catalog.pg_class
         WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
@@ -265,7 +265,7 @@ FROM (
             pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
             coalesce(
                 regexp_replace(
-                    reloptions::text,'.*fillfactor=(\d+).*', '\1'),
+                    reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
                 '10')::integer AS fillfactor
         FROM pg_catalog.pg_class
         WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
@@ -312,7 +312,7 @@ FROM (
             quote_ident(schemaname) || '.' ||
             quote_ident(indexname))::regclass AS indexoid,
         string_to_array(
-            regexp_replace(version(),'.*PostgreSQL (\d+\.\d+).*', '\1'),
+            regexp_replace(version(), E'.*PostgreSQL (\\d+\\.\\d+).*', E'\\1'),
             '.')::integer[] AS version
     FROM pg_catalog.pg_indexes
     WHERE
@@ -347,7 +347,7 @@ FROM (
         index_size, avg_leaf_density,
         coalesce(
             regexp_replace(
-                reloptions::text,'.*fillfactor=(\d+).*', '\1'),
+                reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
             '10')::integer AS fillfactor
     FROM pg_catalog.pg_class
     CROSS JOIN (SELECT * FROM public.pgstatindex('public.table1_uidx')) AS sq
