@@ -778,19 +778,11 @@ sub test_no_final_analyze : Test(5) {
 		$i++, undef);
 }
 
-sub test_stop_processing_on_deadlock_detected : Test(7) {
+sub test_continue_processing_on_deadlock_detected : Test(4) {
 	my $self = shift;
 
-	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
-	{'row_list_sequence'}->[0] = 'deadlock detected';
-
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
-		[[35000, 42000, 100, 120]];
-
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
-		[[85, 15, 5000]];
+	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}
+	->{'row_list_sequence'}->[0] = 'deadlock detected';
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -801,10 +793,7 @@ sub test_stop_processing_on_deadlock_detected : Test(7) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'vacuum');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_size_statistics');
-	ok(not $table_compactor->is_processed());
+		$i++, 'clean_pages', to_page => 99);
 }
 
 sub test_stop_processing_on_cannot_extract_system_attribute : Test(7) {

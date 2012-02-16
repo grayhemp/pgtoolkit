@@ -357,7 +357,7 @@ sub _process {
 					# Normal cleaning completion
 				} elsif ($@ =~ 'deadlock detected') {
 					$self->_log_deadlock_detected();
-					$expected_error_occurred = 1;
+					next;
 				} elsif ($@ =~ 'cannot extract system attribute') {
 					$self->_log_cannot_extract_system_attribute();
 					$expected_error_occurred = 1;
@@ -946,8 +946,8 @@ sub _log_deadlock_detected {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => 'Stopped processing as a deadlock has been detected.',
-		level => 'warning',
+		message => 'Detected deadlock during cleaning.',
+		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
