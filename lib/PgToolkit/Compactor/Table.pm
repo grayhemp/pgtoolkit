@@ -940,7 +940,8 @@ sub _get_log_processing_results {
 	my $can_be_compacted = (
 		$arg_hash{'bloat_statistics'}->{'free_percent'} > 0 and
 		$arg_hash{'size_statistics'}->{'page_count'} >
-		$arg_hash{'bloat_statistics'}->{'effective_page_count'});
+		$arg_hash{'bloat_statistics'}->{'effective_page_count'} and
+		not $self->{'_is_processed'});
 
 	return
 		'left '.$arg_hash{'size_statistics'}->{'page_count'}.'p ('.
