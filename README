@@ -26,6 +26,18 @@ Currently there is the only tool we have prepared for publishing:
 We have not adapted any instructions to the publication yet but they
 are comming soon.
 
+Release v1.0beta2:
+
+- fixed the error when -d and/or -t are specified
+- fixed the bug with conforming strings
+- fixed the unicode name index altering bug
+- fixed the error output recognition in the psql adapter
+- prevented processing from interupting after deadlocks
+- fixed the "can not get bloat statistics" warning on empty tables
+- disabled printing uncompleted statistics if table is processed
+- set synchronous_commit to off and session_replication_role to
+  replica on the database level.
+
 Release v1.0beta1:
 
 - (!) renamed pg_compactor tool to pgcompactor 
