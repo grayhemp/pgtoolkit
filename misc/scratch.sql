@@ -125,7 +125,7 @@ BEGIN
     END IF;
 
     -- Prevent triggers firing on update
-    SET LOCAL session_replication_role TO replica;
+    --SET LOCAL session_replication_role TO replica;
 
     -- Define minimal and maximal ctid values of the range
     _min_ctid := (_from_page, 1)::text::tid;

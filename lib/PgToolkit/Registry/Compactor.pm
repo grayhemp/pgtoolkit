@@ -147,7 +147,10 @@ sub get_database_adapter {
 		host => $options->get(name => 'host'),
 		port => $options->get(name => 'port'),
 		user => $options->get(name => 'user'),
-		password => $options->get(name => 'password'));
+		password => $options->get(name => 'password'),
+		set_hash => {
+			'synchronous_commit' => 'off',
+			'session_replication_role' => 'replica'});
 
 	my $constructor_list = [
 		sub {
