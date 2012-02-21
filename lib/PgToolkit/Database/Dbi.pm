@@ -84,6 +84,15 @@ sub init {
 			 pg_server_prepare => 0, pg_enable_utf8 => 0
 		});
 
+	if ($arg_hash{'set_hash'}) {
+		$self->execute(
+			sql => join(
+				' ',
+				map(
+					'SET '.$_.' TO '.$arg_hash{'set_hash'}->{$_}.';',
+					keys %{$arg_hash{'set_hash'}})));
+	}
+
 	return;
 }
 

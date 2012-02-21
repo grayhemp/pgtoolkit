@@ -94,6 +94,22 @@ sub test_execute : Test(12) {
 	}
 }
 
+sub test_set_parameters : Test(4) {
+	my $self = shift;
+
+	my $data_hash = {
+		'SET statement_timeout TO 0;' => {'statement_timeout' => 0},
+		'SET synchronous_commit TO \'off\'; SET vacuum_cost_delay TO 1;' => {
+			'synchronous_commit' => '\'off\'', 'vacuum_cost_delay' => 1}};
+	for my $sql (keys %{$data_hash}) {
+		my $db = $self->{'database_constructor'}->(
+			set_hash => $data_hash->{$sql});
+		is($db->{'dbh'}->call_pos(2), 'do');
+		is_deeply([$db->{'dbh'}->call_args(2)], [$db->{'dbh'}, $sql]);
+	}
+
+}
+
 sub test_adapter_name : Test {
 	my $self = shift;
 

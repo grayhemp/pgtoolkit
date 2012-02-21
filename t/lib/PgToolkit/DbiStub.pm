@@ -29,6 +29,17 @@ sub mock_sth {
 			my $return_list = [];
 
 			if ($sql eq 'SELECT 1 WHERE false;') {
+				# empty
+			}
+
+			if ($sql eq 'SET statement_timeout TO 0;') {
+				# empty
+			}
+
+			if ($sql eq ('SET synchronous_commit TO \'off\'; '.
+						 'SET vacuum_cost_delay TO 1;'))
+			{
+				# empty
 			}
 
 			if ($sql eq 'SELECT 1;') {
@@ -36,13 +47,12 @@ sub mock_sth {
 			}
 
 			if ($sql eq 'SELECT 1, \'text\';') {
-					push(@{$return_list}, [1, 'text']);
+				push(@{$return_list}, [1, 'text']);
 			}
 
-			my $long_sql =
-				'SELECT column1, column2 '.
-				'FROM (VALUES (1, \'text1\'), (2, \'text2\'))_;';
-			if ($sql eq $long_sql) {
+			if ($sql eq ('SELECT column1, column2 '.
+						 'FROM (VALUES (1, \'text1\'), (2, \'text2\'))_;'))
+			{
 				for (my $i = 1; $i <= 2; $i++) {
 					push(@{$return_list}, [$i, 'text'.$i]);
 				}
@@ -67,6 +77,14 @@ sub mock_dbh {
 			shift;
 
 			return mock_sth(@_);
+		});
+
+	$dbh_mock->mock(
+		'do',
+		sub {
+			shift;
+
+			return mock_sth(@_)->execute(@_);
 		});
 
 	$dbh_mock->mock(
