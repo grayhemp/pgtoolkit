@@ -247,20 +247,12 @@ sub _process {
 			phrase => 'initial');
 	}
 
-	$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
-	if ($self->{'_pgstattuple_schema_ident'}) {
-		$self->_log_pgstattuple_duration(
-			duration => $self->{'_database'}->get_duration());
+	if ($self->{'_size_statistics'}->{'page_count'} == 0) {
+		$self->_log_skipping_empty_table();
+		$self->{'_is_processed'} = 1;
 	}
 
-	if (not defined
-		$self->{'_bloat_statistics'}->{'effective_page_count'})
-	{
-		$self->_do_analyze();
-		$self->_log_analyze_complete(
-			duration => $self->{'_database'}->get_duration(),
-			phrase => 'required initial');
-
+	if (not $self->{'_is_processed'}) {
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		if ($self->{'_pgstattuple_schema_ident'}) {
 			$self->_log_pgstattuple_duration(
@@ -270,8 +262,23 @@ sub _process {
 		if (not defined
 			$self->{'_bloat_statistics'}->{'effective_page_count'})
 		{
-			$self->_log_skipping_can_not_get_bloat_statistics();
-			$self->{'_is_processed'} = 1;
+			$self->_do_analyze();
+			$self->_log_analyze_complete(
+				duration => $self->{'_database'}->get_duration(),
+				phrase => 'required initial');
+
+			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
+			if ($self->{'_pgstattuple_schema_ident'}) {
+				$self->_log_pgstattuple_duration(
+					duration => $self->{'_database'}->get_duration());
+			}
+
+			if (not defined
+				$self->{'_bloat_statistics'}->{'effective_page_count'})
+			{
+				$self->_log_skipping_can_not_get_bloat_statistics();
+				$self->{'_is_processed'} = 1;
+			}
 		}
 	}
 
@@ -608,6 +615,17 @@ sub get_total_size_delta {
 	return
 		$self->{'_base_size_statistics'}->{'total_size'} -
 		$self->{'_size_statistics'}->{'total_size'};
+}
+
+sub _log_skipping_empty_table {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => 'Skipping processing: empty table.',
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
 }
 
 sub _log_can_not_process_ar_triggers {

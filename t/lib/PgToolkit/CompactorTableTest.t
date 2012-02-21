@@ -182,6 +182,30 @@ sub test_can_not_get_bloat_statistics : Test(14) {
 	ok($table_compactor->is_processed());
 }
 
+sub test_skip_processing_if_table_is_empty : Test(8) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[1] =
+		[[0, 0, 0, 0]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 1;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
 sub test_min_page_count : Test(12) {
 	my $self = shift;
 
