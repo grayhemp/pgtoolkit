@@ -78,6 +78,22 @@ sub test_execute : Test(5) {
 	}
 }
 
+sub test_set_parameters : Test(2) {
+	my $self = shift;
+
+	is_deeply(
+		$self->{'database_constructor'}->(
+			set_hash => {'statement_timeout' => 0}
+		)->execute(sql => 'SELECT 10;'), [[10]]);
+
+	is_deeply(
+		$self->{'database_constructor'}->(
+			set_hash => {
+				'synchronous_commit' => '\'off\'',
+				'vacuum_cost_delay' => 1}
+		)->execute(sql => 'SELECT 20;'), [[20]]);
+}
+
 sub test_adapter_name : Test {
 	my $self = shift;
 
@@ -104,9 +120,11 @@ sub _run_psql {
 		'SELECT 1;' => '1',
 		'SELECT NULL;' => '<NULL>',
 		'SELECT 1, \'text\';' => '1|text',
-		'SELECT column1, column2 '.
-		'FROM (VALUES (1, \'text1\'), (2, \'text2\'))_;' => "1|text1\n2|text2"
-	};
+		('SELECT column1, column2 FROM (VALUES (1, \'text1\'), '.
+		 '(2, \'text2\'))_;') => "1|text1\n2|text2",
+		'SET statement_timeout TO 0; SELECT 10;' => '10',
+		('SET synchronous_commit TO \'off\'; SET vacuum_cost_delay TO 1; '.
+		 'SELECT 20;') => '20'};
 
 	return $data_hash->{$arg{'sql'}};
 }

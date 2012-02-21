@@ -15,7 +15,8 @@ B<PgToolkit::Database::Psql> - a psql facade class.
 
 	my $database = PgToolkit::Database::Psql->new(
 		path => '/path/to/psql', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser',password => 'secret');
+		dbname => 'somedb', user => 'someuser',password => 'secret',
+		set_hash => {'statement_timeout' => 0});
 
 	my $result = $database->execute(sql => 'SELECT * FROM sometable;');
 
@@ -40,6 +41,10 @@ a path to psql, default 'psql'
 =item C<user>
 
 =item C<password>
+
+=item C<set_hash>
+
+a set of configuration parameters to set.
 
 =back
 
@@ -75,6 +80,8 @@ sub init {
 		'-d '.$self->_get_escaped_dbname() : '';
 	$opt_hash{'user'} = (defined $arg_hash{'user'}) ?
 		'-U '.$arg_hash{'user'} : '';
+
+	$self->{'_set_hash'} = $arg_hash{'set_hash'};
 
 	$self->{'_command'} = sprintf(
 		'%s%s -A -t -X %s %s %s %s -P null="<NULL>"',
@@ -131,8 +138,15 @@ when problems appear during statement execution.
 sub _execute {
 	my ($self, %arg_hash) = @_;
 
+	my $sql = join(
+		' ',
+		map(
+			'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
+			keys %{$self->{'_set_hash'}}),
+		$arg_hash{'sql'});
+
 	my $raw_data = $self->_run_psql(
-		command => $self->{'_command'}, sql => $arg_hash{'sql'});
+		command => $self->{'_command'}, sql => $sql);
 
 	my $result = [];
 	for my $row_data (split(qr/\n/, $raw_data)) {
