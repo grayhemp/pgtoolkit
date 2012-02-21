@@ -13,7 +13,8 @@ B<PgToolkit::Database::Dbi> - a DBI facade class.
 
 	my $database = PgToolkit::Database::Dbi->new(
 		driver => 'Pg', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser', password => 'secret');
+		dbname => 'somedb', user => 'someuser', password => 'secret',
+		set_hash => {'statement_timeout' => 0});
 
 	my $result = $database->execute(sql => 'SELECT * FROM sometable;');
 
@@ -38,6 +39,10 @@ by default socket connection is used,
 =item C<user>
 
 =item C<password>
+
+=item C<set_hash>
+
+a set of configuration parameters to set.
 
 =back
 
