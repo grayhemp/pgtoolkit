@@ -338,10 +338,18 @@ ORDER BY pg_catalog.pg_relation_size(indexoid);
 
 SELECT
     index_size AS size,
-    (100 - avg_leaf_density) - fillfactor AS free_percent,
-    ceil(
-        index_size::real *
-        ((100 - avg_leaf_density) - fillfactor) / 100) AS free_space
+    CASE
+        WHEN avg_leaf_density = 'NaN' THEN 0
+        ELSE (100 - avg_leaf_density) - fillfactor
+        END AS free_percent,
+    CASE
+        WHEN avg_leaf_density = 'NaN' THEN 0
+        ELSE
+            ceil(
+                index_size::real *
+                ((100 - avg_leaf_density) - fillfactor) / 100
+            )
+        END AS free_space
 FROM (
     SELECT
         index_size, avg_leaf_density,
@@ -350,8 +358,9 @@ FROM (
                 reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
             '10')::integer AS fillfactor
     FROM pg_catalog.pg_class
-    CROSS JOIN (SELECT * FROM public.pgstatindex('public.table1_uidx')) AS sq
-    WHERE pg_catalog.pg_class.oid = 'public.table1_uidx'::regclass
+    CROSS JOIN (
+        SELECT * FROM public.pgstatindex('public."таблица2_pkey"')) AS sq
+    WHERE pg_catalog.pg_class.oid = 'public."таблица2_pkey"'::regclass
 ) AS oq;
 
 -- Check schema existence

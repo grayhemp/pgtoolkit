@@ -225,6 +225,7 @@ sub _process {
 	my ($self, %arg_hash) = @_;
 
 	my $duration;
+	my $is_skipped;
 
 	$self->{'_size_statistics'} = $self->_get_size_statistics();
 
@@ -249,10 +250,10 @@ sub _process {
 
 	if ($self->{'_size_statistics'}->{'page_count'} == 0) {
 		$self->_log_skipping_empty_table();
-		$self->{'_is_processed'} = 1;
+		$is_skipped = 1;;
 	}
 
-	if (not $self->{'_is_processed'}) {
+	if (not $is_skipped) {
 		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 		if ($self->{'_pgstattuple_schema_ident'}) {
 			$self->_log_pgstattuple_duration(
@@ -277,19 +278,19 @@ sub _process {
 				$self->{'_bloat_statistics'}->{'effective_page_count'})
 			{
 				$self->_log_skipping_can_not_get_bloat_statistics();
-				$self->{'_is_processed'} = 1;
+				$is_skipped = 1;;
 			}
 		}
 	}
 
-	if (not $self->{'_is_processed'}) {
+	if (not $is_skipped) {
 		$self->_log_statistics(
 			size_statistics => $self->{'_size_statistics'},
 			bloat_statistics => $self->{'_bloat_statistics'});
 
 		if ($self->_has_special_triggers()) {
 			$self->_log_can_not_process_ar_triggers();
-			$self->{'_is_processed'} = 1;
+			$is_skipped = 1;;
 		}
 
 		if (not $self->{'_force'}) {
@@ -298,7 +299,7 @@ sub _process {
 			{
 				$self->_log_skipping_min_page_count(
 					page_count => $self->{'_size_statistics'}->{'page_count'});
-				$self->{'_is_processed'} = 1;
+				$is_skipped = 1;;
 			}
 
 			if ($self->{'_bloat_statistics'}->{'free_percent'} <
@@ -307,16 +308,16 @@ sub _process {
 				$self->_log_skipping_min_free_percent(
 					free_percent => (
 						$self->{'_bloat_statistics'}->{'free_percent'}));
-				$self->{'_is_processed'} = 1;
+				$is_skipped = 1;;
 			}
 		}
 	}
 
 	if ($self->{'_dry_run'}) {
-		$self->{'_is_processed'} = 1;
+		$is_skipped = 1;;
 	}
 
-	if (not $self->{'_is_processed'}) {
+	if (not $is_skipped) {
 		if ($self->{'_force'}) {
 			$self->_log_processing_forced();
 		}
@@ -478,71 +479,77 @@ sub _process {
 			($self->{'_size_statistics'}->{'page_count'} <=
 			 $to_page + 1 + $pages_before_vacuum) and
 			not $expected_error_occurred);
+	}
 
-		if (
-			($self->{'_is_processed'} or
-			 $arg_hash{'attempt'} == $self->{'_max_retry_count'}) and
-			($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
-		{
-			for my $index_data (@{$self->_get_index_data_list()}) {
-				my $index_ident =
-					$self->{'_database'}->quote_ident(
-						string => $self->{'_schema_name'}).'.'.
+	my $is_reindexed;
+	if (($self->{'_is_processed'} or
+		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
+		 $is_skipped and $self->{'_pgstattuple_schema_ident'}) and
+		($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
+	{
+		for my $index_data (@{$self->_get_index_data_list()}) {
+			my $index_ident =
+				$self->{'_database'}->quote_ident(
+					string => $self->{'_schema_name'}).'.'.
 					$self->{'_database'}->quote_ident(
 						string => $index_data->{'name'});
 
-				my $index_statistics;
-				if ($self->{'_pgstattuple_schema_ident'} and
-					not $self->{'_force'})
+			my $index_statistics;
+			if ($self->{'_pgstattuple_schema_ident'} and
+				not $self->{'_force'})
+			{
+				$index_statistics = $self->_get_index_statistics(
+					ident => $index_ident);
+
+				if ($index_statistics->{'free_percent'} <
+					$self->{'_min_free_percent'})
 				{
-					$index_statistics = $self->_get_index_statistics(
-						ident => $index_ident);
-					if ($index_statistics->{'free_percent'} <
-						$self->{'_min_free_percent'})
-					{
-						$self->_log_skipping_reindex_min_free_percent(
-							ident => $index_ident,
-							statistics => $index_statistics);
-						next;
-					}
-				}
-
-				if ($self->{'_reindex'}) {
-					$self->_reindex(data => $index_data);
-					$duration = $self->{'_database'}->get_duration();
-					$self->_alter_index(data => $index_data);
-					$duration += $self->{'_database'}->get_duration();
-					$self->_log_reindex(
+					$self->_log_skipping_reindex_min_free_percent(
 						ident => $index_ident,
-						statistics => $index_statistics,
-						duration => $duration);
-				}
-
-				if ($self->{'_print_reindex_queries'}) {
-					$self->_log_reindex_queries(
-						ident => $index_ident,
-						statistics => $index_statistics,
-						data => $index_data);
+						statistics => $index_statistics);
+					next;
 				}
 			}
 
 			if ($self->{'_reindex'}) {
-				$self->{'_size_statistics'} = $self->_get_size_statistics();
+				$self->_reindex(data => $index_data);
+				$duration = $self->{'_database'}->get_duration();
+				$self->_alter_index(data => $index_data);
+				$duration += $self->{'_database'}->get_duration();
+				$self->_log_reindex(
+					ident => $index_ident,
+					statistics => $index_statistics,
+					duration => $duration);
+
+				$is_reindexed = 1;
+			}
+
+			if ($self->{'_print_reindex_queries'}) {
+				$self->_log_reindex_queries(
+					ident => $index_ident,
+					statistics => $index_statistics,
+					data => $index_data);
 			}
 		}
 
-		if ($self->{'_is_processed'}) {
-			$self->_log_complete_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'},
-				base_size_statistics => $self->{'_base_size_statistics'});
-		} else {
-			$self->_log_incomplete_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'},
-				base_size_statistics => $self->{'_base_size_statistics'});
+		if ($self->{'_reindex'}) {
+			$self->{'_size_statistics'} = $self->_get_size_statistics();
 		}
 	}
+
+	if ($self->{'_is_processed'} or $is_skipped and $is_reindexed) {
+		$self->_log_complete_processing(
+			size_statistics => $self->{'_size_statistics'},
+			bloat_statistics => $self->{'_bloat_statistics'},
+			base_size_statistics => $self->{'_base_size_statistics'});
+	} elsif (not $is_skipped) {
+		$self->_log_incomplete_processing(
+			size_statistics => $self->{'_size_statistics'},
+			bloat_statistics => $self->{'_bloat_statistics'},
+			base_size_statistics => $self->{'_base_size_statistics'});
+	}
+
+	$self->{'_is_processed'} = ($self->{'_is_processed'} or $is_skipped);
 
 	return;
 }
@@ -1317,10 +1324,18 @@ sub _get_index_statistics {
 		sql => <<SQL
 SELECT
     index_size AS size,
-    (100 - avg_leaf_density) - fillfactor AS free_percent,
-    ceil(
-        index_size::real *
-        ((100 - avg_leaf_density) - fillfactor) / 100) AS free_space
+    CASE
+        WHEN avg_leaf_density = 'NaN' THEN 0
+        ELSE (100 - avg_leaf_density) - fillfactor
+        END AS free_percent,
+    CASE
+        WHEN avg_leaf_density = 'NaN' THEN 0
+        ELSE
+            ceil(
+                index_size::real *
+                ((100 - avg_leaf_density) - fillfactor) / 100
+            )
+        END AS free_space
 FROM (
     SELECT
         index_size, avg_leaf_density,
