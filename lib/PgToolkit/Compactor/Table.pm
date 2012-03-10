@@ -945,6 +945,8 @@ sub _get_log_processing_results {
 	my ($self, %arg_hash) = @_;
 
 	my $can_be_compacted = (
+		defined $arg_hash{'bloat_statistics'}->{'free_percent'} and
+		defined $arg_hash{'bloat_statistics'}->{'effective_page_count'} and
 		$arg_hash{'bloat_statistics'}->{'free_percent'} > 0 and
 		$arg_hash{'size_statistics'}->{'page_count'} >
 		$arg_hash{'bloat_statistics'}->{'effective_page_count'} and
@@ -1067,29 +1069,23 @@ sub _get_bloat_statistics {
 		$result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT
-    CASE
-        WHEN free_percent = 0 THEN page_count
-        ELSE ceil(page_count * (1 - free_percent::real / 100))
-        END AS effective_page_count,
-    CASE WHEN free_percent < 0 THEN 0 ELSE free_percent END AS free_percent,
-    CASE WHEN free_space < 0 THEN 0 ELSE free_space END AS free_space
+    ceil((size - free_space) * 100 / fillfactor / bs) AS effective_page_count,
+    round(
+        (100 * (1 - (100 - free_percent) / fillfactor))::numeric, 2
+    ) AS free_percent,
+    ceil(size - (size - free_space) * 100 / fillfactor) AS free_space
 FROM (
     SELECT
-        free_percent - fillfactor AS free_percent,
-        free_space - ceil(size::real * fillfactor / 100) AS free_space,
-        ceil(size::real / bs) AS page_count
-    FROM $self->{'_pgstattuple_schema_ident'}.pgstattuple('$self->{'_ident'}')
-    CROSS JOIN (
-        SELECT
-            current_setting('block_size')::integer AS bs,
-            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
-            coalesce(
-                regexp_replace(
-                    reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
-                '10')::integer AS fillfactor
-        FROM pg_catalog.pg_class
-        WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
-    ) AS const
+        current_setting('block_size')::integer AS bs,
+        pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
+        coalesce(
+            regexp_replace(
+                reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
+            '100')::real AS fillfactor,
+        ($self->{'_pgstattuple_schema_ident'}.pgstattuple(tablename)).*
+    FROM pg_catalog.pg_class
+    JOIN (SELECT '$self->{'_ident'}'::text AS tablename) AS const ON
+        pg_catalog.pg_class.oid = tablename::regclass
 ) AS sq
 SQL
 			);
@@ -1097,31 +1093,18 @@ SQL
 		$result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT
-    effective_page_count,
-    CASE
-        WHEN
-            effective_page_count = 0 OR page_count <= 1 OR
-            page_count < effective_page_count
-        THEN 0
-        ELSE
-            round(
-                100 * (
-                    (page_count - effective_page_count)::real /
-                    page_count
-                )::numeric, 2
-            )
-        END AS free_percent,
-    CASE
-        WHEN page_count < effective_page_count THEN 0
-        ELSE round(bs * (page_count - effective_page_count))
-        END AS free_space
+    ceil(pure_page_count * 100 / fillfactor) AS effective_page_count,
+    round(
+        100 * (
+            1 - (pure_page_count * 100 / fillfactor) / (size::real / bs)
+        )::numeric, 2
+    ) AS free_percent,
+    ceil(size::real - bs * pure_page_count * 100 / fillfactor) AS free_space
 FROM (
     SELECT
-        bs,
-        ceil(size / bs) AS page_count,
+        bs, size, fillfactor,
         ceil(
-            (fillfactor::real / 100) * size / bs + reltuples *
-            (
+            reltuples * (
                 max(stanullfrac) * ma * ceil(
                     (
                         ma * ceil(
@@ -1139,7 +1122,7 @@ FROM (
                     )::real / ma
                 )
             )::real / (bs - 24)
-        ) AS effective_page_count
+        ) AS pure_page_count
     FROM (
         SELECT
             pg_catalog.pg_class.oid AS class_oid,
@@ -1150,7 +1133,7 @@ FROM (
             coalesce(
                 regexp_replace(
                     reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
-                '10')::integer AS fillfactor
+                '100')::real AS fillfactor
         FROM pg_catalog.pg_class
         WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
     ) AS const
@@ -1163,8 +1146,10 @@ SQL
 
 	return {
 		'effective_page_count' => $result->[0]->[0],
-		'free_percent' => $result->[0]->[1],
-		'free_space' => $result->[0]->[2]};
+		'free_percent' => (defined $result->[0]->[1] and
+						   $result->[0]->[1] > 0) ? $result->[0]->[1] : 0,
+		'free_space' => (defined $result->[0]->[2] and
+						 $result->[0]->[2] > 0) ? $result->[0]->[2] : 0};
 }
 
 sub _get_size_statistics {
@@ -1326,29 +1311,28 @@ SELECT
     index_size AS size,
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
-        ELSE (100 - avg_leaf_density) - fillfactor
+        ELSE
+            round(
+                (100 * (1 - avg_leaf_density / fillfactor))::numeric, 2
+            )
         END AS free_percent,
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
         ELSE
             ceil(
-                index_size::real *
-                ((100 - avg_leaf_density) - fillfactor) / 100
+                index_size * (1 - avg_leaf_density / fillfactor)
             )
         END AS free_space
 FROM (
     SELECT
-        index_size, avg_leaf_density,
         coalesce(
             regexp_replace(
                 reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
-            '10')::integer AS fillfactor
+            '90')::real AS fillfactor,
+        ($self->{'_pgstattuple_schema_ident'}.pgstatindex(indexname)).*
     FROM pg_catalog.pg_class
-    CROSS JOIN (
-        SELECT * FROM
-        $self->{'_pgstattuple_schema_ident'}.pgstatindex(
-            '$arg_hash{'ident'}')) AS sq
-    WHERE pg_catalog.pg_class.oid = '$arg_hash{'ident'}'::regclass
+    JOIN (SELECT '$arg_hash{'ident'}'::text AS indexname) AS sq ON
+        pg_catalog.pg_class.oid = indexname::regclass
 ) AS oq
 SQL
 		);

@@ -31,6 +31,15 @@ CREATE INDEX table1_idx1 ON table1 (text_column, float_column);
 DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
 --
+CREATE TABLE table2 ("primary" integer, float_column real)
+WITH (fillfactor=50);
+INSERT INTO table2
+SELECT
+    i AS "primary",
+    random() * 10000 AS float_column
+FROM generate_series(1, 80000) i;
+DELETE FROM table2 WHERE random() < 0.5;
+--
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
 --
 CREATE SCHEMA dummy;
@@ -180,36 +189,23 @@ SELECT
 FROM (
     SELECT
         current_setting('block_size')::integer AS bs,
-        pg_catalog.pg_relation_size('public.t2') AS size,
-        pg_catalog.pg_total_relation_size('public.t2') AS total_size
+        pg_catalog.pg_relation_size('public.table2') AS size,
+        pg_catalog.pg_total_relation_size('public.table2') AS total_size
 ) AS sq;
 
 SELECT
-    effective_page_count,
-    CASE
-        WHEN
-            effective_page_count = 0 OR page_count <= 1 OR
-            page_count < effective_page_count
-        THEN 0
-        ELSE
-            round(
-                100 * (
-                    (page_count - effective_page_count)::real /
-                    page_count
-                )::numeric, 2
-            )
-        END AS free_percent,
-    CASE
-        WHEN page_count < effective_page_count THEN 0
-        ELSE round(bs * (page_count - effective_page_count))
-        END AS free_space
+    ceil(pure_page_count * 100 / fillfactor) AS effective_page_count,
+    round(
+        100 * (
+            1 - (pure_page_count * 100 / fillfactor) / (size::real / bs)
+        )::numeric, 2
+    ) AS free_percent,
+    ceil(size::real - bs * pure_page_count * 100 / fillfactor) AS free_space
 FROM (
     SELECT
-        bs,
-        ceil(size / bs) AS page_count,
+        bs, size, fillfactor,
         ceil(
-            (fillfactor::real / 100) * size / bs + reltuples *
-            (
+            reltuples * (
                 max(stanullfrac) * ma * ceil(
                     (
                         ma * ceil(
@@ -227,7 +223,7 @@ FROM (
                     )::real / ma
                 )
             )::real / (bs - 24)
-        ) AS effective_page_count
+        ) AS pure_page_count
     FROM (
         SELECT
             pg_catalog.pg_class.oid AS class_oid,
@@ -238,7 +234,7 @@ FROM (
             coalesce(
                 regexp_replace(
                     reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
-                '10')::integer AS fillfactor
+                '100')::real AS fillfactor
         FROM pg_catalog.pg_class
         WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
     ) AS const
@@ -247,29 +243,23 @@ FROM (
 ) AS sq;
 
 SELECT
-    CASE
-        WHEN free_percent = 0 THEN page_count
-        ELSE ceil(page_count * (1 - free_percent::real / 100))
-        END AS effective_page_count,
-    CASE WHEN free_percent < 0 THEN 0 ELSE free_percent END AS free_percent,
-    CASE WHEN free_space < 0 THEN 0 ELSE free_space END AS free_space
+    ceil((size - free_space) * 100 / fillfactor / bs) AS effective_page_count,
+    round(
+        (100 * (1 - (100 - free_percent) / fillfactor))::numeric, 2
+    ) AS free_percent,
+    ceil(size - (size - free_space) * 100 / fillfactor) AS free_space
 FROM (
     SELECT
-        free_percent - fillfactor AS free_percent,
-        free_space - ceil(size::real * fillfactor / 100) AS free_space,
-        ceil(size::real / bs) AS page_count
-    FROM public.pgstattuple('public.table1')
-    CROSS JOIN (
-        SELECT
-            current_setting('block_size')::integer AS bs,
-            pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
-            coalesce(
-                regexp_replace(
-                    reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
-                '10')::integer AS fillfactor
-        FROM pg_catalog.pg_class
-        WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
-    ) AS const
+        current_setting('block_size')::integer AS bs,
+        pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
+        coalesce(
+            regexp_replace(
+                reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
+            '100')::real AS fillfactor,
+        (public.pgstattuple(tablename)).*
+    FROM pg_catalog.pg_class
+    JOIN (SELECT 'public.table1'::text AS tablename) AS const ON
+        pg_catalog.pg_class.oid = tablename::regclass
 ) AS sq;
 
 CREATE TABLE public.table1 AS
@@ -336,31 +326,39 @@ LEFT JOIN pg_catalog.pg_constraint ON
     conislocal
 ORDER BY pg_catalog.pg_relation_size(indexoid);
 
+    round(
+        (100 * (1 - (100 - free_percent) / fillfactor))::numeric, 2
+    ) AS free_percent1,
+    ceil(
+        (size - (size - free_space) * 100 / fillfactor) / bs
+    ) AS free_space1,
+
 SELECT
     index_size AS size,
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
-        ELSE (100 - avg_leaf_density) - fillfactor
+        ELSE
+            round(
+                (100 * (1 - avg_leaf_density / fillfactor))::numeric, 2
+            )
         END AS free_percent,
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
         ELSE
             ceil(
-                index_size::real *
-                ((100 - avg_leaf_density) - fillfactor) / 100
+                index_size * (1 - avg_leaf_density / fillfactor)
             )
         END AS free_space
 FROM (
     SELECT
-        index_size, avg_leaf_density,
         coalesce(
             regexp_replace(
                 reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
-            '10')::integer AS fillfactor
+            '90')::real AS fillfactor,
+        (public.pgstatindex(indexname)).*
     FROM pg_catalog.pg_class
-    CROSS JOIN (
-        SELECT * FROM public.pgstatindex('public."таблица2_pkey"')) AS sq
-    WHERE pg_catalog.pg_class.oid = 'public."таблица2_pkey"'::regclass
+    JOIN (SELECT 'public."table1_uidx"'::text AS indexname) AS sq ON
+        pg_catalog.pg_class.oid = indexname::regclass
 ) AS oq;
 
 -- Check schema existence

@@ -112,16 +112,16 @@ sub init {
 			'row_list' => [[10]]},
 		'get_approximate_bloat_statistics' => {
 			'sql_pattern' => (
-				qr/SELECT\s+effective_page_count,.+/s.
-				qr/END AS free_percent,.+END AS free_space.+/s.
+				qr/SELECT\s+ceil\(pure_page_count.+/s.
+				qr/AS free_percent,.+AS free_space.+/s.
 				qr/pg_catalog\.pg_class\.oid = 'schema\.table'::regclass/),
 			'row_list_sequence' => $bloat_statistics_row_list_sequence},
 		'get_pgstattuple_bloat_statistics' => {
 			'sql_pattern' => (
-				qr/SELECT.+END AS effective_page_count,.+/s.
-				qr/END AS free_percent,.+END AS free_space.+/s.
-				qr/pgstattuple\('schema\.table'\).+/s.
-				qr/pg_catalog\.pg_class\.oid = 'schema\.table'::regclass/),
+				qr/SELECT.+AS effective_page_count,.+/s.
+				qr/AS free_percent,.+AS free_space.+/s.
+				qr/pgstattuple\(tablename\).+/s.
+				qr/SELECT 'schema\.table'::text AS tablename/),
 			'row_list_sequence' => $bloat_statistics_row_list_sequence},
 		'get_size_statistics' => {
 			'sql_pattern' => (
@@ -152,9 +152,9 @@ sub init {
 			'row_list' => [[undef]]},
 		'get_index_statistics' => {
 			'sql_pattern' => (
-				qr/SELECT\s+index_size, avg_leaf_density,.+/s.
-				qr/public\.pgstatindex\(\s+'schema\.<name>'\).+/s.
-				qr/pg_catalog\.pg_class.oid = 'schema\.<name>'/),
+				qr/SELECT\s+index_size AS size.+/s.
+				qr/public\.pgstatindex\(indexname\).+/s.
+				qr/SELECT 'schema\.<name>'::text AS indexname/),
 			'row_list_sequence' => [[[500, 15, 75]], [[1000, 15, 150]]]},
 		'get_index_data_list' => {
 			'sql_pattern' => (
