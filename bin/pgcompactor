@@ -272,15 +272,15 @@ default 10.
 
 =item B<--min-page-count> COUNT
 
-A minumum pages number required to be in the table to process it. By
-default it is 10.
+A minumum pages number required to be in a table or index for
+processing. By default it is 10.
 
 =item B<-y> RATIO
 
 =item B<--min-free-percent> RATIO
 
-A minimum free space percent required to be in the table or its
-indexes to process it. By default it is 20.
+A minimum free space percent required to be in a table or index for
+processing. By default it is 20.
 
 =item B<-z> SECONDS
 

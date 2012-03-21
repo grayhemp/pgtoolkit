@@ -70,7 +70,8 @@ a table name to process
 
 =item C<min_page_count>
 
-a minimum number of pages that is worth to compact with
+a minimum number of pages that is worth to compact with for both
+tables and indexes
 
 =item C<min_free_percent>
 
