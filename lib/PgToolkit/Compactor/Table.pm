@@ -248,7 +248,7 @@ sub _process {
 			phrase => 'initial');
 	}
 
-	if ($self->{'_size_statistics'}->{'page_count'} == 0) {
+	if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
 		$self->_log_skipping_empty_table();
 		$is_skipped = 1;;
 	}
@@ -494,20 +494,40 @@ sub _process {
 					$self->{'_database'}->quote_ident(
 						string => $index_data->{'name'});
 
-			my $index_statistics;
-			if ($self->{'_pgstattuple_schema_ident'} and
-				not $self->{'_force'})
-			{
-				$index_statistics = $self->_get_index_statistics(
-					ident => $index_ident);
+			my $initial_index_size_statistics =
+				$self->_get_index_size_statistics(ident => $index_ident);
 
-				if ($index_statistics->{'free_percent'} <
-					$self->{'_min_free_percent'})
+			if ($initial_index_size_statistics->{'page_count'} <= 1) {
+				$self->_log_skipping_reindex_empty(
+					ident => $index_ident);
+				next;
+			}
+
+			my $index_bloat_statistics;
+			if (not $self->{'_force'}) {
+				if ($initial_index_size_statistics->{'page_count'} <
+					$self->{'_min_page_count'})
 				{
-					$self->_log_skipping_reindex_min_free_percent(
+					$self->_log_skipping_reindex_min_page_count(
 						ident => $index_ident,
-						statistics => $index_statistics);
+						size_statistics => $initial_index_size_statistics);
 					next;
+				}
+
+				if ($self->{'_pgstattuple_schema_ident'})
+				{
+					$index_bloat_statistics =
+						$self->_get_index_bloat_statistics(
+							ident => $index_ident);
+
+					if ($index_bloat_statistics->{'free_percent'} <
+						$self->{'_min_free_percent'})
+					{
+						$self->_log_skipping_reindex_min_free_percent(
+							ident => $index_ident,
+							bloat_statistics => $index_bloat_statistics);
+						next;
+					}
 				}
 			}
 
@@ -518,7 +538,9 @@ sub _process {
 				$duration += $self->{'_database'}->get_duration();
 				$self->_log_reindex(
 					ident => $index_ident,
-					statistics => $index_statistics,
+					initial_size_statistics => $initial_index_size_statistics,
+					size_statistics => $self->_get_index_size_statistics(
+						ident => $index_ident),
 					duration => $duration);
 
 				$is_reindexed = 1;
@@ -527,7 +549,8 @@ sub _process {
 			if ($self->{'_print_reindex_queries'}) {
 				$self->_log_reindex_queries(
 					ident => $index_ident,
-					statistics => $index_statistics,
+					initial_size_statistics => $initial_index_size_statistics,
+					bloat_statistics => $index_bloat_statistics,
 					data => $index_data);
 			}
 		}
@@ -628,7 +651,7 @@ sub _log_skipping_empty_table {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Skipping processing: empty table.',
+		message => 'Skipping processing: empty or 1p table.',
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -652,7 +675,7 @@ sub _log_skipping_min_page_count {
 	$self->{'_logger'}->write(
 		message => (
 			'Skipping processing: '.$arg_hash{'page_count'}.'p from '.
-			$self->{'_min_page_count'}.' minimum required.'),
+			$self->{'_min_page_count'}.'p minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -857,13 +880,39 @@ sub _log_analyze_complete {
 	return;
 }
 
+sub _log_skipping_reindex_empty {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping reindex: '.$arg_hash{'ident'}.', empty or 1p index.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_skipping_reindex_min_page_count {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping reindex: '.$arg_hash{'ident'}.', '.
+			$arg_hash{'size_statistics'}->{'page_count'}.'p from '.
+			$self->{'_min_page_count'}.'p minimum required.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
 sub _log_skipping_reindex_min_free_percent {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
 		message => (
 			'Skipping reindex: '.$arg_hash{'ident'}.', '.
-			$arg_hash{'statistics'}->{'free_percent'}.
+			$arg_hash{'bloat_statistics'}->{'free_percent'}.
 			'% space to compact from '.$self->{'_min_free_percent'}.
 			'% minimum required.'),
 		level => 'notice',
@@ -875,14 +924,22 @@ sub _log_skipping_reindex_min_free_percent {
 sub _log_reindex {
 	my ($self, %arg_hash) = @_;
 
+	my $free_percent = 100 *(
+		1 - $arg_hash{'size_statistics'}->{'size'} /
+		$arg_hash{'initial_size_statistics'}->{'size'});
+
+	my $free_space = (
+		$arg_hash{'initial_size_statistics'}->{'size'} -
+		$arg_hash{'size_statistics'}->{'size'});
+
 	$self->{'_logger'}->write(
 		message => (
 			'Reindex'.($self->{'_force'} ? ' forced' : '').': '.
 			$arg_hash{'ident'}.', '.
-			($arg_hash{'statistics'} ? 'initial size '.
-			 $arg_hash{'statistics'}->{'size'}.'b, has been reduced by '.
-			 $arg_hash{'statistics'}->{'free_percent'}.'% ('.
-			 $arg_hash{'statistics'}->{'free_space'}.'b), ' : '').
+			($arg_hash{'size_statistics'} ? 'initial size '.
+			 $arg_hash{'size_statistics'}->{'page_count'}.'p ('.
+			 $arg_hash{'size_statistics'}->{'size'}.'b), has been reduced by '.
+			 int($free_percent).'% ('.int($free_space).'b), ' : '').
 			'duration '.sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 		level => 'info',
 		target => $self->{'_log_target'});
@@ -897,10 +954,13 @@ sub _log_reindex_queries {
 		message => (
 			'Reindex queries'.($self->{'_force'} ? ' forced' : '').': '.
 			$arg_hash{'ident'}.
-			($arg_hash{'statistics'} ? ', initial size '.
-			 $arg_hash{'statistics'}->{'size'}.'b, will be reduced by '.
-			 $arg_hash{'statistics'}->{'free_percent'}.'% ('.
-			 $arg_hash{'statistics'}->{'free_space'}.'b).' : '.')."\n".
+			($arg_hash{'initial_size_statistics'} ? ', initial size '.
+			 $arg_hash{'initial_size_statistics'}->{'page_count'}.'p ('.
+			 $arg_hash{'initial_size_statistics'}->{'size'}.'b)'.
+			 ($arg_hash{'bloat_statistics'} ? ', will be reduced by '.
+			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+			  $arg_hash{'bloat_statistics'}->{'free_space'}.'b)' : '') :
+			 '').".\n".
 			$self->_get_reindex_query(data => $arg_hash{'data'})."\n".
 			$self->_get_alter_index_query(data => $arg_hash{'data'})),
 		level => 'notice',
@@ -1288,7 +1348,7 @@ LEFT JOIN pg_catalog.pg_constraint ON
     conindid = indexoid AND
     contype IN ('p', 'u') AND
     conislocal
-ORDER BY pg_catalog.pg_relation_size(indexoid);
+ORDER BY 6;
 SQL
 		);
 
@@ -1302,13 +1362,31 @@ SQL
 			@{$result})];
 }
 
-sub _get_index_statistics {
+sub _get_index_size_statistics {
+	my ($self, %arg_hash) = @_;
+
+	my $result = $self->_execute_and_log(
+		sql => <<SQL
+SELECT size, ceil(size / bs) AS page_count
+FROM (
+    SELECT
+        pg_catalog.pg_relation_size('$arg_hash{'ident'}'::regclass) AS size,
+        current_setting('block_size')::real AS bs
+) AS sq
+SQL
+		);
+
+	return {
+		'size' => $result->[0]->[0],
+		'page_count' => $result->[0]->[1]};
+}
+
+sub _get_index_bloat_statistics {
 	my ($self, %arg_hash) = @_;
 
 	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT
-    index_size AS size,
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
         ELSE
@@ -1338,9 +1416,8 @@ SQL
 		);
 
 	return {
-		'size' => $result->[0]->[0],
-		'free_percent' => $result->[0]->[1],
-		'free_space' => $result->[0]->[2]};
+		'free_percent' => $result->[0]->[0],
+		'free_space' => $result->[0]->[1]};
 }
 
 sub _get_reindex_query {

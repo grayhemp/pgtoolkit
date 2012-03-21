@@ -150,12 +150,18 @@ sub init {
 		'analyze' => {
 			'sql_pattern' => qr/ANALYZE schema\.table/,
 			'row_list' => [[undef]]},
-		'get_index_statistics' => {
+		'get_index_size_statistics' => {
 			'sql_pattern' => (
-				qr/SELECT\s+index_size AS size.+/s.
+				qr/SELECT size, ceil\(size \/ bs\) AS page_count.+/s.
+				qr/SELECT\s+pg_catalog\.pg_relation_size\('schema.<name>'/s),
+			'row_list_sequence' => [[[1000, 200]], [[850, 170]],
+									[[500, 100]], [[425, 85]]]},
+		'get_index_bloat_statistics' => {
+			'sql_pattern' => (
+				qr/SELECT.+avg_leaf_density.+/s.
 				qr/public\.pgstatindex\(indexname\).+/s.
 				qr/SELECT 'schema\.<name>'::text AS indexname/),
-			'row_list_sequence' => [[[500, 15, 75]], [[1000, 15, 150]]]},
+			'row_list_sequence' => [[[15, 150]], [[15, 75]]]},
 		'get_index_data_list' => {
 			'sql_pattern' => (
 				qr/SELECT DISTINCT\s+/s.

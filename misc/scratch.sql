@@ -30,6 +30,8 @@ WITH (fillfactor=50);
 CREATE INDEX table1_idx1 ON table1 (text_column, float_column);
 DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
+CREATE INDEX table1_idx3 ON table1 (text_column) WHERE false;
+CREATE INDEX table1_idx4 ON table1 (text_column) WHERE  id < 500;
 --
 CREATE TABLE table2 ("primary" integer, float_column real)
 WITH (fillfactor=50);
@@ -324,17 +326,16 @@ LEFT JOIN pg_catalog.pg_constraint ON
     conindid = indexoid AND
     contype IN ('p', 'u') AND
     conislocal
-ORDER BY pg_catalog.pg_relation_size(indexoid);
+ORDER BY 6;
 
-    round(
-        (100 * (1 - (100 - free_percent) / fillfactor))::numeric, 2
-    ) AS free_percent1,
-    ceil(
-        (size - (size - free_space) * 100 / fillfactor) / bs
-    ) AS free_space1,
+SELECT size, ceil(size / bs) AS page_count
+FROM (
+    SELECT
+        pg_catalog.pg_relation_size('public."table1_uidx"'::regclass) AS size,
+        current_setting('block_size')::real AS bs
+) AS sq;
 
 SELECT
-    index_size AS size,
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
         ELSE
