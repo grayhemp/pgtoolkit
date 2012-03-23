@@ -318,6 +318,7 @@ sub _process {
 		$is_skipped = 1;;
 	}
 
+	my $is_compacted;
 	if (not $is_skipped) {
 		if ($self->{'_force'}) {
 			$self->_log_processing_forced();
@@ -476,14 +477,15 @@ sub _process {
 		$pages_before_vacuum = $self->_get_pages_before_vacuum(
 			expected_page_count => $expected_page_count,
 			page_count => $self->{'_size_statistics'}->{'page_count'});
-		$self->{'_is_processed'} = (
+
+		$is_compacted = (
 			($self->{'_size_statistics'}->{'page_count'} <=
 			 $to_page + 1 + $pages_before_vacuum) and
 			not $expected_error_occurred);
 	}
 
 	my $is_reindexed;
-	if (($self->{'_is_processed'} or
+	if (($is_compacted or
 		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
 		 $is_skipped and $self->{'_pgstattuple_schema_ident'}) and
 		($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
@@ -561,7 +563,17 @@ sub _process {
 		}
 	}
 
-	if ($self->{'_is_processed'} or $is_skipped and $is_reindexed) {
+	my $will_be_skipped = (
+		not $self->{'_force'} and (
+			$self->{'_size_statistics'}->{'page_count'} <
+			$self->{'_min_page_count'} or
+			$self->{'_bloat_statistics'}->{'free_percent'} <
+			$self->{'_min_free_percent'}));
+
+	if ($is_compacted or
+		$is_skipped and $is_reindexed or
+		not $is_skipped and $will_be_skipped)
+	{
 		$self->_log_complete_processing(
 			size_statistics => $self->{'_size_statistics'},
 			bloat_statistics => $self->{'_bloat_statistics'},
@@ -573,7 +585,8 @@ sub _process {
 			base_size_statistics => $self->{'_base_size_statistics'});
 	}
 
-	$self->{'_is_processed'} = ($self->{'_is_processed'} or $is_skipped);
+	$self->{'_is_processed'} = (
+		$is_compacted or $is_skipped or $will_be_skipped);
 
 	return;
 }

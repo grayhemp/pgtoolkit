@@ -1085,20 +1085,19 @@ sub test_processed : Test {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[35000, 42000, 91, 108]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
 		[[35000, 42000, 91, 108]];
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_size_statistics'}->{'row_list_sequence'}->[4] =
-		[[35000, 42000, 91, 108]];
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[3] =
-		[[85, 6, 1400]];
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
 		[[85, 6, 1400]];
 
-	my $table_compactor = $self->{'table_compactor_constructor'}->();
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		min_page_count => 92,
+		min_free_percent => 7);
 
 	$table_compactor->process(attempt => 1);
 
@@ -1109,20 +1108,92 @@ sub test_not_processed : Test {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[35000, 42000, 92, 110]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
 		[[35000, 42000, 92, 110]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
+		[[85, 7, 1500]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		min_page_count => 92,
+		min_free_percent => 7);
+
+	$table_compactor->process(attempt => 1);
+
+	ok(not $table_compactor->is_processed());
+}
+
+sub test_processed_if_in_min_page_count : Test {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 42000, 99, 118]];
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_size_statistics'}->{'row_list_sequence'}->[4] =
-		[[35000, 42000, 92, 110]];
+		[[35000, 42000, 99, 118]];
 
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[3] =
-		[[85, 7, 1500]];
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
-		[[85, 7, 1500]];
+		[[85, 15, 1500]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[3] =
+		[[85, 15, 1500]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	ok($table_compactor->is_processed());
+}
+
+sub test_processed_if_in_min_free_percent : Test {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 42000, 100, 118]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[4] =
+		[[35000, 42000, 100, 118]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
+		[[85, 14, 1500]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[3] =
+		[[85, 14, 1500]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	ok($table_compactor->is_processed());
+}
+
+sub test_not_processed_if_in_base_restrictions_and_forced : Test {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 42000, 99, 118]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[4] =
+		[[35000, 42000, 99, 118]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
+		[[85, 14, 1500]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[3] =
+		[[85, 14, 1500]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		force => 1);
 
 	$table_compactor->process(attempt => 1);
 
@@ -1186,11 +1257,11 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(7) {
 	{'row_list_sequence'}->[0] = 'cannot extract system attribute';
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
 		[[35000, 42000, 100, 120]];
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
 		[[85, 15, 5000]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
