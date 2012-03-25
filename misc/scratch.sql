@@ -135,8 +135,15 @@ BEGIN
         RAISE EXCEPTION 'Wrong page arguments specified.';
     END IF;
 
-    -- Prevent triggers firing on update
-    --SET LOCAL session_replication_role TO replica;
+    -- Check that session_replication_role is set to replica to
+    -- prevent triggers firing
+    IF NOT (
+        SELECT setting = 'replica'
+        FROM pg_catalog.pg_settings
+        WHERE name = 'session_replication_role')
+    THEN
+        RAISE EXCEPTION 'The session_replication_role must be set to replica.';
+    END IF;
 
     -- Define minimal and maximal ctid values of the range
     _min_ctid := (_from_page, 1)::text::tid;
