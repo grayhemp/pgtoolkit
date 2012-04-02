@@ -508,6 +508,19 @@ sub _process {
 
 			my $index_bloat_statistics;
 			if (not $self->{'_force'}) {
+				if ($index_data->{'method'} ne 'btree') {
+					$self->_log_skipping_reindex_not_btree(
+						index_data => $index_data,
+						ident => $index_ident);
+					$self->_log_reindex_queries(
+						ident => $index_ident,
+						initial_size_statistics => (
+							$initial_index_size_statistics),
+						bloat_statistics => undef,
+						data => $index_data);
+					next;
+				}
+
 				if ($initial_index_size_statistics->{'page_count'} <
 					$self->{'_min_page_count'})
 				{
@@ -889,6 +902,20 @@ sub _log_analyze_complete {
 		message => ('Analyze '.$arg_hash{'phrase'}.': duration '.
 					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
 		level => 'info',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_skipping_reindex_not_btree {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping reindex: '.$arg_hash{'ident'}.' is a '.
+			$arg_hash{'index_data'}->{'method'}.' index not a btree, '.
+			'reindexing is up to you.'),
+		level => 'warning',
 		target => $self->{'_log_target'});
 
 	return;
@@ -1331,6 +1358,7 @@ SELECT DISTINCT
                     THEN 'PRIMARY KEY'
                 ELSE 'UNIQUE' END
         ELSE NULL END AS contypedef,
+    regexp_replace(indexdef, E'.* USING (\\\\w+) .*', E'\\\\1') AS indmethod,
     pg_catalog.pg_relation_size(indexoid)
 FROM (
     SELECT
@@ -1362,7 +1390,7 @@ LEFT JOIN pg_catalog.pg_constraint ON
     conindid = indexoid AND
     contype IN ('p', 'u') AND
     conislocal
-ORDER BY 6;
+ORDER BY 7;
 SQL
 		);
 
@@ -1372,7 +1400,8 @@ SQL
 			 'tablespace' => $_->[1],
 			 'definition' => $_->[2],
 			 'conname' => $_->[3],
-			 'contype' => $_->[4]},
+			 'contype' => $_->[4],
+			 'method' => $_->[5]},
 			@{$result})];
 }
 

@@ -171,11 +171,11 @@ sub init {
 				['table_pkey', undef,
 				 'CREATE UNIQUE INDEX table_pkey ON schema.table '.
 				 'USING btree (column1)',
-				 'table_pkey', 'PRIMARY KEY', 1000],
+				 'table_pkey', 'PRIMARY KEY', 'btree', 1000],
 				['table_idx2', 'tablespace',
 				 'CREATE INDEX table_idx2 ON schema.table '.
 				 'USING btree (column2) WHERE column2 = 1',
-				 undef, undef, 2000]]},
+				 undef, undef, 'btree', 2000]]},
 		'reindex1' => {
 			'sql_pattern' =>
 				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompactor_tmp$$ /.

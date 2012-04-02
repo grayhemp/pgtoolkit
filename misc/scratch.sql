@@ -28,6 +28,11 @@ ALTER TABLE table1 ADD CONSTRAINT table1_pkey PRIMARY KEY (id);
 ALTER TABLE table1 ADD CONSTRAINT table1_uidx UNIQUE (float_column)
 WITH (fillfactor=50);
 CREATE INDEX table1_idx1 ON table1 (text_column, float_column);
+--CREATE INDEX table1_gist ON table1
+--USING gist (to_tsvector('english', id::text));
+--CREATE INDEX table1_gin ON table1
+--USING gin (to_tsvector('english', id::text));
+CREATE INDEX table1_hash ON table1 USING hash (text_column);
 DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
 CREATE INDEX table1_idx3 ON table1 (text_column) WHERE false;
@@ -303,6 +308,7 @@ SELECT DISTINCT
                     THEN 'PRIMARY KEY'
                 ELSE 'UNIQUE' END
         ELSE NULL END AS contypedef,
+    regexp_replace(indexdef, E'.* USING (\\w+) .*', E'\\1') AS indmethod,
     pg_catalog.pg_relation_size(indexoid)
 FROM (
     SELECT
@@ -333,7 +339,7 @@ LEFT JOIN pg_catalog.pg_constraint ON
     conindid = indexoid AND
     contype IN ('p', 'u') AND
     conislocal
-ORDER BY 6;
+ORDER BY 7;
 
 SELECT size, ceil(size / bs) AS page_count
 FROM (
