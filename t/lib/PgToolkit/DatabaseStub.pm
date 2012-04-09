@@ -164,18 +164,20 @@ sub init {
 			'row_list_sequence' => [[[15, 150]], [[15, 75]]]},
 		'get_index_data_list' => {
 			'sql_pattern' => (
-				qr/SELECT DISTINCT\s+/s.
-				qr/indexname, tablespace, indexdef, conname,.+/s.
+				qr/SELECT\s+/s.
+				qr/indexname, tablespace, indexdef,\s+/s.
+				qr/regexp_replace.+ AS indmethod,\s+/s.
+				qr/conname,.+/s.
 				qr/schemaname = 'schema' AND\s+tablename = 'table'/s),
 			'row_list' => [
 				['table_pkey', undef,
 				 'CREATE UNIQUE INDEX table_pkey ON schema.table '.
 				 'USING btree (column1)',
-				 'table_pkey', 'PRIMARY KEY', 'btree', 1000],
+				 'btree', 'table_pkey', 'PRIMARY KEY', 1, 1000],
 				['table_idx2', 'tablespace',
 				 'CREATE INDEX table_idx2 ON schema.table '.
 				 'USING btree (column2) WHERE column2 = 1',
-				 undef, undef, 'btree', 2000]]},
+				 'btree', undef, undef, 1, 2000]]},
 		'reindex1' => {
 			'sql_pattern' =>
 				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompactor_tmp$$ /.

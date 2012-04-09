@@ -25,7 +25,7 @@ SELECT
         ELSE NULL END AS partially_null_column
 FROM generate_series(1, 10000) i;
 ALTER TABLE table1 ADD CONSTRAINT table1_pkey PRIMARY KEY (id);
-ALTER TABLE table1 ADD CONSTRAINT table1_uidx UNIQUE (float_column)
+ALTER TABLE table1 ADD CONSTRAINT table1_uidx1 UNIQUE (id, text_column)
 WITH (fillfactor=50);
 CREATE INDEX table1_idx1 ON table1 (text_column, float_column);
 --CREATE INDEX table1_gist ON table1
@@ -46,6 +46,13 @@ SELECT
     random() * 10000 AS float_column
 FROM generate_series(1, 80000) i;
 DELETE FROM table2 WHERE random() < 0.5;
+--
+CREATE TABLE table3 (id integer, text_column text);
+ALTER TABLE table3 ADD CONSTRAINT table3_pkey PRIMARY KEY (id);
+ALTER TABLE table3 ADD CONSTRAINT table3_fkey
+    FOREIGN KEY (id, text_column) REFERENCES table1 (id, text_column)
+    ON UPDATE RESTRICT ON DELETE CASCADE;
+INSERT INTO table3 SELECT id FROM table1;
 --
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
 --
@@ -298,17 +305,27 @@ WHERE
 
 -- Get index definitions
 
-SELECT DISTINCT
-    indexname, tablespace, indexdef, conname,
-    CASE
-        WHEN conname IS NOT NULL
-        THEN
-            CASE
-                WHEN contype = 'p'
-                    THEN 'PRIMARY KEY'
-                ELSE 'UNIQUE' END
-        ELSE NULL END AS contypedef,
+SELECT
+    indexname, tablespace, indexdef,
     regexp_replace(indexdef, E'.* USING (\\w+) .*', E'\\1') AS indmethod,
+    conname,
+    CASE
+        WHEN contype = 'p' THEN 'PRIMARY KEY'
+        WHEN contype = 'u' THEN 'UNIQUE'
+        ELSE NULL END AS contypedef,
+    (
+        SELECT
+            bool_and(
+                deptype IN ('n', 'a', 'i') AND
+                NOT (refobjid = indexoid AND deptype = 'n') AND
+                NOT (
+                    objid = indexoid AND deptype = 'i' AND
+                    (version < array[9,1] OR contype NOT IN ('p', 'u'))))
+        FROM pg_catalog.pg_depend
+        LEFT JOIN pg_catalog.pg_constraint ON
+            pg_catalog.pg_constraint.oid = refobjid
+        WHERE objid = indexoid OR refobjid = indexoid
+    )::integer AS allowed,
     pg_catalog.pg_relation_size(indexoid)
 FROM (
     SELECT
@@ -317,29 +334,17 @@ FROM (
             quote_ident(schemaname) || '.' ||
             quote_ident(indexname))::regclass AS indexoid,
         string_to_array(
-            regexp_replace(version(), E'.*PostgreSQL (\\d+\\.\\d+).*', E'\\1'),
+            regexp_replace(
+                version(), E'.*PostgreSQL (\\d+\\.\\d+).*', E'\\1'),
             '.')::integer[] AS version
     FROM pg_catalog.pg_indexes
     WHERE
         schemaname = 'public' AND
         tablename = 'table1'
 ) AS sq
-JOIN pg_catalog.pg_depend ON
-    (
-        objid = indexoid AND
-        CASE
-            WHEN version < array[9,1]
-                THEN NOT deptype = 'i'
-            ELSE true END
-    ) OR (
-        refobjid = indexoid AND
-        NOT deptype = 'n'
-    )
 LEFT JOIN pg_catalog.pg_constraint ON
-    conindid = indexoid AND
-    contype IN ('p', 'u') AND
-    conislocal
-ORDER BY 7;
+    conindid = indexoid AND contype IN ('p', 'u')
+ORDER BY 8;
 
 SELECT size, ceil(size / bs) AS page_count
 FROM (

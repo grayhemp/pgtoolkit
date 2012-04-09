@@ -547,6 +547,12 @@ sub _process {
 				}
 			}
 
+			if (not $index_data->{'allowed'}) {
+				$self->_log_skipping_reindex_not_allowed(
+					ident => $index_ident);
+				next;
+			}
+
 			if ($self->{'_reindex'}) {
 				$self->_reindex(data => $index_data);
 				$duration = $self->{'_database'}->get_duration();
@@ -907,6 +913,20 @@ sub _log_analyze_complete {
 	return;
 }
 
+sub _log_skipping_reindex_not_allowed {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping reindex: '.$arg_hash{'ident'}.', can not reindex '.
+			'without heavy locks because of its dependencies, '.
+			'reindexing is up to you.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
 sub _log_skipping_reindex_not_btree {
 	my ($self, %arg_hash) = @_;
 
@@ -915,7 +935,7 @@ sub _log_skipping_reindex_not_btree {
 			'Skipping reindex: '.$arg_hash{'ident'}.' is a '.
 			$arg_hash{'index_data'}->{'method'}.' index not a btree, '.
 			'reindexing is up to you.'),
-		level => 'warning',
+		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
@@ -1348,17 +1368,27 @@ sub _get_index_data_list {
 
 	my $result = $self->_execute_and_log(
 		sql => <<SQL
-SELECT DISTINCT
-    indexname, tablespace, indexdef, conname,
-    CASE
-        WHEN conname IS NOT NULL
-        THEN
-            CASE
-                WHEN contype = 'p'
-                    THEN 'PRIMARY KEY'
-                ELSE 'UNIQUE' END
-        ELSE NULL END AS contypedef,
+SELECT
+    indexname, tablespace, indexdef,
     regexp_replace(indexdef, E'.* USING (\\\\w+) .*', E'\\\\1') AS indmethod,
+    conname,
+    CASE
+        WHEN contype = 'p' THEN 'PRIMARY KEY'
+        WHEN contype = 'u' THEN 'UNIQUE'
+        ELSE NULL END AS contypedef,
+    (
+        SELECT
+            bool_and(
+                deptype IN ('n', 'a', 'i') AND
+                NOT (refobjid = indexoid AND deptype = 'n') AND
+                NOT (
+                    objid = indexoid AND deptype = 'i' AND
+                    (version < array[9,1] OR contype NOT IN ('p', 'u'))))
+        FROM pg_catalog.pg_depend
+        LEFT JOIN pg_catalog.pg_constraint ON
+            pg_catalog.pg_constraint.oid = refobjid
+        WHERE objid = indexoid OR refobjid = indexoid
+    )::integer AS allowed,
     pg_catalog.pg_relation_size(indexoid)
 FROM (
     SELECT
@@ -1375,22 +1405,9 @@ FROM (
         schemaname = '$self->{'_schema_name'}' AND
         tablename = '$self->{'_table_name'}'
 ) AS sq
-JOIN pg_catalog.pg_depend ON
-    (
-        objid = indexoid AND
-        CASE
-            WHEN version < array[9,1]
-                THEN NOT deptype = 'i'
-            ELSE true END
-    ) OR (
-        refobjid = indexoid AND
-        NOT deptype = 'n'
-    )
 LEFT JOIN pg_catalog.pg_constraint ON
-    conindid = indexoid AND
-    contype IN ('p', 'u') AND
-    conislocal
-ORDER BY 7;
+    conindid = indexoid AND contype IN ('p', 'u')
+ORDER BY 8;
 SQL
 		);
 
@@ -1399,9 +1416,10 @@ SQL
 			{'name' => $_->[0],
 			 'tablespace' => $_->[1],
 			 'definition' => $_->[2],
-			 'conname' => $_->[3],
-			 'contype' => $_->[4],
-			 'method' => $_->[5]},
+			 'method' => $_->[3],
+			 'conname' => $_->[4],
+			 'contypedef' => $_->[5],
+			 'allowed' => $_->[6]},
 			@{$result})];
 }
 
@@ -1492,19 +1510,17 @@ sub _get_alter_index_query {
 
 	return
 		'BEGIN; '.
-		($arg_hash{'data'}->{'conname'}
-		 ? (
-			 'ALTER TABLE '.$self->{'_ident'}.
-			 ' DROP CONSTRAINT '.$constraint_ident.'; '.
-			 'ALTER TABLE '.$self->{'_ident'}.
-			 ' ADD CONSTRAINT '.$constraint_ident.' '.
-			 $arg_hash{'data'}->{'contype'}.
-			 ' USING INDEX pgcompactor_tmp'.$$.'; ')
-		 : (
-			 'DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-			 'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
-			 ' RENAME TO '.$index_ident.'; ')).
-		'END;';
+		($constraint_ident ?
+		 ('ALTER TABLE '.$self->{'_ident'}.
+		  ' DROP CONSTRAINT '.$constraint_ident.'; '.
+		  'ALTER TABLE '.$self->{'_ident'}.
+		  ' ADD CONSTRAINT '.$constraint_ident.' '.
+		  $arg_hash{'data'}->{'contypedef'}.
+		  ' USING INDEX pgcompactor_tmp'.$$.'; ') :
+		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
+		  'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
+		  ' RENAME TO '.$index_ident.'; ')
+		).'END;';
 }
 
 sub _reindex {

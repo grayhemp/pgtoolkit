@@ -1061,7 +1061,7 @@ sub test_no_reindex_if_not_btree : Test(21) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_index_data_list'}->{'row_list'}->[1][5] = 'gist';
+	->{'get_index_data_list'}->{'row_list'}->[1][3] = 'gist';
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		reindex => 1);
@@ -1172,6 +1172,140 @@ sub test_reindex_queries_if_not_btree_and_force : Test(13) {
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_index_data_list'}->{'row_list'}->[1][5] = 'gist';
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		print_reindex_queries => 1,
+		force => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_no_reindex_if_not_allowed : Test(21) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'}->[1][6] = 0;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_no_reindex_queries_if_not_allowed : Test(13) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'}->[1][6] = 0;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		print_reindex_queries => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_no_reindex_if_not_allowed_and_forced : Test(21) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'}->[1][6] = 0;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		reindex => 1,
+		force => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_no_reindex_queries_if_not_allowed_and_forced : Test(13) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'}->[1][6] = 0;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		print_reindex_queries => 1,
