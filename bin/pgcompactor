@@ -305,7 +305,7 @@ if (__PACKAGE__ eq 'main') {
 
 =head1 VERSION
 
-1.0beta2
+1.0beta3
 
 =head1 LICENSE AND COPYRIGHT
 

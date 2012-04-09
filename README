@@ -26,6 +26,19 @@ Currently there is the only tool we have prepared for publishing:
 We have not adapted any instructions to the publication yet but they
 are comming soon.
 
+Release v1.0beta3:
+
+- added reindexing when table is skipped and pgstattuple installed
+- fixed wrong fillfactor calculation for tables and indexes
+- added the minimum pages restriction for indexes
+- added a check of base restrictions after processing
+- added a session_replication_role check in the cleaning function
+- made reindexing of non btree indexes only when --force is specified
+- refactored the index dependencies check to not rebuild indexes that
+  require heavy locks
+- solved the psql adapter quietness problem (thanx to e.sergey for the
+  bug report).
+
 Release v1.0beta2:
 
 - fixed the error when -d and/or -t are specified
