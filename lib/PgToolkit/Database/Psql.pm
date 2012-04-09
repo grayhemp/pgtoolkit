@@ -84,7 +84,7 @@ sub init {
 	$self->{'_set_hash'} = $arg_hash{'set_hash'};
 
 	$self->{'_command'} = sprintf(
-		'%s%s -A -t -X %s %s %s %s -P null="<NULL>"',
+		'%s%s -q -A -t -X %s %s %s %s -P null="<NULL>"',
 		@opt_hash{'password', 'path', 'host', 'port', 'dbname', 'user'});
 	$self->{'_command'} =~ s/\s+/ /g;
 

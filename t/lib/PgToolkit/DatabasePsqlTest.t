@@ -28,7 +28,7 @@ sub test_init : Test(5) {
 	my $db = $self->{'database_constructor'}->();
 
 	is($db->get_command(),
-	   'PGPASSWORD=somepassword psql -A -t -X -h somehost -p 5432 '.
+	   'PGPASSWORD=somepassword psql -q -A -t -X -h somehost -p 5432 '.
 	   '-d somedb -U someuser -P null="<NULL>"');
 	is($db->get_dbname(), 'somedb');
 
@@ -38,12 +38,12 @@ sub test_init : Test(5) {
 		password => 'anotherpassword');
 
 	is($db->get_command(),
-	   'PGPASSWORD=anotherpassword /usr/bin/psql -A -t -X -h anotherhost '.
+	   'PGPASSWORD=anotherpassword /usr/bin/psql -q -A -t -X -h anotherhost '.
 	   '-p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
 	is($db->get_dbname(), 'anotherdb');
 
 	is(PgToolkit::DatabasePsqlTest::DatabasePsql->new()->get_command(),
-	   'psql -A -t -X -P null="<NULL>"');
+	   'psql -q -A -t -X -P null="<NULL>"');
 }
 
 sub test_can_not_run : Test {
