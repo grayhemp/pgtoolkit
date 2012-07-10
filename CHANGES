@@ -1,0 +1,68 @@
+2012-04-09 v1.0beta3
+
+- Added reindexing when table is skipped and pgstattuple installed
+- Fixed wrong fillfactor calculation for tables and indexes
+- Added the minimum pages restriction for indexes
+- Added a check of base restrictions after processing
+- Added a session_replication_role check in the cleaning function
+- Made reindexing of non btree indexes only when --force is specified
+- Refactored the index dependencies check to not rebuild indexes that
+  require heavy locks
+- Solved the psql adapter quietness problem (thanx to e.sergey for the
+  bug report)
+
+2012-02-21 v1.0beta2
+
+- Fixed the error when -d and/or -t are specified
+- Fixed the bug with conforming strings
+- Fixed the unicode name index altering bug
+- Fixed the error output recognition in the psql adapter
+- Prevented processing from interupting after deadlocks
+- Fixed the "can not get bloat statistics" warning on empty tables
+- Disabled printing uncompleted statistics if table is processed
+- Set synchronous_commit to off and session_replication_role to
+  replica on the database level
+
+2012-02-02 v1.0beta1
+
+Take into consideration the new name of the tool.
+
+- Renamed pg_compactor tool to pgcompactor
+- Added --dry-run
+- Added fillfactor to all the statistics calculations
+- Fixed the reindex duration bug
+- Got rid of the schema as a middle level
+- Tables are sorted by size inside their database
+- Added the ability of reindexing internal indexes like PRIMARY KEY
+  and UNIQUE
+- Added the reindexing necessity check based on the pgstattuple
+  statistics
+- A lot of minor changes
+
+2012-01-11 v1.0alpha7
+
+- Reworked reindex to be performed in any case when a table has been
+  compacted or it has not (after the last iteration)
+- Fixed the query for testing "always" and "replica" triggers
+- Refactored the logic of bloat statistics to lower the amount of
+  heavy pgstattuple calls
+- Fixed the final statistics
+- Added bloat statistics requests duration
+
+2012-01-06 v1.0alpha6
+
+- Refactored out useless resource consuming pgstattuple calls
+- Added DEBUG0 and DEBUG1 logging levels and applied to SQL queries
+  logging
+- Turned off server side prepares for DBI drivers
+- Made some minor changes
+
+2011-11-02 v1.0alpha5
+
+2011-10-26 v1.0alpha4
+
+2011-10-12 v1.0alpha3
+
+2011-10-11 v1.0alpha2
+
+2011-08-11 v1.0alpha1

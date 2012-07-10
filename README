@@ -1,98 +1,27 @@
-PgToolkit from PostgreSQL-Consulting.com
+PgToolkit is a set of scripts for PostgreSQL database maintenance and
+monitoring by PostgreSQL-Consulting.com.
 
-PgToolkit is a set of scripts and instructions for PostgreSQL database
-management. Initially it was an internal stuff of the
-PostgreSQL-Consulting.com company. However, some time ago we decided
-to share our experience with public and started to make a box version
-from this.
+The easiest way to deploy the toolkit is to get the latest version of
+the autonomous scripts archive pgtoolkit-vX-fatscripts.tar.gz from the
+PgToolkit project's site on Google Code.
 
-There are two ways of deploying and using the tools. The first and the
-easiest one is to get the latest version of the autonomous scripts
-archive from the PgToolkit project's site on Google Code
-http://code.google.com/p/pgtoolkit/. Unpack it on the destination
-machine and just use. These scripts are packed with all the required
-dependencies so you need the Perl interpreter installed only. Another
-way is to checkout the source code from the mentioned above site. All
-the scripts you will find in the bin/ directory. Before using any of
-them the PERL5LIB environment variable must be set to point to the
-lib/ directory.
+http://code.google.com/p/pgtoolkit/downloads/list
 
-To get more information about any tool run it with the --man option.
+These scripts are packed with all the required dependencies so you
+will need to have Perl installed only. Just unpack it and enjoy.
 
-Currently there is the only tool we have prepared for publishing:
+Another way is to checkout the source code from the project's
+repository.
 
-- pgcompactor - a PostgreSQL table bloat reducing tool.
+svn checkout http://pgtoolkit.googlecode.com/svn/trunk/ pgtoolkit
 
-We have not adapted any instructions to the publication yet but they
-are comming soon.
+All the scripts are in the bin/ directory. To make them work the
+PERL5LIB environment variable must be set to the lib/ directory.
 
-Release v1.0beta3:
+Tools we have prepared for publishing:
 
-- added reindexing when table is skipped and pgstattuple installed
-- fixed wrong fillfactor calculation for tables and indexes
-- added the minimum pages restriction for indexes
-- added a check of base restrictions after processing
-- added a session_replication_role check in the cleaning function
-- made reindexing of non btree indexes only when --force is specified
-- refactored the index dependencies check to not rebuild indexes that
-  require heavy locks
-- solved the psql adapter quietness problem (thanx to e.sergey for the
-  bug report).
+- pgcompactor - a tables and indexes bloat reducing tool.
 
-Release v1.0beta2:
-
-- fixed the error when -d and/or -t are specified
-- fixed the bug with conforming strings
-- fixed the unicode name index altering bug
-- fixed the error output recognition in the psql adapter
-- prevented processing from interupting after deadlocks
-- fixed the "can not get bloat statistics" warning on empty tables
-- disabled printing uncompleted statistics if table is processed
-- set synchronous_commit to off and session_replication_role to
-  replica on the database level.
-
-Release v1.0beta1:
-
-- (!) renamed pg_compactor tool to pgcompactor 
-- added --dry-run
-- added fillfactor to all the statistics calculations
-- fixed the reindex duration bug
-- got rid of the schema as a middle level
-- tables are sorted by size inside their database
-- added the ability of reindexing internal indexes like PRIMARY KEY
-  and UNIQUE
-- added the reindexing necessity check based on the pgstattuple
-  statistics
-- a lot of minor changes.
-
-Release v1.0alpha7:
-
-- reworked reindex to be performed in any case when a table has been
-  compacted or it has not (after the last iteration)
-- fixed the query for testing "always" and "replica" triggers
-- refactored the logic of bloat statistics to lower the amount of
-  heavy pgstattuple calls
-- fixed the final statistics
-- added bloat statistics requests duration.
-
-Release v1.0alpha6:
-
-- refactored out useless resource consuming pgstattuple calls
-- added DEBUG0 and DEBUG1 logging levels and applied to SQL queries
-  logging
-- turned off server side prepares for DBI drivers
-- made some minor changes.
-
-Release v1.0alpha5
-
-Release v1.0alpha4
-
-Release v1.0alpha3
-
-Release v1.0alpha2
-
-Release v1.0alpha1
-
-TODO License boilerplate
-
-
+The list of changes can be found in the CHANGES file. PgToolkit is
+released under the PostgreSQL License, read the COPYRIGHT file for
+additional information.
