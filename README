@@ -13,7 +13,7 @@ will need to have Perl installed only. Just unpack it and enjoy.
 Another way is to checkout the source code from the project's
 repository.
 
-svn checkout http://pgtoolkit.googlecode.com/svn/trunk/ pgtoolkit
+svn checkout http://pgtoolkit.googlecode.com/svn/tags/vX/ pgtoolkit
 
 All the scripts are in the bin/ directory. To make them work the
 PERL5LIB environment variable must be set to the lib/ directory.
