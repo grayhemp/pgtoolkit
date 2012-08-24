@@ -303,15 +303,9 @@ if (__PACKAGE__ eq 'main') {
 
 1;
 
-=head1 VERSION
-
-1.0beta3
-
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2011 postgresql-consulting.com
-
-TODO Licence boilerplate
+Copyright (c) 2012, PostgreSQL-Consulting.com
 
 =head1 AUTHOR
 

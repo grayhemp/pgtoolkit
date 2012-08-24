@@ -230,9 +230,7 @@ sub _time {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2011 postgresql-consulting.com
-
-TODO Licence boilerplate
+Copyright (c) 2012, PostgreSQL-Consulting.com
 
 =head1 AUTHOR
 

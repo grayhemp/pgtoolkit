@@ -10,8 +10,9 @@
 # The TAG argument is required. The script is assumed to be run at the
 # repository root.
 #
+# Copyright (c) 2012, PostgreSQL-Consulting.com
+#
 # Sergey Konoplev <sergey.konoplev@postgresql-consulting.com>
-# Copyright 2010-2011 postgresql-consulting.com
 
 # List of scripts to fatpack
 SCRIPTLIST='pgcompactor'
