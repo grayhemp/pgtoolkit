@@ -39,6 +39,12 @@ sub setup : Test(setup) {
 	$self->{'database'} = PgToolkit::DatabaseStub->new(dbname => 'dbname');
 }
 
+sub test_get_version : Test(2) {
+	my $self = shift;
+
+	is($self->{'registry'}->get_version(), '1.0beta4');
+}
+
 sub test_get_options : Test(2) {
 	my $self = shift;
 

@@ -29,14 +29,38 @@ Some options
 
 =cut
 
-sub test_print_usage : Test(5) {
+sub test_help_and_man : Test(5) {
 	my $data_hash_list = [
 		{'argv' => [],
-		 'out' => "Usage:\n    Some synopsis\n\n"},
+		 'out' => <<EOF
+Name:
+    Some name
+
+Usage:
+    Some synopsis
+
+EOF
+		},
 		{'argv' => ['-?'],
-		 'out' => "Usage:\n    Some synopsis\n\n"},
+		 'out' => <<EOF
+Name:
+    Some name
+
+Usage:
+    Some synopsis
+
+EOF
+		},
 		{'argv' => ['--help'],
-		 'out' => "Usage:\n    Some synopsis\n\n"},
+		 'out' => <<EOF
+Name:
+    Some name
+
+Usage:
+    Some synopsis
+
+EOF
+		},
 		{'argv' => ['-m'],
 		 'out' => <<EOF
 Name:

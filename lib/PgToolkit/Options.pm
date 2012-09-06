@@ -117,26 +117,42 @@ sub init {
 	}
 
 	if (not $result or $option_hash->{'help'} or
-		$option_hash->{'man'} or $error or not keys %{$option_hash})
+		$error or not keys %{$option_hash})
 	{
-		my ($output, $exitval) =
-			exists $arg_hash{'out_handle'} ?
-			($self->{'_out_handle'}, 'NOEXIT') :
-			(undef, ($result ? 1 : 2));
-
-		Pod::Usage::pod2usage(
-			-message => $error,
-			-verbose => exists $option_hash->{'man'} ? 99 : 0,
-			-output => $output,
-			-exitval => $exitval,
-			-sections => ['NAME', 'SYNOPSIS', 'DESCRIPTION', 'OPTIONS',
-						  'LICENSE AND COPYRIGHT', 'VERSION', 'AUTHOR']);
+		$self->_print_help(
+			out_handle_specified => exists $arg_hash{'out_handle'},
+			result => $result,
+			error => $error,
+			sections => ['NAME', 'SYNOPSIS']);
+	} elsif ($option_hash->{'man'}) {
+		$self->_print_help(
+			out_handle_specified => exists $arg_hash{'out_handle'},
+			result => $result,
+			error => $error,
+			sections => ['NAME', 'SYNOPSIS', 'DESCRIPTION', 'OPTIONS',
+						 'LICENSE AND COPYRIGHT', 'VERSION', 'AUTHOR']);
 	}
 
 	$self->{'_option_hash'} = {
 		'help' => 0, 'man' => 0, %{$default_hash}, %{$option_hash}};
 
 	return;
+}
+
+sub _print_help {
+	my ($self, %arg_hash) = @_;
+
+	my ($output, $exitval) =
+		$arg_hash{'out_handle_specified'} ?
+		($self->{'_out_handle'}, 'NOEXIT') :
+		(undef, ($arg_hash{'result'} ? 1 : 2));
+
+	Pod::Usage::pod2usage(
+		-message => $arg_hash{'error'},
+		-verbose => 99,
+		-output => $output,
+		-exitval => $exitval,
+		-sections => $arg_hash{'sections'});
 }
 
 =head1 METHODS

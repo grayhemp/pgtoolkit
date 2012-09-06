@@ -7,7 +7,7 @@ use PgToolkit::Registry::Compactor;
 
 =head1 NAME
 
-B<pgcompactor> - a PostgreSQL table bloat reducing tool.
+B<pgcompactor> - a PostgreSQL bloat reducing tool.
 
 =head1 SYNOPSIS
 
@@ -29,7 +29,7 @@ pgcompactor [OPTION...]
 [-N SCHEMA...] [-T TABLE...]
 
 
-=item Options controlling the behaviour:
+=item Behavioural options:
 
 [-IRLSrsfu] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
 [-y RATIO] [-z SECONDS]
