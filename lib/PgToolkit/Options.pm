@@ -57,7 +57,7 @@ an option definitions as keys and default values as values
 =item C<error_check_code>
 
 an error checker code reference supplied with an option hash reference
-as argument and expected to return the check result
+as argument and expected to return either error message or undef
 
 =item C<transform_code>
 
@@ -106,10 +106,8 @@ sub init {
 
 	my $error;
 	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'}) and
-		defined $arg_hash{'error_check_code'} and
-		$arg_hash{'error_check_code'}->($option_hash))
-	{
-		$error = 'Wrong options combination or values specified.';
+		defined $arg_hash{'error_check_code'}) {
+		$error = $arg_hash{'error_check_code'}->($option_hash);
 	}
 
 	if (defined $arg_hash{'transform_code'}) {

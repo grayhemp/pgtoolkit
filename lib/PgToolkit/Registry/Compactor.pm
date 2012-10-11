@@ -236,12 +236,25 @@ sub get_options {
 				'verbosity|v:s' => 'notice'},
 			error_check_code => sub {
 				my $option_hash = shift;
-				return (
-					(exists $option_hash->{'quiet'} and
-					 exists $option_hash->{'verbosity'}) or
-					(not
-					 (exists $option_hash->{'all'} or
-					  exists $option_hash->{'dbname'})));
+
+				my $error;
+
+				if (exists $option_hash->{'quiet'} and
+					exists $option_hash->{'verbosity'})
+				{
+					$error = (
+						'Options "quiet" and "verbosity" can not be '.
+						'specified simultaniously.');
+				} elsif (
+					not exists $option_hash->{'all'} and
+					not exists $option_hash->{'dbname'})
+				{
+					$error = (
+						'Either "all" or at least one "dbname"  must be '.
+						'specified.');
+				};
+
+				return $error;
 			},
 			transform_code => sub {
 				my $option_hash = shift;

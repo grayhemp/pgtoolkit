@@ -154,4 +154,31 @@ sub test_get_wrong_definition : Test {
 		qr/OptionsError Wrong definition "wrong-definition"\./);
 }
 
+sub test_error_check : Test {
+	my $out = '';
+	open(my $out_handle, '+<', \ $out);
+
+	PgToolkit::Options->new(
+		out_handle => $out_handle,
+		argv => ['-a', '5'],
+		definition_hash => {'aaa|a:i' => 1},
+		error_check_code => sub {
+			my $option_hash = shift;
+			return 'Some error '.$option_hash->{'aaa'};
+		});
+
+	is(
+		$out,
+		<<EOF
+Some error 5
+Name:
+    Some name
+
+Usage:
+    Some synopsis
+
+EOF
+		);
+}
+
 1;
