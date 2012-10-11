@@ -29,18 +29,8 @@ Some options
 
 =cut
 
-sub test_help_and_man : Test(5) {
+sub test_help_and_man : Test(4) {
 	my $data_hash_list = [
-		{'argv' => [],
-		 'out' => <<EOF
-Name:
-    Some name
-
-Usage:
-    Some synopsis
-
-EOF
-		},
 		{'argv' => ['-?'],
 		 'out' => <<EOF
 Name:
@@ -171,12 +161,6 @@ sub test_error_check : Test {
 		$out,
 		<<EOF
 Some error 5
-Name:
-    Some name
-
-Usage:
-    Some synopsis
-
 EOF
 		);
 }

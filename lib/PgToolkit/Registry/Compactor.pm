@@ -250,7 +250,7 @@ sub get_options {
 					not exists $option_hash->{'dbname'})
 				{
 					$error = (
-						'Either "all" or at least one "dbname"  must be '.
+						'Either "all" or at least one "dbname" must be '.
 						'specified.');
 				};
 

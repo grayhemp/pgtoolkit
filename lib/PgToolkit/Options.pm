@@ -114,9 +114,13 @@ sub init {
 		$arg_hash{'transform_code'}->($option_hash);
 	}
 
-	if (not $result or $option_hash->{'help'} or
-		$error or not keys %{$option_hash})
-	{
+	if (not $result or $error or not keys %{$option_hash}) {
+		$self->_print_help(
+			out_handle_specified => exists $arg_hash{'out_handle'},
+			result => $result,
+			error => $error,
+			sections => ['_']);
+	} elsif ($option_hash->{'help'}) {
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},
 			result => $result,
