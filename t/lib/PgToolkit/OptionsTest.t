@@ -160,7 +160,8 @@ sub test_error_check : Test {
 	is(
 		$out,
 		<<EOF
-Some error 5
+lib/PgToolkit/OptionsTest.t: Some error 5
+Try --help for short help, --man for full manual.
 EOF
 		);
 }

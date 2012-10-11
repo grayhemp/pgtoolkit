@@ -108,6 +108,13 @@ sub init {
 	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'}) and
 		defined $arg_hash{'error_check_code'}) {
 		$error = $arg_hash{'error_check_code'}->($option_hash);
+
+		if ($error) {
+			$0 =~ /\/(.*?)$/;
+			$error = (
+				$1.': '.$error."\n".'Try --help for short help, --man for '.
+				'full manual.');
+		}
 	}
 
 	if (defined $arg_hash{'transform_code'}) {
