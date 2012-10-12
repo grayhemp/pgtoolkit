@@ -73,7 +73,9 @@ SELECT
 FROM generate_series(1, 8000) i;
 DELETE FROM table1 WHERE random() < 0.5;
 --
-CREATE TABLE table2 AS
+CREATE TABLE table2 ("primary" integer, float_column real)
+WITH (autovacuum_vacuum_scale_factor=0.02);
+INSERT INTO table2
 SELECT
     i AS "primary",
     random() * 10000 AS float_column
@@ -253,11 +255,13 @@ FROM (
             current_setting('block_size')::integer AS bs,
             pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
             coalesce(
-                regexp_replace(
-                    reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
+                (
+                    SELECT (
+                        regexp_matches(
+                            reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
                 '100')::real AS fillfactor
         FROM pg_catalog.pg_class
-        WHERE pg_catalog.pg_class.oid = 'public.table1'::regclass
+        WHERE pg_catalog.pg_class.oid = 'public.table2'::regclass
     ) AS const
     LEFT JOIN pg_catalog.pg_statistic ON starelid = class_oid
     GROUP BY bs, class_oid, fillfactor, ma, size, reltuples, header_width
@@ -274,12 +278,14 @@ FROM (
         current_setting('block_size')::integer AS bs,
         pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
         coalesce(
-            regexp_replace(
-                reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
+            (
+                SELECT (
+                    regexp_matches(
+                        reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
             '100')::real AS fillfactor,
         (public.pgstattuple(tablename)).*
     FROM pg_catalog.pg_class
-    JOIN (SELECT 'public.table1'::text AS tablename) AS const ON
+    JOIN (SELECT 'public.table2'::text AS tablename) AS const ON
         pg_catalog.pg_class.oid = tablename::regclass
 ) AS sq;
 
@@ -371,12 +377,14 @@ SELECT
 FROM (
     SELECT
         coalesce(
-            regexp_replace(
-                reloptions::text, E'.*fillfactor=(\\d+).*', E'\\1'),
+            (
+                SELECT (
+                    regexp_matches(
+                        reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
             '90')::real AS fillfactor,
         (public.pgstatindex(indexname)).*
     FROM pg_catalog.pg_class
-    JOIN (SELECT 'public."table1_uidx"'::text AS indexname) AS sq ON
+    JOIN (SELECT 'public."table1_pkey"'::text AS indexname) AS sq ON
         pg_catalog.pg_class.oid = indexname::regclass
 ) AS oq;
 

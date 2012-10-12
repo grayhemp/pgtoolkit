@@ -1200,8 +1200,10 @@ FROM (
         current_setting('block_size')::integer AS bs,
         pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
         coalesce(
-            regexp_replace(
-                reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
+            (
+                SELECT (
+                    regexp_matches(
+                        reloptions::text, E'.*fillfactor=(\\\\d+).*'))[1]),
             '100')::real AS fillfactor,
         ($self->{'_pgstattuple_schema_ident'}.pgstattuple(tablename)).*
     FROM pg_catalog.pg_class
@@ -1252,8 +1254,10 @@ FROM (
             current_setting('block_size')::integer AS bs,
             pg_catalog.pg_relation_size(pg_catalog.pg_class.oid) AS size,
             coalesce(
-                regexp_replace(
-                    reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
+                (
+                    SELECT (
+                        regexp_matches(
+                            reloptions::text, E'.*fillfactor=(\\\\d+).*'))[1]),
                 '100')::real AS fillfactor
         FROM pg_catalog.pg_class
         WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
@@ -1465,8 +1469,10 @@ SELECT
 FROM (
     SELECT
         coalesce(
-            regexp_replace(
-                reloptions::text, E'.*fillfactor=(\\\\d+).*', E'\\\\1'),
+            (
+                SELECT (
+                    regexp_matches(
+                        reloptions::text, E'.*fillfactor=(\\\\d+).*'))[1]),
             '90')::real AS fillfactor,
         ($self->{'_pgstattuple_schema_ident'}.pgstatindex(indexname)).*
     FROM pg_catalog.pg_class
