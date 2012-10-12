@@ -67,7 +67,7 @@ sub mock_sth {
 sub mock_dbh {
 	my @args = @_;
 
-	my $dbh_mock = Test::MockObject::Extends->new('DBI');
+	my $dbh_mock = Test::MockObject->new();
 
 	$dbh_mock->mock('connect', sub { return shift; });
 
