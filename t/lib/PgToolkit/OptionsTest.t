@@ -184,4 +184,25 @@ EOF
 		);
 }
 
+sub test_version : Test(2) {
+	for my $arg ('--version', '-V') {
+		my $out = '';
+		open(my $out_handle, '+<', \ $out);
+
+		PgToolkit::Options->new(
+			out_handle => $out_handle,
+			argv => [$arg],
+			definition_hash => {'aaa|a:i' => 1},
+			kit => 'SomeKit',
+			version => 'v1.0');
+
+		is(
+			$out,
+			<<EOF
+lib/PgToolkit/OptionsTest.t (SomeKit) v1.0
+EOF
+			);
+	}
+}
+
 1;

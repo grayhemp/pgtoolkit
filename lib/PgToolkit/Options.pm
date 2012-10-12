@@ -96,7 +96,6 @@ sub init {
 	}
 
 	my $option_hash = {};
-	my $result;
 	my $error;
 	{
 		local @ARGV = @{$self->{'_argv'}};
@@ -106,8 +105,8 @@ sub init {
 			$error =~ s/\n//g;
 		};
 
-		$result = Getopt::Long::GetOptions(
-			$option_hash, 'help|?', 'man|m',
+		Getopt::Long::GetOptions(
+			$option_hash, 'help|?', 'man|m', 'version|V',
 			(keys %{$arg_hash{'definition_hash'}}));
 	}
 
@@ -128,29 +127,33 @@ sub init {
 		$arg_hash{'transform_code'}->($option_hash);
 	}
 
-	if (not $result or $error or not keys %{$option_hash}) {
+	if ($error) {
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},
-			result => $result,
-			error => $error,
-			sections => ['_']);
+			result => 2,
+			message => $error);
 	} elsif ($option_hash->{'help'}) {
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},
-			result => $result,
-			error => $error,
+			result => 1,
 			sections => ['NAME', 'SYNOPSIS']);
 	} elsif ($option_hash->{'man'}) {
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},
-			result => $result,
-			error => $error,
+			result => 1,
 			sections => ['NAME', 'SYNOPSIS', 'DESCRIPTION', 'OPTIONS',
 						 'LICENSE AND COPYRIGHT', 'VERSION', 'AUTHOR']);
+	} elsif ($option_hash->{'version'}) {
+		$0 =~ /\/(.*?)$/;
+		$self->_print_help(
+			out_handle_specified => exists $arg_hash{'out_handle'},
+			result => 1,
+			message => $1.' ('.$arg_hash{'kit'}.') '.$arg_hash{'version'});
 	}
 
 	$self->{'_option_hash'} = {
-		'help' => 0, 'man' => 0, %{$default_hash}, %{$option_hash}};
+		'help' => 0, 'man' => 0, 'version' => 0, %{$default_hash},
+		%{$option_hash}};
 
 	return;
 }
@@ -161,14 +164,15 @@ sub _print_help {
 	my ($output, $exitval) =
 		$arg_hash{'out_handle_specified'} ?
 		($self->{'_out_handle'}, 'NOEXIT') :
-		(undef, ($arg_hash{'result'} ? 1 : 2));
+		(undef, $arg_hash{'result'});
 
 	Pod::Usage::pod2usage(
-		-message => $arg_hash{'error'},
+		-message => $arg_hash{'message'},
 		-verbose => 99,
 		-output => $output,
 		-exitval => $exitval,
-		-sections => $arg_hash{'sections'});
+		-sections => (
+			 exists $arg_hash{'sections'} ? $arg_hash{'sections'} : ['_']));
 }
 
 =head1 METHODS
