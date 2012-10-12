@@ -110,7 +110,10 @@ sub init {
 			(keys %{$arg_hash{'definition_hash'}}));
 	}
 
-	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'})) {
+	if (
+		not (
+			exists $option_hash->{'help'} or exists $option_hash->{'man'} or
+			exists $option_hash->{'version'})) {
 		if (not $error and defined $arg_hash{'error_check_code'}) {
 			$error = $arg_hash{'error_check_code'}->($option_hash);
 		}
