@@ -261,7 +261,9 @@ sub get_options {
 				if (exists $option_hash->{'quiet'}) {
 					$option_hash->{'verbosity'} = 'warning';
 				}
-			});
+			},
+			kit => 'PgToolkit',
+			version => 'v1.0beta4');
 	}
 
 	return $self->{'_options'};

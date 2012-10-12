@@ -17,7 +17,7 @@ pgcompactor [OPTION...]
 
 =item General options:
 
-[-?m] [(-q | -v LEVEL)]
+[-?mV] [(-q | -v LEVEL)]
 
 =item Connection options:
 
@@ -76,6 +76,12 @@ Display short help.
 =item B<--man>
 
 Display full manual.
+
+=item B<-V>
+
+=item B<--version>
+
+Print version.
 
 =item B<-q>
 
