@@ -243,15 +243,15 @@ sub get_options {
 					exists $option_hash->{'verbosity'})
 				{
 					$error = (
-						'Options --quiet and --verbosity can not be '.
-						'specified simultaniously.');
+						'These options can not be specified simultaniously: '.
+						'quiet, verbosity');
 				} elsif (
 					not exists $option_hash->{'all'} and
 					not exists $option_hash->{'dbname'})
 				{
 					$error = (
-						'Either --all or at least one --dbname must be '.
-						'specified.');
+						'At least one of the options must be specified: '.
+						'all, dbname');
 				};
 
 				return $error;

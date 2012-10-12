@@ -166,4 +166,22 @@ EOF
 		);
 }
 
+sub test_unknown_options : Test {
+	my $out = '';
+	open(my $out_handle, '+<', \ $out);
+
+	PgToolkit::Options->new(
+		out_handle => $out_handle,
+		argv => ['--bla', '5'],
+		definition_hash => {'aaa|a:i' => 1});
+
+	is(
+		$out,
+		<<EOF
+lib/PgToolkit/OptionsTest.t: Unknown option: bla
+Try --help for short help, --man for full manual.
+EOF
+		);
+}
+
 1;

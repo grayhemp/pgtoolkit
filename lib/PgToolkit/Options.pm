@@ -97,17 +97,24 @@ sub init {
 
 	my $option_hash = {};
 	my $result;
+	my $error;
 	{
 		local @ARGV = @{$self->{'_argv'}};
+
+		local $SIG{__WARN__} = sub {
+			$error = shift;
+			$error =~ s/\n//g;
+		};
+
 		$result = Getopt::Long::GetOptions(
 			$option_hash, 'help|?', 'man|m',
 			(keys %{$arg_hash{'definition_hash'}}));
 	}
 
-	my $error;
-	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'}) and
-		defined $arg_hash{'error_check_code'}) {
-		$error = $arg_hash{'error_check_code'}->($option_hash);
+	if (not (exists $option_hash->{'help'} or exists $option_hash->{'man'})) {
+		if (not $error and defined $arg_hash{'error_check_code'}) {
+			$error = $arg_hash{'error_check_code'}->($option_hash);
+		}
 
 		if ($error) {
 			$0 =~ /\/(.*?)$/;
