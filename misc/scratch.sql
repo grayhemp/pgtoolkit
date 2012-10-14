@@ -82,7 +82,10 @@ SELECT
 FROM generate_series(1, 5000) i;
 DELETE FROM table2 WHERE random() < 0.5;
 --
-CREATE TABLE table3 AS
+CREATE TABLE table3 (
+    "primary" integer, float_column real, partially_null_column real)
+WITHOUT OIDS;
+INSERT INTO table3
 SELECT
     i AS id,
     random() * 10000 AS float_column,
@@ -92,6 +95,20 @@ SELECT
         ELSE NULL END AS partially_null_column
 FROM generate_series(1, 5000) i;
 DELETE FROM table3 WHERE random() < 0.05;
+--
+CREATE TABLE table4 (
+    "primary" integer, float_column real, partially_null_column real)
+WITHOUT OIDS;
+INSERT INTO table4
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    CASE
+        WHEN random() < 0.5
+        THEN random()
+        ELSE NULL END AS partially_null_column
+FROM generate_series(1, 5000) i;
+DELETE FROM table4 WHERE random() < 0.5;
 --
 CREATE SCHEMA schema1;
 --
