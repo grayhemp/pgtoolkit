@@ -1039,7 +1039,8 @@ sub _log_incomplete_processing {
 			$self->_get_log_processing_results(
 				size_statistics => $arg_hash{'size_statistics'},
 				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'})),
+				base_size_statistics => $arg_hash{'base_size_statistics'},
+				complete => 0)),
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1055,7 +1056,8 @@ sub _log_complete_processing {
 			$self->_get_log_processing_results(
 				size_statistics => $arg_hash{'size_statistics'},
 				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'})),
+				base_size_statistics => $arg_hash{'base_size_statistics'},
+				complete => 1)),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1071,7 +1073,7 @@ sub _get_log_processing_results {
 		$arg_hash{'bloat_statistics'}->{'free_percent'} > 0 and
 		$arg_hash{'size_statistics'}->{'page_count'} >
 		$arg_hash{'bloat_statistics'}->{'effective_page_count'} and
-		not $self->{'_is_processed'});
+		not $arg_hash{'complete'});
 
 	return
 		'left '.$arg_hash{'size_statistics'}->{'page_count'}.'p ('.
