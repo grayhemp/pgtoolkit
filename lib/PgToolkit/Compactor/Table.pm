@@ -550,6 +550,11 @@ sub _process {
 			if (not $index_data->{'allowed'}) {
 				$self->_log_skipping_reindex_not_allowed(
 					ident => $index_ident);
+				$self->_log_reindex_queries(
+					ident => $index_ident,
+					initial_size_statistics => $initial_index_size_statistics,
+					bloat_statistics => $index_bloat_statistics,
+					data => $index_data);
 				next;
 			}
 
@@ -918,9 +923,9 @@ sub _log_skipping_reindex_not_allowed {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping reindex: '.$arg_hash{'ident'}.', can not reindex '.
-			'without heavy locks because of its dependencies, '.
-			'reindexing is up to you.'),
+			'Skipping reindex: '.$arg_hash{'ident'}.
+			', can not reindex without heavy locks because '.
+			'of its dependencies, reindexing is up to you.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1022,8 +1027,10 @@ sub _log_reindex_queries {
 			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 			  $arg_hash{'bloat_statistics'}->{'free_space'}.'b)' : '') :
 			 '').".\n".
-			$self->_get_reindex_query(data => $arg_hash{'data'})."\n".
-			$self->_get_alter_index_query(data => $arg_hash{'data'})),
+			($arg_hash{'data'}->{'allowed'} ?
+			 $self->_get_reindex_query(data => $arg_hash{'data'})."\n".
+			 $self->_get_alter_index_query(data => $arg_hash{'data'}) :
+			 $self->_get_straight_reindex_query(data => $arg_hash{'data'}))),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1529,6 +1536,18 @@ sub _get_alter_index_query {
 		  'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
 		  ' RENAME TO '.$index_ident.'; ')
 		).'END;';
+}
+
+sub _get_straight_reindex_query {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	return 'REINDEX '.$schema_ident.'.'.$index_ident.';';
+
 }
 
 sub _reindex {
