@@ -692,7 +692,7 @@ sub _log_skipping_empty_table {
 
 	$self->{'_logger'}->write(
 		message => 'Skipping processing: empty or 1 page table.',
-		level => 'notice',
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
@@ -716,7 +716,7 @@ sub _log_skipping_min_page_count {
 		message => (
 			'Skipping processing: '.$arg_hash{'page_count'}.' pages from '.
 			$self->{'_min_page_count'}.' pages minimum required.'),
-		level => 'notice',
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
@@ -764,7 +764,7 @@ sub _log_skipping_min_free_percent {
 			'Skipping processing: '.
 			$arg_hash{'free_percent'}.'% space to compact from '.
 			$self->{'_min_free_percent'}.'% minimum required.'),
-		level => 'notice',
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
@@ -955,7 +955,7 @@ sub _log_skipping_reindex_empty {
 	$self->{'_logger'}->write(
 		message => (
 			'Skipping reindex: '.$arg_hash{'ident'}.', empty or 1 page index.'),
-		level => 'notice',
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
@@ -969,7 +969,7 @@ sub _log_skipping_reindex_min_page_count {
 			'Skipping reindex: '.$arg_hash{'ident'}.', '.
 			$arg_hash{'size_statistics'}->{'page_count'}.' pages from '.
 			$self->{'_min_page_count'}.' pages minimum required.'),
-		level => 'notice',
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
@@ -984,7 +984,7 @@ sub _log_skipping_reindex_min_free_percent {
 			$arg_hash{'bloat_statistics'}->{'free_percent'}.
 			'% space to compact from '.$self->{'_min_free_percent'}.
 			'% minimum required.'),
-		level => 'notice',
+		level => 'info',
 		target => $self->{'_log_target'});
 
 	return;
