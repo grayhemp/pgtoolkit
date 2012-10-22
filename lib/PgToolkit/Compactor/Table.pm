@@ -8,6 +8,8 @@ use warnings;
 use POSIX;
 use Time::HiRes qw(time sleep);
 
+use PgToolkit::Utils;
+
 =head1 NAME
 
 B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
@@ -689,7 +691,7 @@ sub _log_skipping_empty_table {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Skipping processing: empty or 1p table.',
+		message => 'Skipping processing: empty or 1 page table.',
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -712,8 +714,8 @@ sub _log_skipping_min_page_count {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping processing: '.$arg_hash{'page_count'}.'p from '.
-			$self->{'_min_page_count'}.'p minimum required.'),
+			'Skipping processing: '.$arg_hash{'page_count'}.' pages from '.
+			$self->{'_min_page_count'}.' pages minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -736,17 +738,17 @@ sub _log_vacuum_complete {
 		$self->{'_logger'}->write(
 			message => (
 				'Vacuum '.$arg_hash{'phrase'}.': can not clean '.
-				($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).'p, '.
-				$arg_hash{'page_count'}.'p left, duration '.
-				sprintf("%.3f", $arg_hash{'duration'}).'s.'),
+				($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).' pages, '.
+				$arg_hash{'page_count'}.' pages left, duration '.
+				sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
 			level => $level,
 			target => $self->{'_log_target'});
 	} else {
 		$self->{'_logger'}->write(
 			message => (
 				'Vacuum '.$arg_hash{'phrase'}.': '.$arg_hash{'page_count'}.
-				'p left, duration '.sprintf("%.3f", $arg_hash{'duration'}).
-				's.'),
+				' pages left, duration '.sprintf("%.3f", $arg_hash{'duration'}).
+				' seconds.'),
 			level => 'info',
 			target => $self->{'_log_target'});
 	}
@@ -801,16 +803,17 @@ sub _log_statistics {
 	$self->{'_logger'}->write(
 		message => (
 			'Statistics: '.
-			$arg_hash{'size_statistics'}->{'page_count'}.'p ('.
+			$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
 			$arg_hash{'size_statistics'}->{'total_page_count'}.
-			'p including toasts and indexes)'.
+			' pages including toasts and indexes)'.
 			($can_be_compacted ? ', approximately '.
 			 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 			 ($arg_hash{'size_statistics'}->{'page_count'} -
 			  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-			 'p) can be compacted reducing the size by '.
-			 $arg_hash{'bloat_statistics'}->{'free_space'}.
-			 'b' : '').'.'),
+			 ' pages) can be compacted reducing the size by '.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => $arg_hash{'bloat_statistics'}->{'free_space'})
+			 : '').'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -832,7 +835,7 @@ sub _log_pages_per_round {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Set p/round: '.$arg_hash{'value'}.'.',
+		message => 'Set pages/round: '.$arg_hash{'value'}.'.',
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -843,7 +846,7 @@ sub _log_pages_before_vacuum {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Set p/vacuum: '.$arg_hash{'value'}.'.',
+		message => 'Set pages/vacuum: '.$arg_hash{'value'}.'.',
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -864,8 +867,8 @@ sub _log_clean_pages_average {
 			'Cleaning in average: '.
 			sprintf("%.1f", $arg_hash{'pages_per_round'} /
 					$arg_hash{'average_duration'}).
-			'p/s ('.$duration.'s per '.$arg_hash{'pages_per_round'}.
-			'p).'),
+			' pages/second ('.$duration.' seconds per '.
+			$arg_hash{'pages_per_round'}.' pages).'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -888,7 +891,7 @@ sub _log_progress {
 				  1)
 			 ).'%, ' : ' ').
 			($arg_hash{'page_count'} - $arg_hash{'to_page'} - 1).
-			'p completed.'),
+			' pages completed.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -911,7 +914,7 @@ sub _log_analyze_complete {
 
 	$self->{'_logger'}->write(
 		message => ('Analyze '.$arg_hash{'phrase'}.': duration '.
-					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
+					sprintf("%.3f", $arg_hash{'duration'}).' second.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -951,7 +954,7 @@ sub _log_skipping_reindex_empty {
 
 	$self->{'_logger'}->write(
 		message => (
-			'Skipping reindex: '.$arg_hash{'ident'}.', empty or 1p index.'),
+			'Skipping reindex: '.$arg_hash{'ident'}.', empty or 1 page index.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -964,8 +967,8 @@ sub _log_skipping_reindex_min_page_count {
 	$self->{'_logger'}->write(
 		message => (
 			'Skipping reindex: '.$arg_hash{'ident'}.', '.
-			$arg_hash{'size_statistics'}->{'page_count'}.'p from '.
-			$self->{'_min_page_count'}.'p minimum required.'),
+			$arg_hash{'size_statistics'}->{'page_count'}.' pages from '.
+			$self->{'_min_page_count'}.' pages minimum required.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1003,10 +1006,14 @@ sub _log_reindex {
 			'Reindex'.($self->{'_force'} ? ' forced' : '').': '.
 			$arg_hash{'ident'}.', '.
 			($arg_hash{'size_statistics'} ? 'initial size '.
-			 $arg_hash{'size_statistics'}->{'page_count'}.'p ('.
-			 $arg_hash{'size_statistics'}->{'size'}.'b), has been reduced by '.
-			 int($free_percent).'% ('.int($free_space).'b), ' : '').
-			'duration '.sprintf("%.3f", $arg_hash{'duration'}).'s.'),
+			 $arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => $arg_hash{'size_statistics'}->{'size'}).
+			 '), has been reduced by '.
+			 int($free_percent).'% ('.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => int($free_space)).'), ' : '').
+			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -1021,12 +1028,14 @@ sub _log_reindex_queries {
 			'Reindex queries'.($self->{'_force'} ? ' forced' : '').': '.
 			$arg_hash{'ident'}.
 			($arg_hash{'initial_size_statistics'} ? ', initial size '.
-			 $arg_hash{'initial_size_statistics'}->{'page_count'}.'p ('.
-			 $arg_hash{'initial_size_statistics'}->{'size'}.'b)'.
+			 $arg_hash{'initial_size_statistics'}->{'page_count'}.' pages ('.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => $arg_hash{'initial_size_statistics'}->{'size'}).')'.
 			 ($arg_hash{'bloat_statistics'} ? ', will be reduced by '.
 			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
-			  $arg_hash{'bloat_statistics'}->{'free_space'}.'b)' : '') :
-			 '').".\n".
+			  PgToolkit::Utils->get_size_pretty(
+				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+			  ')' : '') : '').".\n".
 			($arg_hash{'data'}->{'allowed'} ?
 			 $self->_get_reindex_query(data => $arg_hash{'data'})."\n".
 			 $self->_get_alter_index_query(data => $arg_hash{'data'}) :
@@ -1083,20 +1092,24 @@ sub _get_log_processing_results {
 		not $arg_hash{'complete'});
 
 	return
-		'left '.$arg_hash{'size_statistics'}->{'page_count'}.'p ('.
+		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
 		$arg_hash{'size_statistics'}->{'total_page_count'}.
-		'p including toasts and indexes), size reduced by '.
-		($arg_hash{'base_size_statistics'}->{'size'} -
-		 $arg_hash{'size_statistics'}->{'size'}).'b ('.
-		($arg_hash{'base_size_statistics'}->{'total_size'} -
-		 $arg_hash{'size_statistics'}->{'total_size'}).
-		'b including toasts and indexes) in total'.
+		' psages including toasts and indexes), size reduced by '.
+		PgToolkit::Utils->get_size_pretty(
+			size => ($arg_hash{'base_size_statistics'}->{'size'} -
+					 $arg_hash{'size_statistics'}->{'size'})).' ('.
+		PgToolkit::Utils->get_size_pretty(
+			size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
+					 $arg_hash{'size_statistics'}->{'total_size'})).
+		' including toasts and indexes) in total'.
 		($can_be_compacted ? ', approximately '.
 		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 		 ($arg_hash{'size_statistics'}->{'page_count'} -
 		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-		 'p) that is '.$arg_hash{'bloat_statistics'}->{'free_space'}.
-		 'b more were expected to be compacted after this attempt' :
+		 ' pages) that is '.
+		 PgToolkit::Utils->get_size_pretty(
+			 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+		 ' more were expected to be compacted after this attempt' :
 		 '').'.';
 }
 
@@ -1140,7 +1153,7 @@ sub _log_pgstattuple_duration {
 
 	$self->{'_logger'}->write(
 		message => ('Bloat statistics with pgstattuple: duration '.
-					sprintf("%.3f", $arg_hash{'duration'}).'s.'),
+					sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -1599,6 +1612,7 @@ sub _get_pages_before_vacuum {
 =over 4
 
 =item L<PgToolkit::Class>
+=item L<PgToolkit::Utils>
 
 =back
 

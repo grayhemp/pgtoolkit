@@ -5,6 +5,8 @@ use base qw(PgToolkit::Compactor);
 use strict;
 use warnings;
 
+use PgToolkit::Utils;
+
 =head1 NAME
 
 B<PgToolkit::Compactor::Database> - a database level processing for bloat
@@ -140,8 +142,10 @@ sub _process {
 			$self->{'_logger'}->write(
 				message => (
 					'Processing complete: size reduced by '.
-					$self->get_size_delta().' bytes ('.
-					$self->get_total_size_delta().' bytes including '.
+					PgToolkit::Utils->get_size_pretty(
+						size => $self->get_size_delta()).' ('.
+					PgToolkit::Utils->get_size_pretty(
+						size => $self->get_total_size_delta()).' including '.
 					'toasts and indexes) in total.'),
 				level => 'info',
 				target => $self->{'_log_target'});
@@ -149,9 +153,12 @@ sub _process {
 			$self->{'_logger'}->write(
 				message => (
 					'Processing incomplete: '.$self->_incomplete_count().
-					' tables left, size reduced by '.$self->get_size_delta().
-					' bytes ('.$self->get_total_size_delta().
-					' bytes including toasts and indexes) in total.'),
+					' tables left, size reduced by '.
+					PgToolkit::Utils->get_size_pretty(
+						size => $self->get_size_delta()).' ('.
+					PgToolkit::Utils->get_size_pretty(
+						size => $self->get_total_size_delta()).
+					' including toasts and indexes) in total.'),
 				level => 'warning',
 				target => $self->{'_log_target'});
 		}
@@ -440,6 +447,7 @@ SQL
 =over 4
 
 =item L<PgToolkit::Class>
+=item L<PgToolkit::Utils>
 
 =back
 

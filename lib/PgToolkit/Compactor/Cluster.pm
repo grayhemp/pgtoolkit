@@ -5,6 +5,8 @@ use base qw(PgToolkit::Compactor);
 use strict;
 use warnings;
 
+use PgToolkit::Utils;
+
 =head1 NAME
 
 B<PgToolkit::Compactor::Cluster> - a cluster level processing for bloat
@@ -121,7 +123,9 @@ sub _process {
 		my $databases_size_delta_report = join(
 			', ',
 			map(
-				$_->get_size_delta().' ('.$_->get_total_size_delta().') '.
+				PgToolkit::Utils->get_size_pretty(size => $_->get_size_delta()).
+				' ('.PgToolkit::Utils->get_size_pretty(
+					size => $_->get_total_size_delta()).') '.
 				$_->get_log_target(),
 				@{$self->{'_database_compactor_list'}}));
 
@@ -133,9 +137,11 @@ sub _process {
 						($attempt ? ($attempt - 1).' retries from '.
 						 $self->{'_max_retry_count'} : ' no attempts to '.
 						 'process have been done') .', size reduced by '.
-						$self->get_size_delta().' bytes ('.
-						$self->get_total_size_delta().' bytes including '.
-						'toasts and indexes) in total, '.
+						PgToolkit::Utils->get_size_pretty(
+							size => $self->get_size_delta()).' ('.
+						PgToolkit::Utils->get_size_pretty(
+							size => $self->get_total_size_delta()).' '.
+						'including toasts and indexes) in total, '.
 						$databases_size_delta_report.'.'),
 					level => 'notice');
 			} else {
@@ -143,9 +149,11 @@ sub _process {
 					message => (
 						'Processing incomplete: '.$self->_incomplete_count().
 						' databases left, size reduced by '.
-						$self->get_size_delta().' bytes ('.
-						$self->get_total_size_delta().' bytes including '.
-						'toasts and indexes) in total, '.
+						PgToolkit::Utils->get_size_pretty(
+							size => $self->get_size_delta()).' ('.
+						PgToolkit::Utils->get_size_pretty(
+							size => $self->get_total_size_delta()).' '.
+						'including toasts and indexes) in total, '.
 						$databases_size_delta_report.'.'),
 					level => 'warning');
 			}
@@ -269,6 +277,7 @@ SQL
 =over 4
 
 =item L<PgToolkit::Class>
+=item L<PgToolkit::Utils>
 
 =back
 
