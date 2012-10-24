@@ -118,6 +118,15 @@ SELECT
     random() * 10000 AS float_column
 FROM generate_series(1, 10) i;
 --
+CREATE TABLE public.table5 AS
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column
+FROM generate_series(1, 100000) i;
+UPDATE public.table5 SET float_column = random() * 10000;
+--DELETE FROM public.table5;
+--
 CREATE SCHEMA dummy;
 --
 ALTER DATABASE dbname2 SET search_path TO dummy;
@@ -159,8 +168,8 @@ DECLARE
 BEGIN
     -- Check page argument values
     IF NOT (
-        i_page_offset IS NOT NULL OR i_page_offset > 1 OR
-        i_to_page IS NOT NULL OR i_to_page > 1 OR
+        i_page_offset IS NOT NULL AND i_page_offset >= 1 AND
+        i_to_page IS NOT NULL AND i_to_page >= 1 AND
         i_to_page > i_page_offset)
     THEN
         RAISE EXCEPTION 'Wrong page arguments specified.';
@@ -235,11 +244,13 @@ FROM (
 
 SELECT
     ceil(pure_page_count * 100 / fillfactor) AS effective_page_count,
-    round(
-        100 * (
-            1 - (pure_page_count * 100 / fillfactor) / (size::real / bs)
-        )::numeric, 2
-    ) AS free_percent,
+    CASE WHEN size::real > 0 THEN
+        round(
+            100 * (
+                1 - (pure_page_count * 100 / fillfactor) / (size::real / bs)
+            )::numeric, 2
+        )
+    ELSE 0 END AS free_percent,
     ceil(size::real - bs * pure_page_count * 100 / fillfactor) AS free_space
 FROM (
     SELECT
@@ -278,7 +289,7 @@ FROM (
                             reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
                 '100')::real AS fillfactor
         FROM pg_catalog.pg_class
-        WHERE pg_catalog.pg_class.oid = 'public.table2'::regclass
+        WHERE pg_catalog.pg_class.oid = 'public.table5'::regclass
     ) AS const
     LEFT JOIN pg_catalog.pg_statistic ON starelid = class_oid
     GROUP BY bs, class_oid, fillfactor, ma, size, reltuples, header_width

@@ -331,6 +331,38 @@ sub test_main_processing : Test(20) {
 		$i++, 'get_size_statistics');
 }
 
+sub test_cleaned_during_processing : Test(14) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[0, 0, 0, 100]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[0, 0, 0, 0]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 6;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_column');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 94);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+}
+
 sub test_main_processing_no_routine_vacuum : Test(16) {
 	my $self = shift;
 

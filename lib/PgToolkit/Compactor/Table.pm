@@ -422,6 +422,16 @@ sub _process {
 
 				$vacuum_page_count = 0;
 
+				if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
+					if ($self->{'_size_statistics'}->{'page_count'} == 0) {
+						$to_page = 0;
+						last;
+					} else {
+						$to_page =
+							$self->{'_size_statistics'}->{'page_count'} - 1;
+					}
+				}
+
 				my $last_pages_per_round = $pages_per_round;
 				$pages_per_round = $self->_get_pages_per_round(
 					page_count => $self->{'_size_statistics'}->{'page_count'});
@@ -438,12 +448,6 @@ sub _process {
 					$self->_log_pages_before_vacuum(
 						value => $pages_before_vacuum);
 				}
-
-				if ($to_page >
-					$self->{'_size_statistics'}->{'page_count'} - 1)
-				{
-					$to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
-				}
 			}
 		}
 
@@ -451,17 +455,19 @@ sub _process {
 			$self->_log_max_loops();
 		}
 
-		$self->_do_vacuum();
-		$duration = $self->{'_database'}->get_duration();
+		if ($to_page > 0) {
+			$self->_do_vacuum();
+			$duration = $self->{'_database'}->get_duration();
 
-		$self->{'_size_statistics'} = $self->_get_size_statistics();
+			$self->{'_size_statistics'} = $self->_get_size_statistics();
 
-		$self->_log_vacuum_complete(
-			page_count => $self->{'_size_statistics'}->{'page_count'},
-			duration => $duration,
-			to_page => $to_page + $pages_per_round,
-			pages_before_vacuum => $pages_before_vacuum,
-			phrase => 'final');
+			$self->_log_vacuum_complete(
+				page_count => $self->{'_size_statistics'}->{'page_count'},
+				duration => $duration,
+				to_page => $to_page + $pages_per_round,
+				pages_before_vacuum => $pages_before_vacuum,
+				phrase => 'final');
+		}
 
 		if (not $self->{'_no_final_analyze'}) {
 			$self->_do_analyze();
@@ -1094,7 +1100,7 @@ sub _get_log_processing_results {
 	return
 		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
 		$arg_hash{'size_statistics'}->{'total_page_count'}.
-		' psages including toasts and indexes), size reduced by '.
+		' pages including toasts and indexes), size reduced by '.
 		PgToolkit::Utils->get_size_pretty(
 			size => ($arg_hash{'base_size_statistics'}->{'size'} -
 					 $arg_hash{'size_statistics'}->{'size'})).' ('.
@@ -1239,11 +1245,13 @@ SQL
 			sql => <<SQL
 SELECT
     ceil(pure_page_count * 100 / fillfactor) AS effective_page_count,
-    round(
-        100 * (
-            1 - (pure_page_count * 100 / fillfactor) / (size::real / bs)
-        )::numeric, 2
-    ) AS free_percent,
+    CASE WHEN size::real > 0 THEN
+        round(
+            100 * (
+                1 - (pure_page_count * 100 / fillfactor) / (size::real / bs)
+            )::numeric, 2
+        )
+    ELSE 0 END AS free_percent,
     ceil(size::real - bs * pure_page_count * 100 / fillfactor) AS free_space
 FROM (
     SELECT
