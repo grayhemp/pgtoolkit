@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# A download files making script.
+# The download files making script.
 #
 # The script makes two .tar.gz archives, one is for the autonomous
 # Perl scripts built by the fatpack (App::FatPacker) tool and another
@@ -14,16 +14,16 @@
 #
 # Sergey Konoplev <sergey.konoplev@postgresql-consulting.com>
 
-# List of scripts to fatpack
-SCRIPTLIST='pgcompactor'
-DESTDIR=files
 SRCDIR=bin
+DESTDIR=files
+
+scriptlist=$(ls -1 $SRCDIR)
 
 if [ $# -eq 1 ]; then
-    SOURCECODETARGZ=pgtoolkit-$1-sourcecode.tar.gz
-    FATSCRIPTSTARGZ=pgtoolkit-$1-fatscripts.tar.gz
-    echo $DESTDIR/$FATSCRIPTSTARGZ
-    echo $DESTDIR/$SOURCECODETARGZ
+    sourcecodetargz=pgtoolkit-$1-sourcecode.tar.gz
+    fatscriptstargz=pgtoolkit-$1-fatscripts.tar.gz
+    echo $DESTDIR/$fatscriptstargz
+    echo $DESTDIR/$sourcecodetargz
 else
     echo "Usage: make_files TAG" >&2
     exit 1
@@ -33,19 +33,19 @@ test -e $DESTDIR || mkdir $DESTDIR
 
 # Fatpack the scripts
 mkdir fatlib
-for SCRIPT in $SCRIPTLIST; do
-    (echo "#!/usr/bin/perl"; fatpack file; cat $SRCDIR/$SCRIPT) \
-	> $DESTDIR/$SCRIPT 2> /dev/null
-    chmod 755 $DESTDIR/$SCRIPT
+for script in $scriptlist; do
+    (echo "#!/usr/bin/perl"; fatpack file; cat $SRCDIR/$script) \
+	> $DESTDIR/$script 2> /dev/null
+    chmod 755 $DESTDIR/$script
 done
 rm -rf fatlib
 
 # Archive the fatpacked scripts and remove them
 (
     cd $DESTDIR/
-    tar -czf $FATSCRIPTSTARGZ $SCRIPTLIST
-    rm $SCRIPTLIST
+    tar -czf $fatscriptstargz $scriptlist
+    rm $scriptlist
 )
 
 # Make the source code archive
-tar --exclude .svn --exclude files -czf $DESTDIR/$SOURCECODETARGZ .
+tar --exclude .svn --exclude $DESTDIR -czf $DESTDIR/$sourcecodetargz .
