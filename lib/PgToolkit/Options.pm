@@ -119,7 +119,7 @@ sub init {
 		}
 
 		if ($error) {
-			$0 =~ /\/(.*?)$/;
+			$0 =~ /.*\/(.*?)$/;
 			$error = (
 				$1.': '.$error."\n".'Try --help for short help, --man for '.
 				'full manual.');
