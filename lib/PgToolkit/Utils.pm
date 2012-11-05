@@ -32,6 +32,8 @@ pg_size_pretty() works.
 
 =item C<size>
 
+=back
+
 =head3 Returns
 
 A string representing the size in bytes, kB, MB, GB or TB.
