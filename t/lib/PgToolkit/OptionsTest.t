@@ -160,7 +160,7 @@ sub test_error_check : Test {
 	is(
 		$out,
 		<<EOF
-lib/PgToolkit/OptionsTest.t: Some error 5
+OptionsTest.t: Some error 5
 Try --help for short help, --man for full manual.
 EOF
 		);
@@ -178,7 +178,7 @@ sub test_unknown_options : Test {
 	is(
 		$out,
 		<<EOF
-lib/PgToolkit/OptionsTest.t: Unknown option: bla
+OptionsTest.t: Unknown option: bla
 Try --help for short help, --man for full manual.
 EOF
 		);
@@ -199,7 +199,7 @@ sub test_version : Test(2) {
 		is(
 			$out,
 			<<EOF
-lib/PgToolkit/OptionsTest.t (SomeKit) v1.0
+OptionsTest.t (SomeKit) v1.0
 EOF
 			);
 	}

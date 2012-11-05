@@ -110,6 +110,9 @@ sub init {
 			(keys %{$arg_hash{'definition_hash'}}));
 	}
 
+	$0 =~ /.*\/(.*?)$/;
+	my $prog_name = $1;
+
 	if (
 		not (
 			exists $option_hash->{'help'} or exists $option_hash->{'man'} or
@@ -119,10 +122,9 @@ sub init {
 		}
 
 		if ($error) {
-			$0 =~ /.*\/(.*?)$/;
 			$error = (
-				$1.': '.$error."\n".'Try --help for short help, --man for '.
-				'full manual.');
+				$prog_name.': '.$error."\n".'Try --help for short help, '.
+				'--man for full manual.');
 		}
 	}
 
@@ -147,11 +149,12 @@ sub init {
 			sections => ['NAME', 'SYNOPSIS', 'DESCRIPTION', 'OPTIONS',
 						 'LICENSE AND COPYRIGHT', 'VERSION', 'AUTHOR']);
 	} elsif ($option_hash->{'version'}) {
-		$0 =~ /\/(.*?)$/;
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},
 			result => 1,
-			message => $1.' ('.$arg_hash{'kit'}.') '.$arg_hash{'version'});
+			message => (
+				$prog_name.' ('.$arg_hash{'kit'}.') '.
+				$arg_hash{'version'}));
 	}
 
 	$self->{'_option_hash'} = {
