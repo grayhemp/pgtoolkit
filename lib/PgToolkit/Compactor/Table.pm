@@ -492,10 +492,18 @@ sub _process {
 			not $expected_error_occurred);
 	}
 
+	my $will_be_skipped = (
+		not $self->{'_force'} and (
+			$self->{'_size_statistics'}->{'page_count'} <
+			$self->{'_min_page_count'} or
+			$self->{'_bloat_statistics'}->{'free_percent'} <
+			$self->{'_min_free_percent'}));
+
 	my $is_reindexed;
 	if (($is_compacted or
 		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
-		 $is_skipped and $self->{'_pgstattuple_schema_ident'}) and
+		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
+		 not $is_skipped and $will_be_skipped) and
 		($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
 	{
 		for my $index_data (@{$self->_get_index_data_list()}) {
@@ -594,13 +602,6 @@ sub _process {
 			$self->{'_size_statistics'} = $self->_get_size_statistics();
 		}
 	}
-
-	my $will_be_skipped = (
-		not $self->{'_force'} and (
-			$self->{'_size_statistics'}->{'page_count'} <
-			$self->{'_min_page_count'} or
-			$self->{'_bloat_statistics'}->{'free_percent'} <
-			$self->{'_min_free_percent'}));
 
 	if ($is_compacted or
 		$is_skipped and $is_reindexed or
