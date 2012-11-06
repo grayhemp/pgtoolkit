@@ -316,12 +316,8 @@ sub _process {
 		}
 	}
 
-	if ($self->{'_dry_run'}) {
-		$is_skipped = 1;;
-	}
-
 	my $is_compacted;
-	if (not $is_skipped) {
+	if (not $is_skipped and not $self->{'_dry_run'}) {
 		if ($self->{'_force'}) {
 			$self->_log_processing_forced();
 		}
@@ -500,7 +496,7 @@ sub _process {
 			$self->{'_min_free_percent'}));
 
 	my $is_reindexed;
-	if (($is_compacted or
+	if (($self->{'_dry_run'} or $is_compacted or
 		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
 		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
 		 not $is_skipped and $will_be_skipped) and
@@ -574,7 +570,7 @@ sub _process {
 				next;
 			}
 
-			if ($self->{'_reindex'}) {
+			if (not $self->{'_dry_run'} and $self->{'_reindex'}) {
 				$self->_reindex(data => $index_data);
 				$duration = $self->{'_database'}->get_duration();
 				$self->_alter_index(data => $index_data);
@@ -589,7 +585,7 @@ sub _process {
 				$is_reindexed = 1;
 			}
 
-			if ($self->{'_print_reindex_queries'}) {
+			if ($self->{'_dry_run'} or $self->{'_print_reindex_queries'}) {
 				$self->_log_reindex_queries(
 					ident => $index_ident,
 					initial_size_statistics => $initial_index_size_statistics,
@@ -598,28 +594,31 @@ sub _process {
 			}
 		}
 
-		if ($self->{'_reindex'}) {
+		if (not $self->{'_dry_run'} and $self->{'_reindex'}) {
 			$self->{'_size_statistics'} = $self->_get_size_statistics();
 		}
 	}
 
-	if ($is_compacted or
-		$is_skipped and $is_reindexed or
-		not $is_skipped and $will_be_skipped)
-	{
-		$self->_log_complete_processing(
-			size_statistics => $self->{'_size_statistics'},
-			bloat_statistics => $self->{'_bloat_statistics'},
-			base_size_statistics => $self->{'_base_size_statistics'});
-	} elsif (not $is_skipped) {
-		$self->_log_incomplete_processing(
-			size_statistics => $self->{'_size_statistics'},
-			bloat_statistics => $self->{'_bloat_statistics'},
-			base_size_statistics => $self->{'_base_size_statistics'});
+	if (not $self->{'_dry_run'}) {
+		if ($is_compacted or
+			$is_skipped and $is_reindexed or
+			not $is_skipped and $will_be_skipped)
+		{
+			$self->_log_complete_processing(
+				size_statistics => $self->{'_size_statistics'},
+				bloat_statistics => $self->{'_bloat_statistics'},
+				base_size_statistics => $self->{'_base_size_statistics'});
+		} elsif (not $is_skipped) {
+			$self->_log_incomplete_processing(
+				size_statistics => $self->{'_size_statistics'},
+				bloat_statistics => $self->{'_bloat_statistics'},
+				base_size_statistics => $self->{'_base_size_statistics'});
+		}
 	}
 
 	$self->{'_is_processed'} = (
-		$is_compacted or $is_skipped or $will_be_skipped);
+		$is_compacted or $is_skipped or $will_be_skipped or
+		$self->{'_dry_run'});
 
 	return;
 }

@@ -48,11 +48,12 @@ sub setup : Test(setup) {
 	};
 }
 
-sub test_dry_run : Test(8) {
+sub test_dry_run : Test(14) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
-		dry_run => 1);
+		dry_run => 1,
+		reindex => 1);
 
 	$table_compactor->process(attempt => 1);
 
@@ -64,6 +65,12 @@ sub test_dry_run : Test(8) {
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'has_special_triggers');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
