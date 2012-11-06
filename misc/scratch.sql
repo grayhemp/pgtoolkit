@@ -295,6 +295,7 @@ FROM (
     GROUP BY bs, class_oid, fillfactor, ma, size, reltuples, header_width
 ) AS sq;
 
+EXPLAIN (ANALYZE, VERBOSE)
 SELECT
     ceil((size - free_space) * 100 / fillfactor / bs) AS effective_page_count,
     round(
@@ -311,10 +312,10 @@ FROM (
                     regexp_matches(
                         reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
             '100')::real AS fillfactor,
-        (public.pgstattuple(tablename)).*
+        pgst.*
     FROM pg_catalog.pg_class
-    JOIN (SELECT 'public.table2'::text AS tablename) AS const ON
-        pg_catalog.pg_class.oid = tablename::regclass
+    CROSS JOIN public.pgstattuple('public.table2') AS pgst
+    WHERE pg_catalog.pg_class.oid = 'public.table2'::regclass
 ) AS sq;
 
 CREATE TABLE public.table1 AS
@@ -387,6 +388,7 @@ FROM (
         current_setting('block_size')::real AS bs
 ) AS sq;
 
+--EXPLAIN (ANALYZE, VERBOSE)
 SELECT
     CASE
         WHEN avg_leaf_density = 'NaN' THEN 0
@@ -410,10 +412,10 @@ FROM (
                     regexp_matches(
                         reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
             '90')::real AS fillfactor,
-        (public.pgstatindex(indexname)).*
+        pgsi.*
     FROM pg_catalog.pg_class
-    JOIN (SELECT 'public."table1_pkey"'::text AS indexname) AS sq ON
-        pg_catalog.pg_class.oid = indexname::regclass
+    CROSS JOIN public.pgstatindex('public."table1_pkey"') AS pgsi
+    WHERE pg_catalog.pg_class.oid = 'public."table1_pkey"'::regclass
 ) AS oq;
 
 -- Check schema existence

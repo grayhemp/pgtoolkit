@@ -1233,10 +1233,12 @@ FROM (
                     regexp_matches(
                         reloptions::text, E'.*fillfactor=(\\\\d+).*'))[1]),
             '100')::real AS fillfactor,
-        ($self->{'_pgstattuple_schema_ident'}.pgstattuple(tablename)).*
+        pgst.*
     FROM pg_catalog.pg_class
-    JOIN (SELECT '$self->{'_ident'}'::text AS tablename) AS const ON
-        pg_catalog.pg_class.oid = tablename::regclass
+    CROSS JOIN
+        $self->{'_pgstattuple_schema_ident'}.pgstattuple(
+            '$self->{'_ident'}') AS pgst
+    WHERE pg_catalog.pg_class.oid = '$self->{'_ident'}'::regclass
 ) AS sq
 SQL
 			);
@@ -1504,10 +1506,11 @@ FROM (
                     regexp_matches(
                         reloptions::text, E'.*fillfactor=(\\\\d+).*'))[1]),
             '90')::real AS fillfactor,
-        ($self->{'_pgstattuple_schema_ident'}.pgstatindex(indexname)).*
+        pgsi.*
     FROM pg_catalog.pg_class
-    JOIN (SELECT '$arg_hash{'ident'}'::text AS indexname) AS sq ON
-        pg_catalog.pg_class.oid = indexname::regclass
+    CROSS JOIN $self->{'_pgstattuple_schema_ident'}.pgstatindex(
+        '$arg_hash{'ident'}') AS pgsi
+    WHERE pg_catalog.pg_class.oid = '$arg_hash{'ident'}'::regclass
 ) AS oq
 SQL
 		);
