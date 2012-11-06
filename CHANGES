@@ -1,3 +1,20 @@
+2012-11-05 v1.0beta4
+
+- Refactored information files, PgToolkit is released under the
+  PostgreSQL License now
+- Improved error messages, help hints and options' warnings
+- Added -V (--version) functionality
+- Fixed the bug with storage parameters on tables and indexes
+- Removed useless information from compacting results
+- Added bloat information to the messages about reindex impossibility
+- Made sizes pretty printed (kB, MB, GB, TB)
+- Moved skipping messages to the INFO level
+- Fixed the infinity loop on the size change check bug
+- Fixed the bug when reindex is skipped if table was not compacted but
+  will be skipped the next round
+- Fixed the bug of reindexing when --dry-run is specified
+- Optimized the pgstattuple based bloat calculation
+
 2012-04-09 v1.0beta3
 
 - Added reindexing when table is skipped and pgstattuple installed
