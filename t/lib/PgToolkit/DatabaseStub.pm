@@ -30,8 +30,10 @@ sub init {
 				my $sql_pattern =
 					$self->{'data_hash'}->{$name}->{'sql_pattern'};
 				for my $item (keys %substitution_hash) {
-					$sql_pattern =~ s/<$item>/$substitution_hash{$item}/g;
+					$sql_pattern =~
+						s/<$item(=.+?)?>/$substitution_hash{$item}/g;
 				}
+				$sql_pattern =~ s/<[a-z_]+?=(.+?)>/$1/g;
 
 				is($self->call_pos($pos), 'execute');
 				like({$self, $self->call_args($pos)}->{'sql'},
@@ -57,7 +59,7 @@ sub init {
 				}
 
 				my $sql_pattern = $data_hash->{$key}->{'sql_pattern'};
-				$sql_pattern =~ s/<[a-z_]+>/.*/g;
+				$sql_pattern =~ s/<[a-z_]+?(=.+?)?>/.*/g;
 				if ($arg_hash{'sql'} =~ qr/$sql_pattern/) {
 					if (exists $data_hash->{$key}->{'row_list'}) {
 						$result = $data_hash->{$key}->{'row_list'};
@@ -137,7 +139,7 @@ sub init {
 		'clean_pages' => {
 			'sql_pattern' => (
 				qr/SELECT public\._clean_pages\(\s+'schema.table', 'column', /s.
-				qr/<to_page>,\s+5, 10/s),
+				qr/<to_page>,\s+<pages_per_round=5>, 10/s),
 			'row_list_sequence' => [
 				[[94]], [[89]], [[84]],
 				'No more free space left in the table']},

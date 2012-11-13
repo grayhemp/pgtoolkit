@@ -354,7 +354,9 @@ sub _process {
 				$to_page = $self->_clean_pages(
 					column_ident => $column_ident,
 					to_page => $last_to_page,
-					pages_per_round => $pages_per_round,
+					pages_per_round => (
+						sort {$a <=> $b}
+						$pages_per_round, $last_to_page)[0],
 					max_tupples_per_page => $max_tupples_per_page);
 				$clean_pages_total_duration =
 					$clean_pages_total_duration +

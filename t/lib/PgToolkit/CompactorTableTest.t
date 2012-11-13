@@ -338,6 +338,24 @@ sub test_main_processing : Test(20) {
 		$i++, 'get_size_statistics');
 }
 
+sub test_pager_per_round_not_more_then_to_page : Test(6) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		max_pages_per_round => 200);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 6;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_column');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 99, pages_per_round => 99);
+}
+
 sub test_cleaned_during_processing : Test(14) {
 	my $self = shift;
 

@@ -367,7 +367,7 @@ BEGIN
     IF NOT (
         i_page_offset IS NOT NULL AND i_page_offset >= 1 AND
         i_to_page IS NOT NULL AND i_to_page >= 1 AND
-        i_to_page > i_page_offset)
+        i_to_page >= i_page_offset)
     THEN
         RAISE EXCEPTION 'Wrong page arguments specified.';
     END IF;
