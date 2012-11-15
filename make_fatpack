@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+# The download files making script.
+#
+# The script makes autonomous Perl scripts built by the fatpack
+# utility (App::FatPacker) and a .tar.gz archive of them.
+#
+# The TAG argument is required. The script is assumed to be run at the
+# repository root.
+#
+# Copyright (c) 2012, PostgreSQL-Consulting.com
+#
+# Sergey Konoplev <sergey.konoplev@postgresql-consulting.com>
+
+BINDIR=bin
+FATPACKDIR=fatpack
+
+scriptlist=$(ls -1 $BINDIR)
+
+if [ $# -ne 1 ]; then
+    echo "Usage: make_files TAG" >&2
+    exit 1
+fi
+
+# Fatpack the scripts
+rm $FATPACKDIR/*
+mkdir fatlib
+for script in $scriptlist; do
+    (echo "#!/usr/bin/perl"; fatpack file; cat $BINDIR/$script) \
+	> $FATPACKDIR/$script 2> /dev/null
+    chmod 755 $FATPACKDIR/$script
+    echo $FATPACKDIR/$script
+done
+rm -rf fatlib
+
+# Archive the fatpacked scripts and remove them
+fatpacktargz=pgtoolkit-$1-fatpack.tar.gz
+(
+    cd $FATPACKDIR/
+    tar -czf $fatpacktargz *
+    echo $FATPACKDIR/$fatpacktargz    
+)

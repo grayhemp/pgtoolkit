@@ -14,6 +14,8 @@
   will be skipped the next round
 - Fixed the bug of reindexing when --dry-run is specified
 - Optimized the pgstattuple based bloat calculation
+- Refactored autonomous scripts building facilities, now the scripts
+  are available straight from the fatpack/ directory
 
 2012-04-09 v1.0beta3
 

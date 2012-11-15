@@ -1,9 +1,9 @@
 PgToolkit is a set of scripts for PostgreSQL database maintenance and
 monitoring by PostgreSQL-Consulting.com.
 
-The easiest way to deploy the toolkit is to get the latest version of
-the autonomous scripts archive pgtoolkit-vX-fatscripts.tar.gz from the
-PgToolkit project's site on Google Code.
+The first way to deploy the toolkit is to get the latest version of
+the autonomous scripts archive pgtoolkit-vX-fatpack.tar.gz from the
+PgToolkit project's download page on Google Code:
 
 http://code.google.com/p/pgtoolkit/downloads/list
 
@@ -11,12 +11,16 @@ These scripts are packed with all the required dependencies so you
 will need to have Perl installed only. Just unpack it and enjoy.
 
 Another way is to checkout the source code from the project's
-repository.
+repository:
 
 svn checkout http://pgtoolkit.googlecode.com/svn/tags/vX/ pgtoolkit
 
-All the scripts are in the bin/ directory. To make them work the
-PERL5LIB environment variable must be set to the lib/ directory.
+The workdir contains a fatpack/ directory. It also houses the
+autonomous scripts so you can use them straight away.
+
+If you want to use non-autonomous versions of this scripts you with
+find them in the bin/ directory. To make them work the PERL5LIB
+environment variable must be set to the lib/ directory.
 
 Tools we have prepared for publishing:
 
