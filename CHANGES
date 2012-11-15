@@ -16,6 +16,8 @@
 - Optimized the pgstattuple based bloat calculation
 - Refactored autonomous scripts building facilities, now the scripts
   are available straight from the fatpack/ directory
+- Fixed the wrong page arguments bug
+- Fix the silent --man and --help problem
 
 2012-04-09 v1.0beta3
 
