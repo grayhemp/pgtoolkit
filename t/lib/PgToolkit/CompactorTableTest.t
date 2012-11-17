@@ -385,7 +385,7 @@ sub test_cleaned_during_processing : Test(14) {
 		[[0, 0, 0, 100]];
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
-		[[0, 0, 0, 0]];
+		[[0, 0, 0, 1]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 

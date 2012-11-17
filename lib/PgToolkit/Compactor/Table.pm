@@ -420,7 +420,7 @@ sub _process {
 				$vacuum_page_count = 0;
 
 				if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
-					if ($self->{'_size_statistics'}->{'page_count'} == 0) {
+					if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
 						$to_page = 0;
 						last;
 					} else {
