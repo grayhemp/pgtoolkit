@@ -125,14 +125,20 @@ SELECT
     repeat('blabla'||i::text, (random() * 500)::integer) AS text_column
 FROM generate_series(1, 100000) i;
 UPDATE public.table5 SET float_column = random() * 10000;
---DELETE FROM public.table5;
+--
+CREATE TABLE public.table7 AS
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column
+FROM generate_series(1, 100000) AS i;
+DELETE FROM public.table7 WHERE id BETWEEN 10 AND 100000 - 10;
 --
 CREATE SCHEMA dummy;
 --
 ALTER DATABASE dbname2 SET search_path TO dummy;
 --
 \c dbname1
-
 
 -- Rewrite the clean table function
 

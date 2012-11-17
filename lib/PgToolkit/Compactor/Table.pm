@@ -322,26 +322,27 @@ sub _process {
 			$self->_log_processing_forced();
 		}
 
-		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
-		my $column_ident = $self->{'_database'}->quote_ident(
-			string => $self->_get_update_column());
-		my $pages_per_round = $self->_get_pages_per_round(
-			page_count => $self->{'_size_statistics'}->{'page_count'});
-		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
-			expected_page_count => $expected_page_count,
-			page_count => $self->{'_size_statistics'}->{'page_count'});
-		$self->_log_column(name => $column_ident);
-		$self->_log_pages_per_round(value => $pages_per_round);
-		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
-
 		my $vacuum_page_count = 0;
 		my $initial_size_statistics = {%{$self->{'_size_statistics'}}};
 		my $to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
 		my $clean_pages_total_duration = 0;
 		my $last_loop = $self->{'_size_statistics'}->{'page_count'} + 1;
-		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
 		my $expected_error_occurred = 0;
+
+		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
+		my $column_ident = $self->{'_database'}->quote_ident(
+			string => $self->_get_update_column());
+		my $pages_per_round = $self->_get_pages_per_round(
+			page_count => $self->{'_size_statistics'}->{'page_count'},
+			to_page => $to_page);
+		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
+			expected_page_count => $expected_page_count,
+			page_count => $self->{'_size_statistics'}->{'page_count'});
+		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
+		$self->_log_column(name => $column_ident);
+		$self->_log_pages_per_round(value => $pages_per_round);
+		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
 
 		my $loop;
 		for ($loop = $self->{'_size_statistics'}->{'page_count'};
@@ -354,9 +355,7 @@ sub _process {
 				$to_page = $self->_clean_pages(
 					column_ident => $column_ident,
 					to_page => $last_to_page,
-					pages_per_round => (
-						sort {$a <=> $b}
-						$pages_per_round, $last_to_page)[0],
+					pages_per_round => $pages_per_round,
 					max_tupples_per_page => $max_tupples_per_page);
 				$clean_pages_total_duration =
 					$clean_pages_total_duration +
@@ -430,14 +429,6 @@ sub _process {
 					}
 				}
 
-				my $last_pages_per_round = $pages_per_round;
-				$pages_per_round = $self->_get_pages_per_round(
-					page_count => $self->{'_size_statistics'}->{'page_count'});
-				if ($last_pages_per_round != $pages_per_round) {
-					$self->_log_pages_per_round(
-						value => $pages_per_round);
-				}
-
 				my $last_pages_before_vacuum = $pages_before_vacuum;
 				$pages_before_vacuum = $self->_get_pages_before_vacuum(
 					expected_page_count => $expected_page_count,
@@ -446,6 +437,15 @@ sub _process {
 					$self->_log_pages_before_vacuum(
 						value => $pages_before_vacuum);
 				}
+			}
+
+			my $last_pages_per_round = $pages_per_round;
+			$pages_per_round = $self->_get_pages_per_round(
+				page_count => $self->{'_size_statistics'}->{'page_count'},
+				to_page => $to_page);
+			if ($last_pages_per_round != $pages_per_round) {
+				$self->_log_pages_per_round(
+					value => $pages_per_round);
 			}
 		}
 
@@ -1597,13 +1597,17 @@ sub _alter_index {
 sub _get_pages_per_round {
 	my ($self, %arg_hash) = @_;
 
-	return ceil(
+	my $result = ceil(
 		(sort {$a <=> $b}
 		 (sort {$b <=> $a}
 		  $arg_hash{'page_count'} /
 		  $self->{'_pages_per_round_divisor'},
 		  1)[0],
 		 $self->{'_max_pages_per_round'})[0]);
+
+	$result = (sort {$a <=> $b} $result, $arg_hash{'to_page'})[0];
+
+	return $result;
 }
 
 sub _get_pages_before_vacuum {
