@@ -263,7 +263,7 @@ sub get_options {
 				}
 			},
 			kit => 'PgToolkit',
-			version => 'v1.0beta4');
+			version => 'v1.0rc1');
 	}
 
 	return $self->{'_options'};

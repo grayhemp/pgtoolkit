@@ -4137,7 +4137,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   				}
   			},
   			kit => 'PgToolkit',
-  			version => 'v1.0beta4');
+  			version => 'v1.0rc1');
   	}
   
   	return $self->{'_options'};
