@@ -1,4 +1,4 @@
-2012-11-15 v1.0rc1
+2012-11-17 v1.0rc1
 
 - Refactored information files, PgToolkit is released under the
   PostgreSQL License now
@@ -16,7 +16,7 @@
 - Optimized the pgstattuple based bloat calculation
 - Refactored autonomous scripts building facilities, now the scripts
   are available straight from the fatpack/ directory
-- Fixed the wrong page arguments bug
+- Fixed the error when 0 or 1 pages left
 - Fix the silent --man and --help problem
 
 2012-04-09 v1.0beta3

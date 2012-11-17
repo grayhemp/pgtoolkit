@@ -419,16 +419,6 @@ sub _process {
 
 				$vacuum_page_count = 0;
 
-				if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
-					if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
-						$to_page = 0;
-						last;
-					} else {
-						$to_page =
-							$self->{'_size_statistics'}->{'page_count'} - 1;
-					}
-				}
-
 				my $last_pages_before_vacuum = $pages_before_vacuum;
 				$pages_before_vacuum = $self->_get_pages_before_vacuum(
 					expected_page_count => $expected_page_count,
@@ -437,6 +427,15 @@ sub _process {
 					$self->_log_pages_before_vacuum(
 						value => $pages_before_vacuum);
 				}
+			}
+
+			if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
+				$to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
+			}
+
+			if ($to_page <= 1) {
+				$to_page = 0;
+				last;
 			}
 
 			my $last_pages_per_round = $pages_per_round;
