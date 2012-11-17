@@ -338,8 +338,42 @@ sub test_main_processing : Test(20) {
 		$i++, 'get_size_statistics');
 }
 
-sub test_pager_per_round_not_more_then_to_page : Test(6) {
+sub test_finish_when_0_pages_returned : Test(12) {
 	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'clean_pages'}->{'row_list_sequence'}->[0] =
+		[[0]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 6;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_column');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+}
+
+sub test_pages_per_round_not_more_then_to_page : Test(20) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'clean_pages'}->{'row_list_sequence'}->[1] =
+		[[10]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'clean_pages'}->{'row_list_sequence'}->[2] =
+		[[5]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		max_pages_per_round => 200);
@@ -354,6 +388,20 @@ sub test_pager_per_round_not_more_then_to_page : Test(6) {
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99, pages_per_round => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 94, pages_per_round => 94);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 10, pages_per_round => 10);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 5, pages_per_round => 5);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
 }
 
 sub test_cleaned_during_processing : Test(14) {
@@ -364,7 +412,7 @@ sub test_cleaned_during_processing : Test(14) {
 		[[0, 0, 0, 100]];
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
-		[[0, 0, 0, 0]];
+		[[0, 0, 0, 1]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
