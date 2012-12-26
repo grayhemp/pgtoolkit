@@ -1,4 +1,4 @@
-PgToolkit is a set of scripts for PostgreSQL database maintenance and
+PgToolkit is a set of scripts for PostgreSQL maintenance and
 monitoring by PostgreSQL-Consulting.com.
 
 The first way to deploy the toolkit is to get the latest version of
@@ -22,7 +22,7 @@ If you want to use non-autonomous versions of this scripts you with
 find them in the bin/ directory. To make them work the PERL5LIB
 environment variable must be set to the lib/ directory.
 
-Tools we have prepared for publishing:
+Presented tools:
 
 - pgcompactor - a tables and indexes bloat reducing tool.
 
