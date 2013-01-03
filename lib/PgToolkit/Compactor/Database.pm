@@ -140,28 +140,27 @@ sub _process {
 	if (not $self->{'_dry_run'}) {
 		if ($self->is_processed()) {
 			$self->{'_logger'}->write(
-				message => (
-					'Processing complete: size reduced by '.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_size_delta()).' ('.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_total_size_delta()).' including '.
-					'toasts and indexes) in total.'),
-				level => 'info',
+				message => 'Processing complete.',
+				level => 'notice',
 				target => $self->{'_log_target'});
 		} else {
 			$self->{'_logger'}->write(
 				message => (
 					'Processing incomplete: '.$self->_incomplete_count().
-					' tables left, size reduced by '.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_size_delta()).' ('.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_total_size_delta()).
-					' including toasts and indexes) in total.'),
+					' tables left.'),
 				level => 'warning',
 				target => $self->{'_log_target'});
 		}
+		$self->{'_logger'}->write(
+			message => (
+				'Processing results: size reduced by '.
+				PgToolkit::Utils->get_size_pretty(
+					size => $self->get_size_delta()).' ('.
+				PgToolkit::Utils->get_size_pretty(
+					size => $self->get_total_size_delta()).
+				' including toasts and indexes) in total.'),
+			level => 'notice',
+			target => $self->{'_log_target'});
 	}
 
 	return;

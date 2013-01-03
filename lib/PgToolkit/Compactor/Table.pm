@@ -600,21 +600,21 @@ sub _process {
 		}
 	}
 
-	if (not $self->{'_dry_run'}) {
-		if ($is_compacted or
-			$is_skipped and $is_reindexed or
-			not $is_skipped and $will_be_skipped)
-		{
-			$self->_log_complete_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'},
-				base_size_statistics => $self->{'_base_size_statistics'});
-		} elsif (not $is_skipped) {
-			$self->_log_incomplete_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'},
-				base_size_statistics => $self->{'_base_size_statistics'});
+	if (not $self->{'_dry_run'} and not ($is_skipped and not $is_reindexed)) {
+		my $complete = (
+			$is_compacted or $will_be_skipped or $is_skipped and $is_reindexed);
+
+		if ($complete) {
+			$self->_log_complete_processing();
+		} else {
+			$self->_log_incomplete_processing();
 		}
+
+		$self->_log_processing_results(
+			size_statistics => $self->{'_size_statistics'},
+			bloat_statistics => $self->{'_bloat_statistics'},
+			base_size_statistics => $self->{'_base_size_statistics'},
+			complete => $complete);
 	}
 
 	$self->{'_is_processed'} = (
@@ -1057,13 +1057,7 @@ sub _log_incomplete_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Processing incomplete: '.
-			$self->_get_log_processing_results(
-				size_statistics => $arg_hash{'size_statistics'},
-				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'},
-				complete => 0)),
+		message => 'Processing incomplete.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1074,20 +1068,14 @@ sub _log_complete_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Processing complete: '.
-			$self->_get_log_processing_results(
-				size_statistics => $arg_hash{'size_statistics'},
-				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'},
-				complete => 1)),
+		message => 'Processing complete.',
 		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
 }
 
-sub _get_log_processing_results {
+sub _log_processing_results {
 	my ($self, %arg_hash) = @_;
 
 	my $can_be_compacted = (
@@ -1098,26 +1086,30 @@ sub _get_log_processing_results {
 		$arg_hash{'bloat_statistics'}->{'effective_page_count'} and
 		not $arg_hash{'complete'});
 
-	return
-		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
-		$arg_hash{'size_statistics'}->{'total_page_count'}.
-		' pages including toasts and indexes), size reduced by '.
-		PgToolkit::Utils->get_size_pretty(
-			size => ($arg_hash{'base_size_statistics'}->{'size'} -
-					 $arg_hash{'size_statistics'}->{'size'})).' ('.
-		PgToolkit::Utils->get_size_pretty(
-			size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
-					 $arg_hash{'size_statistics'}->{'total_size'})).
-		' including toasts and indexes) in total'.
-		($can_be_compacted ? ', approximately '.
-		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
-		 ($arg_hash{'size_statistics'}->{'page_count'} -
-		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-		 ' pages) that is '.
-		 PgToolkit::Utils->get_size_pretty(
-			 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
-		 ' more were expected to be compacted after this attempt' :
-		 '').'.';
+	$self->{'_logger'}->write(
+		message => (
+			'Processing results: '.
+			$arg_hash{'size_statistics'}->{'page_count'}.' pages left ('.
+			$arg_hash{'size_statistics'}->{'total_page_count'}.
+			' pages including toasts and indexes), size reduced by '.
+			PgToolkit::Utils->get_size_pretty(
+				size => ($arg_hash{'base_size_statistics'}->{'size'} -
+						 $arg_hash{'size_statistics'}->{'size'})).' ('.
+			PgToolkit::Utils->get_size_pretty(
+				size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
+						 $arg_hash{'size_statistics'}->{'total_size'})).
+			' including toasts and indexes) in total'.
+			($can_be_compacted ? ', approximately '.
+			 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+			 ($arg_hash{'size_statistics'}->{'page_count'} -
+			  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
+			 ' pages) that is '.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+			 ' more were expected to be compacted after this attempt' :
+			 '').'.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
 }
 
 sub _log_deadlock_detected {
