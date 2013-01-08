@@ -257,31 +257,39 @@ sub _process {
 	}
 
 	if (not $is_skipped) {
-		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
-		if ($self->{'_pgstattuple_schema_ident'}) {
-			$self->_log_pgstattuple_duration(
-				duration => $self->{'_database'}->get_duration());
-		}
-
-		if (not defined
-			$self->{'_bloat_statistics'}->{'effective_page_count'})
-		{
-			$self->_do_analyze();
-			$self->_log_analyze_complete(
-				duration => $self->{'_database'}->get_duration(),
-				phrase => 'required initial');
-
+		eval {
 			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 			if ($self->{'_pgstattuple_schema_ident'}) {
 				$self->_log_pgstattuple_duration(
 					duration => $self->{'_database'}->get_duration());
 			}
+		};
+		if ($@) {
+			if ($@ =~ 'DataError') {
+				$self->_do_analyze();
+				$self->_log_analyze_complete(
+					duration => $self->{'_database'}->get_duration(),
+					phrase => 'required initial');
 
-			if (not defined
-				$self->{'_bloat_statistics'}->{'effective_page_count'})
-			{
-				$self->_log_skipping_can_not_get_bloat_statistics();
-				$is_skipped = 1;;
+				eval {
+					$self->{'_bloat_statistics'} =
+						$self->_get_bloat_statistics();
+					if ($self->{'_pgstattuple_schema_ident'}) {
+						$self->_log_pgstattuple_duration(
+							duration => $self->{'_database'}->get_duration());
+					}
+				};
+
+				if ($@) {
+					if ($@ =~ 'DataError') {
+						$self->_log_skipping_can_not_get_bloat_statistics();
+						$is_skipped = 1;;
+					} else {
+						die($@);
+					}
+				}
+			} else {
+				die($@);
 			}
 		}
 	}
@@ -491,6 +499,7 @@ sub _process {
 
 	my $will_be_skipped = (
 		not $self->{'_force'} and (
+			$is_skipped or
 			$self->{'_size_statistics'}->{'page_count'} <
 			$self->{'_min_page_count'} or
 			$self->{'_bloat_statistics'}->{'free_percent'} <
@@ -642,9 +651,9 @@ sub is_processed {
 	return $self->{'_is_processed'};
 }
 
-=head2 B<get_ident()>
+=head2 B<get_log_ident()>
 
-Returns a table ident.
+Returns a table ident for log.
 
 =head3 Returns
 
@@ -1200,6 +1209,10 @@ WHERE
 SQL
 		);
 
+	if (not defined $result->[0]->[0]) {
+		die('DataError Can not get max tupples per page.');
+	}
+
 	return $result->[0]->[0];
 }
 
@@ -1294,12 +1307,21 @@ SQL
 			);
 	}
 
-	return {
+	$result = {
 		'effective_page_count' => $result->[0]->[0],
 		'free_percent' => (defined $result->[0]->[1] and
 						   $result->[0]->[1] > 0) ? $result->[0]->[1] : 0,
 		'free_space' => (defined $result->[0]->[2] and
 						 $result->[0]->[2] > 0) ? $result->[0]->[2] : 0};
+
+	if (not defined $result->{'effective_page_count'} or
+		not defined $result->{'free_percent'} or
+		not defined $result->{'free_space'})
+	{
+		die('DataError Can not get bloat statistics.');
+	}
+
+	return $result;
 }
 
 sub _get_size_statistics {
@@ -1321,11 +1343,21 @@ FROM (
 SQL
 		);
 
-	return {
+	$result = {
 		'size' => $result->[0]->[0],
 		'total_size' => $result->[0]->[1],
 		'page_count' => $result->[0]->[2],
 		'total_page_count' => $result->[0]->[3]};
+
+	if (not defined $result->{'size'} or
+		not defined $result->{'total_size'} or
+		not defined $result->{'page_count'} or
+		not defined $result->{'total_page_count'})
+	{
+		die('DataError Can not get size statistics.');
+	}
+
+	return $result;
 }
 
 sub _do_vacuum {
@@ -1373,6 +1405,10 @@ ORDER BY
 LIMIT 1;
 SQL
 		);
+
+	if (not defined $result->[0]->[0]) {
+		die('DataError Can not get update column.');
+	}
 
 	return $result->[0]->[0];
 }
@@ -1466,9 +1502,17 @@ FROM (
 SQL
 		);
 
-	return {
+	$result = {
 		'size' => $result->[0]->[0],
 		'page_count' => $result->[0]->[1]};
+
+	if (not defined $result->{'size'} or
+		not defined $result->{'page_count'})
+	{
+		die('DataError Can not get index size statistics.');
+	}
+
+	return $result;
 }
 
 sub _get_index_bloat_statistics {
@@ -1508,9 +1552,17 @@ FROM (
 SQL
 		);
 
-	return {
+	$result = {
 		'free_percent' => $result->[0]->[0],
 		'free_space' => $result->[0]->[1]};
+
+	if (not defined $result->{'free_percent'} or
+		not defined $result->{'free_space'})
+	{
+		die('DataError Can not get index bloat statistics.');
+	}
+
+	return $result;
 }
 
 sub _get_reindex_query {

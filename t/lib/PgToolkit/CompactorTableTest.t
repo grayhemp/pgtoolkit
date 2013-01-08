@@ -8,6 +8,7 @@ use warnings;
 
 use Test::MockObject;
 use Test::More;
+use Test::Exception;
 
 use PgToolkit::DatabaseStub;
 
@@ -158,37 +159,6 @@ sub test_analyze_if_not_analyzed : Test(15) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_can_not_get_bloat_statistics : Test(14) {
-	my $self = shift;
-
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'} = [
-		[[undef, undef, undef]],
-		[[undef, undef, undef]]];
-
-	my $table_compactor = $self->{'table_compactor_constructor'}->();
-
-	$table_compactor->process(attempt => 1);
-
-	my $i = 1;
-
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'vacuum');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_size_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_approximate_bloat_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'analyze');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_approximate_bloat_statistics');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, undef);
-	ok($table_compactor->is_processed());
-}
-
 sub test_skip_processing_if_table_is_empty : Test(8) {
 	my $self = shift;
 
@@ -301,6 +271,173 @@ sub test_force_processing : Test(12) {
 		$i++, 'has_special_triggers');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
+}
+
+sub test_can_not_get_update_column : Test(4) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_column'}->{'row_list'} = [[undef]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	throws_ok(
+		sub {
+			$table_compactor->process(attempt => 1);
+		},
+		qr/DataError Can not get update column./);
+
+	my $i = 6;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_column');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_can_not_get_max_tupples_per_page : Test(6) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_max_tupples_per_page'}->{'row_list'} = [[undef]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	throws_ok(
+		sub {
+			$table_compactor->process(attempt => 1);
+		},
+		qr/DataError Can not get max tupples per page./);
+
+	my $i = 6;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_column');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_max_tupples_per_page');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_can_not_get_bloat_statistics : Test(14) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'} = [
+		[[undef, undef, undef]],
+		[[undef, undef, undef]]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 1;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_can_not_get_size_statistics : Test(4) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'} = [
+		[[undef, undef, undef]]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	throws_ok(
+		sub {
+			$table_compactor->process(attempt => 1);
+		},
+		qr/DataError Can not get size statistics./);
+
+	my $i = 1;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_can_not_get_index_size_statistics : Test(12) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_size_statistics'}->{'row_list_sequence'} = [
+		[[undef, undef]]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		reindex => 1);
+
+	throws_ok(
+		sub {
+			$table_compactor->process(attempt => 1);
+		},
+		qr/DataError Can not get index size statistics./);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_can_not_get_index_bloat_statistics : Test(14) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_bloat_statistics'}->{'row_list_sequence'} = [
+		[[undef, undef]]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		pgstattuple_schema_name => 'public',
+		reindex => 1);
+
+	throws_ok(
+		sub {
+			$table_compactor->process(attempt => 1);
+		},
+		qr/DataError Can not get index bloat statistics./);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_pgstattuple_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_bloat_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
 }
 
 sub test_main_processing : Test(20) {
