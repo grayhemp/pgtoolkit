@@ -60,7 +60,7 @@ sub new {
 	}
 
 	if (not defined $self) {
-		die(join("", ('DatabaseChooserError Can not find an adapter.')));
+		die('DatabaseChooserError Can not find an adapter.');
 	}
 
 	return $self;
