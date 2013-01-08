@@ -1629,7 +1629,7 @@ sub _get_straight_reindex_query {
 	my $index_ident = $self->{'_database'}->quote_ident(
 		string => $arg_hash{'data'}->{'name'});
 
-	return 'REINDEX '.$schema_ident.'.'.$index_ident.';';
+	return 'REINDEX INDEX '.$schema_ident.'.'.$index_ident.';';
 
 }
 
