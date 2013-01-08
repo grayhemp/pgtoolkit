@@ -281,11 +281,7 @@ sub test_can_not_get_update_column : Test(4) {
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
-	throws_ok(
-		sub {
-			$table_compactor->process(attempt => 1);
-		},
-		qr/DataError Can not get update column./);
+	$table_compactor->process(attempt => 1);
 
 	my $i = 6;
 
@@ -293,6 +289,7 @@ sub test_can_not_get_update_column : Test(4) {
 		$i++, 'get_column');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+	ok($table_compactor->is_processed());
 }
 
 sub test_can_not_get_max_tupples_per_page : Test(6) {
@@ -303,11 +300,7 @@ sub test_can_not_get_max_tupples_per_page : Test(6) {
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
-	throws_ok(
-		sub {
-			$table_compactor->process(attempt => 1);
-		},
-		qr/DataError Can not get max tupples per page./);
+	$table_compactor->process(attempt => 1);
 
 	my $i = 6;
 
@@ -317,6 +310,7 @@ sub test_can_not_get_max_tupples_per_page : Test(6) {
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+	ok($table_compactor->is_processed());
 }
 
 sub test_can_not_get_bloat_statistics : Test(14) {
@@ -359,11 +353,7 @@ sub test_can_not_get_size_statistics : Test(4) {
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
-	throws_ok(
-		sub {
-			$table_compactor->process(attempt => 1);
-		},
-		qr/DataError Can not get size statistics./);
+	$table_compactor->process(attempt => 1);
 
 	my $i = 1;
 
@@ -371,6 +361,7 @@ sub test_can_not_get_size_statistics : Test(4) {
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+	ok($table_compactor->is_processed());
 }
 
 sub test_can_not_get_index_size_statistics : Test(12) {
@@ -383,11 +374,7 @@ sub test_can_not_get_index_size_statistics : Test(12) {
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		reindex => 1);
 
-	throws_ok(
-		sub {
-			$table_compactor->process(attempt => 1);
-		},
-		qr/DataError Can not get index size statistics./);
+	$table_compactor->process(attempt => 1);
 
 	my $i = 15;
 
@@ -403,6 +390,7 @@ sub test_can_not_get_index_size_statistics : Test(12) {
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+	ok($table_compactor->is_processed());
 }
 
 sub test_can_not_get_index_bloat_statistics : Test(14) {
@@ -416,11 +404,7 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 		pgstattuple_schema_name => 'public',
 		reindex => 1);
 
-	throws_ok(
-		sub {
-			$table_compactor->process(attempt => 1);
-		},
-		qr/DataError Can not get index bloat statistics./);
+	$table_compactor->process(attempt => 1);
 
 	my $i = 15;
 
@@ -438,6 +422,7 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 		$i++, 'get_index_bloat_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+	ok($table_compactor->is_processed());
 }
 
 sub test_main_processing : Test(20) {

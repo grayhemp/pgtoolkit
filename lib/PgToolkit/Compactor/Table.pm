@@ -217,6 +217,9 @@ sub process {
 		if ($@ =~ ('relation "'.$name.'" does not exist')) {
 			$self->_log_relation_does_not_exist();
 			$self->{'_is_processed'} = 1;
+		} elsif ($@ =~ /DataError (.*?)\./) {
+			$self->_log_data_error(message => $1);
+			$self->{'_is_processed'} = 1;
 		} else {
 			my $error = $@;
 			$self->_wrap(code => sub { die($error); });
@@ -790,7 +793,7 @@ sub _log_skipping_can_not_get_bloat_statistics {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Skipping processing: can not get bloat statistics.',
+		message => 'Can not get bloat statistics, processing stopped.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1136,8 +1139,8 @@ sub _log_cannot_extract_system_attribute {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => ('Stopped processing as a system attribute extraction '.
-					'error has occurred.'),
+		message => ('System attribute extraction error has occurred, '.
+					'processing stopped.'),
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1148,8 +1151,19 @@ sub _log_relation_does_not_exist {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => ('Stopped processing as a relation does not exist '.
-					'error has occurred.'),
+		message => ('Relation does not exist error has occurred, '.
+					'processing stopped.'),
+		level => 'warning',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_data_error {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => $arg_hash{'message'}.', processing stopped.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
