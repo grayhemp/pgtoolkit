@@ -591,6 +591,82 @@ sub test_main_processing_no_routine_vacuum : Test(16) {
 		$i++, 'get_size_statistics');
 }
 
+sub test_reindex : Test(35) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_size_statistics'}->{'row_list_sequence'}->[4] = [[500, 100]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_size_statistics'}->{'row_list_sequence'}->[5] = [[425, 85]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'}->[2] = [
+		'table_idx3', 'tablespace',
+		'CREATE INDEX table_idx3 ON schema.table '.
+		'USING btree (column3)',
+		'btree', undef, undef, 1, 3000];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'reindex3'}= {
+		'sql_pattern' =>
+			qr/CREATE INDEX CONCURRENTLY pgcompactor_tmp$$ ON /.
+			qr/schema\.table USING btree \(column3\) /.
+			qr/TABLESPACE tablespace;/,
+		'row_list' => []};
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'alter_index3'}= {
+		'sql_pattern' =>
+			qr/BEGIN; DROP INDEX schema\.table_idx3; /.
+			qr/ALTER INDEX schema\.pgcompactor_tmp$$ /.
+			qr/RENAME TO table_idx3; END;/,
+		'row_list' => []};
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 15;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
 sub test_reindex_if_last_attempt_and_not_processed : Test(27) {
 	my $self = shift;
 

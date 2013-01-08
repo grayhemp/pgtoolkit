@@ -1585,7 +1585,8 @@ sub _get_reindex_query {
 	my $sql = $arg_hash{'data'}->{'definition'};
 	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
 	if (defined $arg_hash{'data'}->{'tablespace'}) {
-		$sql =~ s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
+		$sql =~
+			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
 	}
 	$sql .= ';';
 
