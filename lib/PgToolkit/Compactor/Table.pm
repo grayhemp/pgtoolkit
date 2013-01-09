@@ -387,6 +387,19 @@ sub _process {
 				last;
 			}
 
+			# Debug warning
+			if (not defined $to_page) {
+				$self->{'_logger'}->write(
+					message => (
+						'Incorrect result of cleaning:'.
+						' column_ident '.$column_ident.
+						', to_page '.$last_to_page.
+						', pages_per_round '.$pages_per_round.
+						', max_tupples_per_page '.$max_tupples_per_page.'.'),
+					level => 'warning',
+					target => $self->{'_log_target'});
+			}
+
 			$self->_sleep(
 				$self->{'_delay_constant'} + $self->{'_delay_ratio'} *
 				($self->_time() - $start_time));
