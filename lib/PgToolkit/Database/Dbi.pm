@@ -77,17 +77,24 @@ sub init {
 		die('DatabaseError No driver found "'.$arg_hash{'driver'}.'".');
 	}
 
-	$self->{'dbh'} = DBI->connect(
-		'dbi:'.$arg_hash{'driver'}.
-		':dbname='.($arg_hash{'dbname'} ? $self->_get_escaped_dbname() : '').
-		(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
-		';port='.($arg_hash{'port'} or ''),
-		$arg_hash{'user'}, $arg_hash{'password'},
-		{
-			 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
-			 PrintWarn => 0, PrintError => 0,
-			 pg_server_prepare => 0, pg_enable_utf8 => 0
-		});
+	eval {
+		$self->{'dbh'} = DBI->connect(
+			'dbi:'.$arg_hash{'driver'}.
+			':dbname='.($arg_hash{'dbname'} ?
+						$self->_get_escaped_dbname() : '').
+			(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
+			';port='.($arg_hash{'port'} or ''),
+			$arg_hash{'user'}, $arg_hash{'password'},
+			{
+				RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
+				PrintWarn => 0, PrintError => 0,
+				pg_server_prepare => 0, pg_enable_utf8 => 0
+			});
+	};
+
+	if ($@) {
+		die('DatabaseError '.$@);
+	}
 
 	if ($arg_hash{'set_hash'}) {
 		$self->execute(

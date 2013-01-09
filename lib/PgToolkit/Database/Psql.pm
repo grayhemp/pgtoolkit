@@ -84,17 +84,16 @@ sub init {
 	$self->{'_set_hash'} = $arg_hash{'set_hash'};
 
 	$self->{'_command'} = sprintf(
-		'%s%s -q -A -t -X %s %s %s %s -P null="<NULL>"',
+		'%s%s -w -q -A -t -X %s %s %s %s -P null="<NULL>"',
 		@opt_hash{'password', 'path', 'host', 'port', 'dbname', 'user'});
 	$self->{'_command'} =~ s/\s+/ /g;
 
 	eval {
-		$self->_run_psql(
-			command => $self->{'_command'}, sql => 'SELECT 1;');
+		$self->_execute(sql => 'SELECT 1;');
 	};
 	if ($@) {
-		if ($@ =~ 'DatabaseError') {
-			die('DatabaseError Can not run psql.');
+		if ($@ =~ 'DatabaseError (.*)') {
+			die('DatabaseError Can not run psql: '.$1);
 		} else {
 			die($@);
 		}
@@ -186,10 +185,10 @@ sub _run_psql {
 
 	my $err_output = join('', <CHLD_ERR>);
 
-	if ($exit_status or ($err_output and $err_output =~ /^ERROR: /)) {
-		die(join("\n", ('DatabaseError Can not execute the command',
+	if ($exit_status or $err_output) {
+		die(join(' ', ('DatabaseError Can not execute the command',
 						$arg_hash{'command'}, $arg_hash{'sql'},
-						join('', <CHLD_OUT>), $err_output)));
+						$err_output, join('', <CHLD_OUT>))));
 	}
 
 	return join('', <CHLD_OUT>);

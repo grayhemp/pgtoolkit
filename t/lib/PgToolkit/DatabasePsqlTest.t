@@ -28,7 +28,7 @@ sub test_init : Test(5) {
 	my $db = $self->{'database_constructor'}->();
 
 	is($db->get_command(),
-	   'PGPASSWORD=somepassword psql -q -A -t -X -h somehost -p 5432 '.
+	   'PGPASSWORD=somepassword psql -w -q -A -t -X -h somehost -p 5432 '.
 	   '-d somedb -U someuser -P null="<NULL>"');
 	is($db->get_dbname(), 'somedb');
 
@@ -38,12 +38,12 @@ sub test_init : Test(5) {
 		password => 'anotherpassword');
 
 	is($db->get_command(),
-	   'PGPASSWORD=anotherpassword /usr/bin/psql -q -A -t -X -h anotherhost '.
-	   '-p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
+	   'PGPASSWORD=anotherpassword /usr/bin/psql -w -q -A -t -X '.
+	   '-h anotherhost -p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
 	is($db->get_dbname(), 'anotherdb');
 
 	is(PgToolkit::DatabasePsqlTest::DatabasePsql->new()->get_command(),
-	   'psql -q -A -t -X -P null="<NULL>"');
+	   'psql -w -q -A -t -X -P null="<NULL>"');
 }
 
 sub test_can_not_run : Test {
@@ -55,7 +55,7 @@ sub test_can_not_run : Test {
 				psql => 'psql', host => 'localhost', port => '7432',
 				dbname => 'test', user => 'test', password => '');
 		},
-		qr/DatabaseError Can not run psql\./);
+		qr/DatabaseError Can not run psql:/);
 }
 
 sub test_execute : Test(5) {
@@ -122,6 +122,9 @@ sub _run_psql {
 		'SELECT 1, \'text\';' => '1|text',
 		('SELECT column1, column2 FROM (VALUES (1, \'text1\'), '.
 		 '(2, \'text2\'))_;') => "1|text1\n2|text2",
+		'SET statement_timeout TO 0; SELECT 1;' => '1',
+		('SET synchronous_commit TO \'off\'; SET vacuum_cost_delay TO 1; '.
+		 'SELECT 1;') => '1',
 		'SET statement_timeout TO 0; SELECT 10;' => '10',
 		('SET synchronous_commit TO \'off\'; SET vacuum_cost_delay TO 1; '.
 		 'SELECT 20;') => '20'};

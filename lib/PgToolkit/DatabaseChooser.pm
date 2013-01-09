@@ -45,6 +45,7 @@ sub new {
 	my ($class, %arg_hash) = @_;
 
 	my $self;
+	my $errors = [];
 
 	for my $constructor (@{$arg_hash{'constructor_list'}}) {
 		eval {
@@ -52,7 +53,9 @@ sub new {
 		};
 		if ($@) {
 			if ($@ !~ 'DatabaseError') {
-				die($@)
+				die($@);
+			} else {
+				push(@{$errors}, $@);
 			}
 		} else {
 			last;
@@ -60,7 +63,8 @@ sub new {
 	}
 
 	if (not defined $self) {
-		die('DatabaseChooserError Can not find an adapter.');
+		die('DatabaseChooserError Can not find an adapter among supported, '.
+			'reasons: '."\n".join('', @{$errors}));
 	}
 
 	return $self;
