@@ -226,7 +226,7 @@ sub _send_to_psql {
 		my $line = $self->{'out'}->getline();
 
 		if (defined $line) {
-			if ($line =~ /pgcompactor_EOA/) {
+			if ($line eq 'pgcompactor_EOA'."\n") {
 				last;
 			} else {
 				$result .= $line;
