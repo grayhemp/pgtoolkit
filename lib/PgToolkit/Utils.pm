@@ -5,6 +5,8 @@ use base qw(PgToolkit::Class);
 use strict;
 use warnings;
 
+use Time::HiRes;
+
 =head1 NAME
 
 B<PgToolkit::Utils> - a utility functions class.
@@ -64,9 +66,10 @@ sub get_size_pretty {
 
 =head2 B<get_pgpass_password()>
 
-Parses the C<.pgpass> file and returns the password that matches
-connection parameters. The file is looked up by the custom location
-first and than if not found by the user's home location.
+Parses a C<.pgpass> file and returns the password that matches
+connection parameters. The custom location file is looked up prior to
+the user's home one. Note that if no password found in the custom
+location file the user's home one will not be looked up.
 
 =head3 Arguments
 
@@ -133,6 +136,46 @@ sub get_pgpass_password {
 	}
 
 	return $password;
+}
+
+=head2 B<sleep()>
+
+Implements a high resolution C<sleep()>.
+
+=head3 Arguments
+
+=over 4
+
+=item C<time>
+
+=back
+
+=cut
+
+sub sleep {
+	my ($self, $time) = @_;
+
+	Time::HiRes::sleep($time);
+
+	return;
+}
+
+=head2 B<sleep()>
+
+Implements a high resolution C<time()>.
+
+=head3 Arguments
+
+=over 4
+
+=item C<time>
+
+=back
+
+=cut
+
+sub time {
+	return Time::HiRes::time();
 }
 
 =head1 SEE ALSO

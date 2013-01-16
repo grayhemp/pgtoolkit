@@ -6,7 +6,6 @@ use strict;
 use warnings;
 
 use POSIX;
-use Time::HiRes qw(time sleep);
 
 use PgToolkit::Utils;
 
@@ -1198,13 +1197,13 @@ sub _log_pgstattuple_duration {
 sub _sleep {
 	my ($self, $time) = @_;
 
-	sleep($time);
+	PgToolkit::Utils->sleep($time);
 
 	return;
 }
 
 sub _time {
-	return time();
+	return PgToolkit::Utils->time();
 }
 
 sub _has_special_triggers {

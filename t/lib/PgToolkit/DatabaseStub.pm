@@ -36,7 +36,7 @@ sub init {
 				$sql_pattern =~ s/<[a-z_]+?=(.+?)>/$1/g;
 
 				is($self->call_pos($pos), 'execute');
-				like({$self, $self->call_args($pos)}->{'sql'},
+				like({'self', $self->call_args($pos)}->{'sql'},
 					 qr/$sql_pattern/);
 			} else {
 				is($self->call_pos($pos), undef);
