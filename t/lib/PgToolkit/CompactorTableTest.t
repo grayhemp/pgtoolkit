@@ -364,7 +364,7 @@ sub test_can_not_get_max_tupples_per_page : Test(6) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_main_processing : Test(20) {
+sub test_main_processing : Test(36) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -382,24 +382,40 @@ sub test_main_processing : Test(20) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 94);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 87);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 84);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'rollback');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 }
 
-sub test_finish_when_0_pages_returned : Test(12) {
+sub test_finish_when_0_pages_returned : Test(16) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -417,7 +433,11 @@ sub test_finish_when_0_pages_returned : Test(12) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
@@ -426,7 +446,7 @@ sub test_finish_when_0_pages_returned : Test(12) {
 		$i++, 'analyze');
 }
 
-sub test_pages_per_round_not_more_then_to_page : Test(20) {
+sub test_pages_per_round_not_more_then_to_page : Test(36) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -448,24 +468,40 @@ sub test_pages_per_round_not_more_then_to_page : Test(20) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99, pages_per_round => 99);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 94, pages_per_round => 94);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 10, pages_per_round => 10);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 5, pages_per_round => 5);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'rollback');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 }
 
-sub test_cleaned_during_processing : Test(14) {
+sub test_cleaned_during_processing : Test(22) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -486,9 +522,17 @@ sub test_cleaned_during_processing : Test(14) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 94);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
@@ -497,7 +541,7 @@ sub test_cleaned_during_processing : Test(14) {
 		$i++, 'analyze');
 }
 
-sub test_main_processing_no_routine_vacuum : Test(16) {
+sub test_main_processing_no_routine_vacuum : Test(32) {
 	my $self = shift;
 
 	splice(
@@ -517,13 +561,29 @@ sub test_main_processing_no_routine_vacuum : Test(16) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_max_tupples_per_page');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 94);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 89);
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 84);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'rollback');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
@@ -542,7 +602,7 @@ sub test_can_not_get_index_size_statistics : Test(12) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -572,7 +632,7 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -627,7 +687,7 @@ sub test_reindex : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -689,7 +749,7 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(27) {
 
 	$table_compactor->process(attempt => 2);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -729,7 +789,7 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(27) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -780,7 +840,7 @@ sub test_no_reindex_if_not_last_attempt_and_not_processed : Test(7) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -814,7 +874,7 @@ sub test_reindex_queries_if_last_attempt_and_not_processed : Test(13) {
 
 	$table_compactor->process(attempt => 2);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -840,7 +900,7 @@ sub test_reindex_queries_if_not_last_attempt_and_processed : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -877,7 +937,7 @@ sub test_no_reindex_queries_if_not_last_attempt_and_not_processed : Test(7) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -901,7 +961,7 @@ sub test_no_reindex_if_in_min_free_percent : Test(25) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -944,7 +1004,7 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(27) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -989,7 +1049,7 @@ sub test_no_reindex_queries_if_in_min_free_percent : Test(17) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1024,7 +1084,7 @@ sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1053,7 +1113,7 @@ sub test_no_reindex_if_in_min_page_count : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1091,7 +1151,7 @@ sub test_reindex_if_in_min_page_count_and_forced : Test(27) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1137,7 +1197,7 @@ sub test_no_reindex_queries_if_in_min_page_count : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1172,7 +1232,7 @@ sub test_reindex_queries_if_in_min_page_count_and_forced : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1306,7 +1366,7 @@ sub test_reindex_if_not_processed_and_will_be_skipped : Test(28) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1361,7 +1421,7 @@ sub test_reindex_queries_if_not_processed_and_will_be_skipped : Test(14) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1392,7 +1452,7 @@ sub test_no_reindex_if_index_is_empty_and_forced : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1432,7 +1492,7 @@ sub test_no_reindex_queries_if_index_is_empty_and_forced : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1461,7 +1521,7 @@ sub test_no_reindex_if_not_btree : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1498,7 +1558,7 @@ sub test_no_reindex_queries_if_not_btree : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1528,7 +1588,7 @@ sub test_reindex_if_not_btree_and_forced : Test(27) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1572,7 +1632,7 @@ sub test_reindex_queries_if_not_btree_and_force : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1601,7 +1661,7 @@ sub test_no_reindex_if_not_allowed : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1638,7 +1698,7 @@ sub test_no_reindex_queries_if_not_allowed : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1668,7 +1728,7 @@ sub test_no_reindex_if_not_allowed_and_forced : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1706,7 +1766,7 @@ sub test_no_reindex_queries_if_not_allowed_and_forced : Test(13) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1724,7 +1784,7 @@ sub test_no_reindex_queries_if_not_allowed_and_forced : Test(13) {
 		$i++, undef);
 }
 
-sub test_loops_count : Test(4) {
+sub test_loops_count : Test(8) {
 	my $self = shift;
 
 	splice(@{$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
@@ -1740,10 +1800,14 @@ sub test_loops_count : Test(4) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 109;
+	my $i = 307;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 84);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 }
@@ -1889,7 +1953,7 @@ sub test_no_final_analyze : Test(5) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 15;
+	my $i = 23;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1899,7 +1963,7 @@ sub test_no_final_analyze : Test(5) {
 		$i++, undef);
 }
 
-sub test_continue_processing_on_deadlock_detected : Test(4) {
+sub test_continue_processing_on_deadlock_detected : Test(12) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}
@@ -1912,12 +1976,20 @@ sub test_continue_processing_on_deadlock_detected : Test(4) {
 	my $i = 8;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'clean_pages', to_page => 99);
+		$i++, 'begin');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'rollback');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'commit');
 }
 
-sub test_stop_processing_on_cannot_extract_system_attribute : Test(7) {
+sub test_stop_processing_on_cannot_extract_system_attribute : Test(11) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'clean_pages'}->
@@ -1938,7 +2010,11 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(7) {
 	my $i = 8;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'clean_pages', to_page => 99);
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'rollback');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
 	$self->{'database'}->{'mock'}->is_called(
