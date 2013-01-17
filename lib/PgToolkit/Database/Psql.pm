@@ -215,7 +215,7 @@ sub _send_to_psql {
 
 	my $err_output = join('', $self->{'err'}->getlines());
 
-	if ($err_output) {
+	if ($err_output and $err_output =~ /ERROR:/) {
 		die(join(' ', ('DatabaseError Can not execute the command: ',
 						$arg_hash{'command'}, $err_output,
 					   join('', $self->{'out'}->getlines()))));

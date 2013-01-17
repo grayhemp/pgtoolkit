@@ -399,7 +399,8 @@ BEGIN
         FOR _ctid IN EXECUTE _update_query USING _ctid_list
         LOOP
             IF _ctid > _max_ctid THEN
-                RAISE EXCEPTION 'No more free space left in the table.';
+                _result_page := -1;
+                EXIT _outer_loop;
             ELSIF _ctid >= _min_ctid THEN
                 -- The tuple is still in the range, more updates are needed
                 _next_ctid_list := _next_ctid_list || _ctid;

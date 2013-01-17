@@ -350,6 +350,7 @@ sub _process {
 			expected_page_count => $expected_page_count,
 			page_count => $self->{'_size_statistics'}->{'page_count'});
 		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
+
 		$self->_log_column(name => $column_ident);
 		$self->_log_pages_per_round(value => $pages_per_round);
 		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
@@ -359,44 +360,58 @@ sub _process {
 			 $loop > 0 ; $loop--)
 		{
 			my $start_time = $self->_time();
-
 			my $last_to_page = $to_page;
+
+			$self->_begin();
+
 			eval {
 				$to_page = $self->_clean_pages(
 					column_ident => $column_ident,
 					to_page => $last_to_page,
 					pages_per_round => $pages_per_round,
 					max_tupples_per_page => $max_tupples_per_page);
+
 				$clean_pages_total_duration =
 					$clean_pages_total_duration +
 					$self->{'_database'}->get_duration();
 			};
+
 			if ($@) {
-				if ($@ =~ 'No more free space left in the table') {
-					# Normal cleaning completion
-				} elsif ($@ =~ 'deadlock detected') {
+				$self->_rollback();
+
+				if ($@ =~ 'deadlock detected') {
 					$self->_log_deadlock_detected();
 					next;
 				} elsif ($@ =~ 'cannot extract system attribute') {
 					$self->_log_cannot_extract_system_attribute();
 					$expected_error_occurred = 1;
+					last;
 				} else {
 					die($@);
 				}
-				last;
-			}
+			} else {
+				if (defined $to_page) {
+					# Normal cleaning completion
+					if ($to_page == -1) {
+						$self->_rollback();
+						$to_page = $last_to_page;
+						last;
+					}
+				} else {
+					# Bug trap warning
+					$self->{'_logger'}->write(
+						message => (
+							'Incorrect result of cleaning:'.
+							' column_ident '.$column_ident.
+							', to_page '.$last_to_page.
+							', pages_per_round '.$pages_per_round.
+							', max_tupples_per_page '.
+							$max_tupples_per_page.'.'),
+						level => 'warning',
+						target => $self->{'_log_target'});
+				}
 
-			# Debug warning
-			if (not defined $to_page) {
-				$self->{'_logger'}->write(
-					message => (
-						'Incorrect result of cleaning:'.
-						' column_ident '.$column_ident.
-						', to_page '.$last_to_page.
-						', pages_per_round '.$pages_per_round.
-						', max_tupples_per_page '.$max_tupples_per_page.'.'),
-					level => 'warning',
-					target => $self->{'_log_target'});
+				$self->_commit();
 			}
 
 			$self->_sleep(
@@ -1654,6 +1669,36 @@ sub _reindex {
 
 	$self->_execute_and_log(
 		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+
+	return;
+}
+
+sub _begin {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => 'BEGIN;');
+
+	return;
+}
+
+sub _commit {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => 'COMMIT;');
+
+	return;
+}
+
+sub _rollback {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => 'ROLLBACK;');
 
 	return;
 }
