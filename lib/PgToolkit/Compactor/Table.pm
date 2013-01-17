@@ -1615,7 +1615,8 @@ sub _get_reindex_query {
 		$sql =~
 			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
 	}
-	$sql .= ';';
+	$sql .= '; -- '.$self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname());
 
 	return $sql;
 
@@ -1646,7 +1647,8 @@ sub _get_alter_index_query {
 		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
 		  'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
 		  ' RENAME TO '.$index_ident.'; ')
-		).'END;';
+		).'END; -- '.$self->{'_database'}->quote_ident(
+			string => $self->{'_database'}->get_dbname());
 }
 
 sub _get_straight_reindex_query {
