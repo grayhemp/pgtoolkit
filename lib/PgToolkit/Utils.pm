@@ -5,6 +5,8 @@ use base qw(PgToolkit::Class);
 use strict;
 use warnings;
 
+use Time::HiRes;
+
 =head1 NAME
 
 B<PgToolkit::Utils> - a utility functions class.
@@ -24,7 +26,7 @@ different problems.
 =head2 B<get_size_pretty()>
 
 Converts size into human readable format. It works exactly like
-pg_size_pretty() works.
+C<pg_size_pretty()> works.
 
 =head3 Arguments
 
@@ -60,6 +62,120 @@ sub get_size_pretty {
 	return
 		($size < 0 ? -1 : 1) * int(abs($size) + 0.5).
 		' '.$postfix_list->[$index];
+}
+
+=head2 B<get_pgpass_password()>
+
+Parses a C<.pgpass> file and returns the password that matches
+connection parameters. The custom location file is looked up prior to
+the user's home one. Note that if no password found in the custom
+location file the user's home one will not be looked up.
+
+=head3 Arguments
+
+=over 4
+
+=item C<pgpassfile>
+
+a custom location password file
+
+=item C<home>
+
+a user home password file
+
+=item C<host>
+
+=item C<port>
+
+=item C<user>
+
+=item C<dbname>
+
+=back
+
+=head3 Returns
+
+A password string or undef if there is no appropriate entry in the
+file.
+
+=cut
+
+sub get_pgpass_password {
+	my ($self, %arg_hash) = @_;
+
+	my $pgpass;
+	if ($arg_hash{'pgpassfile'}) {
+		open($pgpass, '<', $arg_hash{'pgpassfile'});
+	} elsif ($arg_hash{'home'}) {
+		open($pgpass, '<', $arg_hash{'home'});
+	}
+
+	my $password;
+	if (defined $pgpass) {
+		my $template = join(
+			':', map(
+				do {
+					if (defined $_) {
+						s/([\\:])/\\$1/g;
+						'(?:'.quotemeta($_).'|\*)';
+					} else {
+						'\*';
+					}
+				},
+				$arg_hash{'host'}, $arg_hash{'port'}, $arg_hash{'dbname'},
+				$arg_hash{'user'}));
+
+		while (<$pgpass>) {
+			if (/^$template:(.*)$/) {
+				$password = $1;
+				last;
+			}
+		}
+
+		close($pgpass);
+	}
+
+	return $password;
+}
+
+=head2 B<sleep()>
+
+Implements a high resolution C<sleep()>.
+
+=head3 Arguments
+
+=over 4
+
+=item C<time>
+
+=back
+
+=cut
+
+sub sleep {
+	my ($self, $time) = @_;
+
+	Time::HiRes::sleep($time);
+
+	return;
+}
+
+=head2 B<sleep()>
+
+Implements a high resolution C<time()>.
+
+=head3 Arguments
+
+=over 4
+
+=item C<time>
+
+=back
+
+=cut
+
+sub time {
+	return Time::HiRes::time();
 }
 
 =head1 SEE ALSO

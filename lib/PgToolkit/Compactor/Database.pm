@@ -140,28 +140,27 @@ sub _process {
 	if (not $self->{'_dry_run'}) {
 		if ($self->is_processed()) {
 			$self->{'_logger'}->write(
-				message => (
-					'Processing complete: size reduced by '.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_size_delta()).' ('.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_total_size_delta()).' including '.
-					'toasts and indexes) in total.'),
-				level => 'info',
+				message => 'Processing complete.',
+				level => 'notice',
 				target => $self->{'_log_target'});
 		} else {
 			$self->{'_logger'}->write(
 				message => (
 					'Processing incomplete: '.$self->_incomplete_count().
-					' tables left, size reduced by '.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_size_delta()).' ('.
-					PgToolkit::Utils->get_size_pretty(
-						size => $self->get_total_size_delta()).
-					' including toasts and indexes) in total.'),
+					' tables left.'),
 				level => 'warning',
 				target => $self->{'_log_target'});
 		}
+		$self->{'_logger'}->write(
+			message => (
+				'Processing results: size reduced by '.
+				PgToolkit::Utils->get_size_pretty(
+					size => $self->get_size_delta()).' ('.
+				PgToolkit::Utils->get_size_pretty(
+					size => $self->get_total_size_delta()).
+				' including toasts and indexes) in total.'),
+			level => 'notice',
+			target => $self->{'_log_target'});
 	}
 
 	return;
@@ -400,7 +399,8 @@ BEGIN
         FOR _ctid IN EXECUTE _update_query USING _ctid_list
         LOOP
             IF _ctid > _max_ctid THEN
-                RAISE EXCEPTION 'No more free space left in the table.';
+                _result_page := -1;
+                EXIT _outer_loop;
             ELSIF _ctid >= _min_ctid THEN
                 -- The tuple is still in the range, more updates are needed
                 _next_ctid_list := _next_ctid_list || _ctid;

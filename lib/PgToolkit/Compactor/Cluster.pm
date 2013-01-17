@@ -136,27 +136,25 @@ sub _process {
 						'Processing complete: '.
 						($attempt ? ($attempt - 1).' retries from '.
 						 $self->{'_max_retry_count'} : ' no attempts to '.
-						 'process have been done') .', size reduced by '.
-						PgToolkit::Utils->get_size_pretty(
-							size => $self->get_size_delta()).' ('.
-						PgToolkit::Utils->get_size_pretty(
-							size => $self->get_total_size_delta()).' '.
-						'including toasts and indexes) in total, '.
-						$databases_size_delta_report.'.'),
+						 'process have been done').'.'),
 					level => 'notice');
 			} else {
 				$self->{'_logger'}->write(
 					message => (
 						'Processing incomplete: '.$self->_incomplete_count().
-						' databases left, size reduced by '.
-						PgToolkit::Utils->get_size_pretty(
-							size => $self->get_size_delta()).' ('.
-						PgToolkit::Utils->get_size_pretty(
-							size => $self->get_total_size_delta()).' '.
-						'including toasts and indexes) in total, '.
-						$databases_size_delta_report.'.'),
+						' databases left.'),
 					level => 'warning');
 			}
+			$self->{'_logger'}->write(
+				message => (
+					'Processing results: size reduced by '.
+					PgToolkit::Utils->get_size_pretty(
+						size => $self->get_size_delta()).' ('.
+					PgToolkit::Utils->get_size_pretty(
+						size => $self->get_total_size_delta()).' '.
+					'including toasts and indexes) in total, '.
+					$databases_size_delta_report.'.'),
+				level => 'notice');
 		}
 	} else {
 		$self->{'_logger'}->write(

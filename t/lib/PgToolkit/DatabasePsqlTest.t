@@ -7,6 +7,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use Test::MockObject;
 use Test::Exception;
 
 use PgToolkit::Database::Psql;
@@ -15,7 +16,7 @@ sub setup : Test(setup) {
 	my $self = shift;
 
 	$self->{'database_constructor'} = sub {
-		return PgToolkit::DatabasePsqlTest::DatabasePsql->new(
+		return PgToolkit::DatabasePsqlTest::Stub->new(
 			path => 'psql', host => 'somehost', port => '5432',
 			dbname => 'somedb', user => 'someuser', password => 'somepassword',
 			@_);
@@ -27,8 +28,8 @@ sub test_init : Test(5) {
 
 	my $db = $self->{'database_constructor'}->();
 
-	is($db->get_command(),
-	   'PGPASSWORD=somepassword psql -q -A -t -X -h somehost -p 5432 '.
+	is($db->{'psql_command_line'},
+	   'PGPASSWORD=somepassword psql -w -q -A -t -X -h somehost -p 5432 '.
 	   '-d somedb -U someuser -P null="<NULL>"');
 	is($db->get_dbname(), 'somedb');
 
@@ -37,25 +38,14 @@ sub test_init : Test(5) {
 		dbname => 'anotherdb', user => 'anotheruser',
 		password => 'anotherpassword');
 
-	is($db->get_command(),
-	   'PGPASSWORD=anotherpassword /usr/bin/psql -q -A -t -X -h anotherhost '.
-	   '-p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
+	is($db->{'psql_command_line'},
+	   'PGPASSWORD=anotherpassword /usr/bin/psql -w -q -A -t -X '.
+	   '-h anotherhost -p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
 	is($db->get_dbname(), 'anotherdb');
 
-	is(PgToolkit::DatabasePsqlTest::DatabasePsql->new()->get_command(),
-	   'psql -q -A -t -X -P null="<NULL>"');
-}
-
-sub test_can_not_run : Test {
-	my $self = shift;
-
-	throws_ok(
-		sub {
-			PgToolkit::Database::Psql->new(
-				psql => 'psql', host => 'localhost', port => '7432',
-				dbname => 'test', user => 'test', password => '');
-		},
-		qr/DatabaseError Can not run psql\./);
+	is(PgToolkit::DatabasePsqlTest::Stub->new()
+	   ->{'psql_command_line'},
+	   'psql -w -q -A -t -X -P null="<NULL>"');
 }
 
 sub test_execute : Test(5) {
@@ -78,20 +68,31 @@ sub test_execute : Test(5) {
 	}
 }
 
-sub test_set_parameters : Test(2) {
+sub test_set_parameters : Test(6) {
 	my $self = shift;
 
-	is_deeply(
-		$self->{'database_constructor'}->(
-			set_hash => {'statement_timeout' => 0}
-		)->execute(sql => 'SELECT 10;'), [[10]]);
+	my $db = $self->{'database_constructor'}->();
 
-	is_deeply(
-		$self->{'database_constructor'}->(
-			set_hash => {
-				'synchronous_commit' => '\'off\'',
-				'vacuum_cost_delay' => 1}
-		)->execute(sql => 'SELECT 20;'), [[20]]);
+	is($db->{'mock'}->call_pos(1),'_send_to_psql');
+	is({'self', $db->{'mock'}->call_args(1)}->{'command'},
+	   'SELECT 1;');
+
+	$db = $self->{'database_constructor'}->(
+		set_hash => {'statement_timeout' => 0});
+
+	is($db->{'mock'}->call_pos(1),'_send_to_psql');
+	is({'self', $db->{'mock'}->call_args(1)}->{'command'},
+	   'SET statement_timeout TO 0; SELECT 1;');
+
+	$db = $self->{'database_constructor'}->(
+		set_hash => {
+			'synchronous_commit' => '\'off\'',
+			'vacuum_cost_delay' => 1});
+
+	is($db->{'mock'}->call_pos(1),'_send_to_psql');
+	is({'self', $db->{'mock'}->call_args(1)}->{'command'},
+	   'SET synchronous_commit TO \'off\'; '.
+	   'SET vacuum_cost_delay TO 1; SELECT 1;');
 }
 
 sub test_adapter_name : Test {
@@ -102,18 +103,14 @@ sub test_adapter_name : Test {
 
 1;
 
-package PgToolkit::DatabasePsqlTest::DatabasePsql;
+package PgToolkit::DatabasePsqlTest::Stub;
 
 use base qw(PgToolkit::Database::Psql);
 
-sub get_command {
-	my $self  = shift;
+sub init {
+	my ($self, %arg_hash) = @_;
 
-	return $self->{'_command'};
-}
-
-sub _run_psql {
-	my ($self, %arg) = @_;
+	$self->{'mock'} = Test::MockObject->new();
 
 	my $data_hash = {
 		'SELECT 1 WHERE false;' => '',
@@ -122,11 +119,35 @@ sub _run_psql {
 		'SELECT 1, \'text\';' => '1|text',
 		('SELECT column1, column2 FROM (VALUES (1, \'text1\'), '.
 		 '(2, \'text2\'))_;') => "1|text1\n2|text2",
-		'SET statement_timeout TO 0; SELECT 10;' => '10',
-		('SET synchronous_commit TO \'off\'; SET vacuum_cost_delay TO 1; '.
-		 'SELECT 20;') => '20'};
+		'SET statement_timeout TO 0; SELECT 1;' => '1',
+		('SET synchronous_commit TO \'off\'; '.
+		 'SET vacuum_cost_delay TO 1; SELECT 1;') => '1'};
 
-	return $data_hash->{$arg{'sql'}};
+	$self->{'mock'}->mock(
+		'_send_to_psql',
+		sub {
+			my ($self, %arg_hash) = @_;
+
+			return $data_hash->{$arg_hash{'command'}};
+		});
+
+	$self->SUPER::init(%arg_hash);
+
+	return;
+}
+
+sub _start_psql {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'psql_command_line'} = $arg_hash{'psql_command_line'};
+
+	return;
+}
+
+sub _send_to_psql {
+	my ($self, %arg_hash) = @_;
+
+	return $self->{'mock'}->_send_to_psql(%arg_hash);
 }
 
 1;

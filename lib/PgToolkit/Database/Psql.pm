@@ -6,6 +6,9 @@ use strict;
 use warnings;
 
 use IPC::Open3;
+use IO::Handle;
+
+use PgToolkit::Utils;
 
 =head1 NAME
 
@@ -83,18 +86,25 @@ sub init {
 
 	$self->{'_set_hash'} = $arg_hash{'set_hash'};
 
-	$self->{'_command'} = sprintf(
-		'%s%s -q -A -t -X %s %s %s %s -P null="<NULL>"',
+	my $psql_command_line = sprintf(
+		'%s%s -w -q -A -t -X %s %s %s %s -P null="<NULL>"',
 		@opt_hash{'password', 'path', 'host', 'port', 'dbname', 'user'});
-	$self->{'_command'} =~ s/\s+/ /g;
+	$psql_command_line =~ s/\s+/ /g;
+
+	$self->_start_psql(psql_command_line => $psql_command_line);
 
 	eval {
-		$self->_run_psql(
-			command => $self->{'_command'}, sql => 'SELECT 1;');
+		$self->execute(
+			sql => join(
+				' ',
+				map(
+					'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
+					keys %{$self->{'_set_hash'}}),
+				'SELECT 1;'));
 	};
 	if ($@) {
-		if ($@ =~ 'DatabaseError') {
-			die('DatabaseError Can not run psql.');
+		if ($@ =~ 'DatabaseError (.*)') {
+			die('DatabaseError Can not execute command: '.$1);
 		} else {
 			die($@);
 		}
@@ -138,15 +148,7 @@ when problems appear during statement execution.
 sub _execute {
 	my ($self, %arg_hash) = @_;
 
-	my $sql = join(
-		' ',
-		map(
-			'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
-			keys %{$self->{'_set_hash'}}),
-		$arg_hash{'sql'});
-
-	my $raw_data = $self->_run_psql(
-		command => $self->{'_command'}, sql => $sql);
+	my $raw_data = $self->_send_to_psql(command => $arg_hash{'sql'});
 
 	my $result = [];
 	for my $row_data (split(qr/\n/, $raw_data)) {
@@ -175,24 +177,76 @@ sub get_adapter_name {
 	return 'psql';
 }
 
-sub _run_psql {
+sub _start_psql {
 	my ($self, %arg_hash) = @_;
 
-	my $pid = open3(\*CHLD_IN, \*CHLD_OUT, \*CHLD_ERR, $arg_hash{'command'});
-	print CHLD_IN $arg_hash{'sql'};
-	close CHLD_IN;
-	waitpid($pid, 0);
+	$self->{'in'} = new IO::Handle();
+	$self->{'out'} = new IO::Handle();
+	$self->{'err'} = new IO::Handle();
+
+	$self->{'pid'} = open3(
+		$self->{'in'}, $self->{'out'}, $self->{'err'},
+		$arg_hash{'psql_command_line'});
+
 	my $exit_status = $? >> 8;
 
-	my $err_output = join('', <CHLD_ERR>);
+	$self->{'out'}->blocking(0);
+	$self->{'err'}->blocking(0);
 
-	if ($exit_status or ($err_output and $err_output =~ /^ERROR: /)) {
-		die(join("\n", ('DatabaseError Can not execute the command',
-						$arg_hash{'command'}, $arg_hash{'sql'},
-						join('', <CHLD_OUT>), $err_output)));
+	$self->{'in'}->autoflush(1);
+	$self->{'out'}->autoflush(1);
+	$self->{'err'}->autoflush(1);
+
+	if ($exit_status) {
+		die(join(' ', ('DatabaseError Can not start psql: ',
+					   $arg_hash{'psql_command_line'},
+					   join('', $self->{'out'}->getlines()),
+					   join('', $self->{'err'}->getlines()))));
 	}
 
-	return join('', <CHLD_OUT>);
+	return;
+}
+
+sub _send_to_psql {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'in'}->print(
+		$arg_hash{'command'}.';', '\echo pgcompactor_EOA'."\n");
+
+	my $err_output = join('', $self->{'err'}->getlines());
+
+	if ($err_output and $err_output =~ /ERROR:/) {
+		die(join(' ', ('DatabaseError Can not execute the command: ',
+						$arg_hash{'command'}, $err_output,
+					   join('', $self->{'out'}->getlines()))));
+	}
+
+	my $result = '';
+	while (1) {
+		my $line = $self->{'out'}->getline();
+
+		if (defined $line) {
+			if ($line eq 'pgcompactor_EOA'."\n") {
+				last;
+			} else {
+				$result .= $line;
+			}
+		} else {
+			PgToolkit::Utils->sleep(0.001);
+		}
+	}
+
+	return $result;
+}
+
+sub DESTROY {
+	my $self = shift;
+
+	if (defined $self->{'in'}) {
+		close $self->{'in'};
+	}
+
+	return;
 }
 
 =head1 SEE ALSO
