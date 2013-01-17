@@ -18,7 +18,7 @@ svn checkout http://pgtoolkit.googlecode.com/svn/tags/vX/ pgtoolkit
 The workdir contains a fatpack/ directory. It also houses the
 autonomous scripts so you can use them straight away.
 
-If you want to use non-autonomous versions of this scripts you with
+If you want to use non-autonomous versions of these scripts you will
 find them in the bin/ directory. To make them work the PERL5LIB
 environment variable must be set to the lib/ directory.
 

@@ -1,4 +1,4 @@
-2012-11-17 v1.0rc1
+2013-01-16 v1.0rc1
 
 - Refactored information files, PgToolkit is released under the
   PostgreSQL License now
@@ -18,6 +18,18 @@
   are available straight from the fatpack/ directory
 - Fixed the error when 0 or 1 pages left
 - Fix the silent --man and --help problem
+- Separated completion statistics and warnings
+- Added a basic processing of the cases with tables/indexes deletion
+  in the process of compacting
+- Fixed the reindex syntax and added a comment with database name
+- Fixed the partial indexes reindexing
+- Increased verbosity on connection errors (thanks to ruralhunter)
+- Made it use .pgpass and environment variables (thanks to
+  ruralhunter)
+- Refactored the psql adapter to bidirectional communication what
+  increased processing speed dramatically
+- Got rid of the final exception in the cleaning stored function
+  (thanks to Lonni Friedman)
 
 2012-04-09 v1.0beta3
 
@@ -29,7 +41,7 @@
 - Made reindexing of non btree indexes only when --force is specified
 - Refactored the index dependencies check to not rebuild indexes that
   require heavy locks
-- Solved the psql adapter quietness problem (thanx to e.sergey for the
+- Solved the psql adapter quietness problem (thanks to e.sergey for the
   bug report)
 
 2012-02-21 v1.0beta2
