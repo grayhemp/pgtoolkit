@@ -2022,7 +2022,7 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(11) {
 	ok(not $table_compactor->is_processed());
 }
 
-sub test_stop_processing_on_relation_does_not_exist : Test(4) {
+sub test_stop_processing_on_relation_does_not_exist : Test(6) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'vacuum'}
@@ -2039,6 +2039,8 @@ sub test_stop_processing_on_relation_does_not_exist : Test(4) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
+	is($table_compactor->get_size_delta(), 0);
+	is($table_compactor->get_total_size_delta(), 0);
 }
 
 sub test_get_size_delta : Test {

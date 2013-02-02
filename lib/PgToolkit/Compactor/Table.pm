@@ -200,6 +200,7 @@ sub _init {
 	$self->{'_pages_before_vacuum_upper_divisor'} =
 		$arg_hash{'pages_before_vacuum_upper_divisor'};
 
+	$self->{'_is_dropped'} = 0;
 	$self->{'_is_processed'} = 0;
 
 	return;
@@ -215,6 +216,7 @@ sub process {
 		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
 		if ($@ =~ ('relation "'.$name.'" does not exist')) {
 			$self->_log_relation_does_not_exist();
+			$self->{'_is_dropped'} = 1;
 			$self->{'_is_processed'} = 1;
 		} elsif ($@ =~ /DataError (.*?)\./) {
 			$self->_log_data_error(message => $1);
@@ -711,6 +713,7 @@ sub get_size_delta {
 	my $self = shift;
 
 	return
+		$self->{'_is_dropped'} ? 0 :
 		$self->{'_base_size_statistics'}->{'size'} -
 		$self->{'_size_statistics'}->{'size'};
 }
@@ -729,6 +732,7 @@ sub get_total_size_delta {
 	my $self = shift;
 
 	return
+		$self->{'_is_dropped'} ? 0 :
 		$self->{'_base_size_statistics'}->{'total_size'} -
 		$self->{'_size_statistics'}->{'total_size'};
 }
