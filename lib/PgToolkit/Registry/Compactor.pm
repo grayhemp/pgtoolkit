@@ -13,6 +13,7 @@ use PgToolkit::Database::Psql;
 use PgToolkit::DatabaseChooser;
 use PgToolkit::Logger;
 use PgToolkit::Options;
+use PgToolkit::Utils;
 
 =head1 NAME
 
@@ -142,15 +143,27 @@ sub get_database_adapter {
 
 	my $options = $self->get_options();
 
-	my %param_hash = (
-		dbname => $arg_hash{'dbname'},
+	my %hpud_hash = (
 		host => $options->get(name => 'host'),
 		port => $options->get(name => 'port'),
 		user => $options->get(name => 'user'),
-		password => $options->get(name => 'password'),
+		dbname => $arg_hash{'dbname'});
+
+	my %param_hash = (
+		password => (
+			$options->get(name => 'password') or
+			PgToolkit::Utils->get_pgpass_password(
+				pgpassfile => (
+					($ENV{'PGPASSFILE'} and -r $ENV{'PGPASSFILE'}) ?
+					$ENV{'PGPASSFILE'} : undef),
+				home => (
+					($ENV{'HOME'} and -r $ENV{'HOME'}.'/.pgpass') ?
+					$ENV{'HOME'}.'/.pgpass' : undef),
+				%hpud_hash)),
 		set_hash => {
 			'synchronous_commit' => 'off',
-			'session_replication_role' => 'replica'});
+			'session_replication_role' => 'replica'},
+		%hpud_hash);
 
 	my $constructor_list = [
 		sub {
@@ -202,10 +215,11 @@ sub get_options {
 		$self->{'_options'} = PgToolkit::Options->new(
 			definition_hash => {
 				# connection
-				'host|h:s' => undef,
-				'port|p:i' => '5432',
-				'user|U:s' => do { `whoami` =~ /(.*?)\n/; $1 },
-				'password|W:s' => undef,
+				'host|h:s' => ($ENV{'PGHOST'} or undef),
+				'port|p:i' => ($ENV{'PGPORT'} or '5432'),
+				'user|U:s' => ($ENV{'PGUSER'} or
+							   do { `whoami` =~ /(.*)\n/; $1 }),
+				'password|W:s' => ($ENV{'PGPASSWORD'} or undef),
 				'path-to-psql|P:s' => 'psql',
 				# target
 				'all|a:i' => 1,
@@ -263,7 +277,7 @@ sub get_options {
 				}
 			},
 			kit => 'PgToolkit',
-			version => 'v1.0beta4');
+			version => 'v1.0rc1');
 	}
 
 	return $self->{'_options'};
@@ -292,6 +306,8 @@ sub get_options {
 =item L<PgToolkit::Logger>
 
 =item L<PgToolkit::Options>
+
+=item L<PgToolkit::Utils>
 
 =back
 

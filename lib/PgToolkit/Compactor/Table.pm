@@ -6,7 +6,6 @@ use strict;
 use warnings;
 
 use POSIX;
-use Time::HiRes qw(time sleep);
 
 use PgToolkit::Utils;
 
@@ -201,6 +200,7 @@ sub _init {
 	$self->{'_pages_before_vacuum_upper_divisor'} =
 		$arg_hash{'pages_before_vacuum_upper_divisor'};
 
+	$self->{'_is_dropped'} = 0;
 	$self->{'_is_processed'} = 0;
 
 	return;
@@ -216,6 +216,10 @@ sub process {
 		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
 		if ($@ =~ ('relation "'.$name.'" does not exist')) {
 			$self->_log_relation_does_not_exist();
+			$self->{'_is_dropped'} = 1;
+			$self->{'_is_processed'} = 1;
+		} elsif ($@ =~ /DataError (.*?)\./) {
+			$self->_log_data_error(message => $1);
 			$self->{'_is_processed'} = 1;
 		} else {
 			my $error = $@;
@@ -257,31 +261,39 @@ sub _process {
 	}
 
 	if (not $is_skipped) {
-		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
-		if ($self->{'_pgstattuple_schema_ident'}) {
-			$self->_log_pgstattuple_duration(
-				duration => $self->{'_database'}->get_duration());
-		}
-
-		if (not defined
-			$self->{'_bloat_statistics'}->{'effective_page_count'})
-		{
-			$self->_do_analyze();
-			$self->_log_analyze_complete(
-				duration => $self->{'_database'}->get_duration(),
-				phrase => 'required initial');
-
+		eval {
 			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 			if ($self->{'_pgstattuple_schema_ident'}) {
 				$self->_log_pgstattuple_duration(
 					duration => $self->{'_database'}->get_duration());
 			}
+		};
+		if ($@) {
+			if ($@ =~ 'DataError') {
+				$self->_do_analyze();
+				$self->_log_analyze_complete(
+					duration => $self->{'_database'}->get_duration(),
+					phrase => 'required initial');
 
-			if (not defined
-				$self->{'_bloat_statistics'}->{'effective_page_count'})
-			{
-				$self->_log_skipping_can_not_get_bloat_statistics();
-				$is_skipped = 1;;
+				eval {
+					$self->{'_bloat_statistics'} =
+						$self->_get_bloat_statistics();
+					if ($self->{'_pgstattuple_schema_ident'}) {
+						$self->_log_pgstattuple_duration(
+							duration => $self->{'_database'}->get_duration());
+					}
+				};
+
+				if ($@) {
+					if ($@ =~ 'DataError') {
+						$self->_log_skipping_can_not_get_bloat_statistics();
+						$is_skipped = 1;;
+					} else {
+						die($@);
+					}
+				}
+			} else {
+				die($@);
 			}
 		}
 	}
@@ -322,59 +334,86 @@ sub _process {
 			$self->_log_processing_forced();
 		}
 
-		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
-		my $column_ident = $self->{'_database'}->quote_ident(
-			string => $self->_get_update_column());
-		my $pages_per_round = $self->_get_pages_per_round(
-			page_count => $self->{'_size_statistics'}->{'page_count'});
-		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
-			expected_page_count => $expected_page_count,
-			page_count => $self->{'_size_statistics'}->{'page_count'});
-		$self->_log_column(name => $column_ident);
-		$self->_log_pages_per_round(value => $pages_per_round);
-		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
-
 		my $vacuum_page_count = 0;
 		my $initial_size_statistics = {%{$self->{'_size_statistics'}}};
 		my $to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
 		my $progress_report_time = $self->_time();
 		my $clean_pages_total_duration = 0;
 		my $last_loop = $self->{'_size_statistics'}->{'page_count'} + 1;
-		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
 		my $expected_error_occurred = 0;
+
+		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
+		my $column_ident = $self->{'_database'}->quote_ident(
+			string => $self->_get_update_column());
+		my $pages_per_round = $self->_get_pages_per_round(
+			page_count => $self->{'_size_statistics'}->{'page_count'},
+			to_page => $to_page);
+		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
+			expected_page_count => $expected_page_count,
+			page_count => $self->{'_size_statistics'}->{'page_count'});
+		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
+
+		$self->_log_column(name => $column_ident);
+		$self->_log_pages_per_round(value => $pages_per_round);
+		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
 
 		my $loop;
 		for ($loop = $self->{'_size_statistics'}->{'page_count'};
 			 $loop > 0 ; $loop--)
 		{
 			my $start_time = $self->_time();
-
 			my $last_to_page = $to_page;
+
+			$self->_begin();
+
 			eval {
 				$to_page = $self->_clean_pages(
 					column_ident => $column_ident,
 					to_page => $last_to_page,
-					pages_per_round => (
-						sort {$a <=> $b}
-						$pages_per_round, $last_to_page)[0],
+					pages_per_round => $pages_per_round,
 					max_tupples_per_page => $max_tupples_per_page);
+
 				$clean_pages_total_duration =
 					$clean_pages_total_duration +
 					$self->{'_database'}->get_duration();
 			};
+
 			if ($@) {
-				if ($@ =~ 'No more free space left in the table') {
-					# Normal cleaning completion
-				} elsif ($@ =~ 'deadlock detected') {
+				$self->_rollback();
+
+				if ($@ =~ 'deadlock detected') {
 					$self->_log_deadlock_detected();
 					next;
 				} elsif ($@ =~ 'cannot extract system attribute') {
 					$self->_log_cannot_extract_system_attribute();
 					$expected_error_occurred = 1;
+					last;
 				} else {
 					die($@);
 				}
-				last;
+			} else {
+				if (defined $to_page) {
+					# Normal cleaning completion
+					if ($to_page == -1) {
+						$self->_rollback();
+						$to_page = $last_to_page;
+						last;
+					}
+				} else {
+					# Bug trap warning
+					$self->{'_logger'}->write(
+						message => (
+							'Incorrect result of cleaning:'.
+							' column_ident '.$column_ident.
+							', to_page '.$last_to_page.
+							', pages_per_round '.$pages_per_round.
+							', max_tupples_per_page '.
+							$max_tupples_per_page.'.'),
+						level => 'warning',
+						target => $self->{'_log_target'});
+				}
+
+				$self->_commit();
 			}
 
 			$self->_sleep(
@@ -420,24 +459,6 @@ sub _process {
 
 				$vacuum_page_count = 0;
 
-				if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
-					if ($self->{'_size_statistics'}->{'page_count'} == 0) {
-						$to_page = 0;
-						last;
-					} else {
-						$to_page =
-							$self->{'_size_statistics'}->{'page_count'} - 1;
-					}
-				}
-
-				my $last_pages_per_round = $pages_per_round;
-				$pages_per_round = $self->_get_pages_per_round(
-					page_count => $self->{'_size_statistics'}->{'page_count'});
-				if ($last_pages_per_round != $pages_per_round) {
-					$self->_log_pages_per_round(
-						value => $pages_per_round);
-				}
-
 				my $last_pages_before_vacuum = $pages_before_vacuum;
 				$pages_before_vacuum = $self->_get_pages_before_vacuum(
 					expected_page_count => $expected_page_count,
@@ -446,6 +467,24 @@ sub _process {
 					$self->_log_pages_before_vacuum(
 						value => $pages_before_vacuum);
 				}
+			}
+
+			if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
+				$to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
+			}
+
+			if ($to_page <= 1) {
+				$to_page = 0;
+				last;
+			}
+
+			my $last_pages_per_round = $pages_per_round;
+			$pages_per_round = $self->_get_pages_per_round(
+				page_count => $self->{'_size_statistics'}->{'page_count'},
+				to_page => $to_page);
+			if ($last_pages_per_round != $pages_per_round) {
+				$self->_log_pages_per_round(
+					value => $pages_per_round);
 			}
 		}
 
@@ -492,6 +531,7 @@ sub _process {
 
 	my $will_be_skipped = (
 		not $self->{'_force'} and (
+			$is_skipped or
 			$self->{'_size_statistics'}->{'page_count'} <
 			$self->{'_min_page_count'} or
 			$self->{'_bloat_statistics'}->{'free_percent'} <
@@ -601,21 +641,21 @@ sub _process {
 		}
 	}
 
-	if (not $self->{'_dry_run'}) {
-		if ($is_compacted or
-			$is_skipped and $is_reindexed or
-			not $is_skipped and $will_be_skipped)
-		{
-			$self->_log_complete_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'},
-				base_size_statistics => $self->{'_base_size_statistics'});
-		} elsif (not $is_skipped) {
-			$self->_log_incomplete_processing(
-				size_statistics => $self->{'_size_statistics'},
-				bloat_statistics => $self->{'_bloat_statistics'},
-				base_size_statistics => $self->{'_base_size_statistics'});
+	if (not $self->{'_dry_run'} and not ($is_skipped and not $is_reindexed)) {
+		my $complete = (
+			$is_compacted or $will_be_skipped or $is_skipped and $is_reindexed);
+
+		if ($complete) {
+			$self->_log_complete_processing();
+		} else {
+			$self->_log_incomplete_processing();
 		}
+
+		$self->_log_processing_results(
+			size_statistics => $self->{'_size_statistics'},
+			bloat_statistics => $self->{'_bloat_statistics'},
+			base_size_statistics => $self->{'_base_size_statistics'},
+			complete => $complete);
 	}
 
 	$self->{'_is_processed'} = (
@@ -643,9 +683,9 @@ sub is_processed {
 	return $self->{'_is_processed'};
 }
 
-=head2 B<get_ident()>
+=head2 B<get_log_ident()>
 
-Returns a table ident.
+Returns a table ident for log.
 
 =head3 Returns
 
@@ -673,6 +713,7 @@ sub get_size_delta {
 	my $self = shift;
 
 	return
+		$self->{'_is_dropped'} ? 0 :
 		$self->{'_base_size_statistics'}->{'size'} -
 		$self->{'_size_statistics'}->{'size'};
 }
@@ -691,6 +732,7 @@ sub get_total_size_delta {
 	my $self = shift;
 
 	return
+		$self->{'_is_dropped'} ? 0 :
 		$self->{'_base_size_statistics'}->{'total_size'} -
 		$self->{'_size_statistics'}->{'total_size'};
 }
@@ -782,7 +824,7 @@ sub _log_skipping_can_not_get_bloat_statistics {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => 'Skipping processing: can not get bloat statistics.',
+		message => 'Can not get bloat statistics, processing stopped.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1058,13 +1100,7 @@ sub _log_incomplete_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Processing incomplete: '.
-			$self->_get_log_processing_results(
-				size_statistics => $arg_hash{'size_statistics'},
-				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'},
-				complete => 0)),
+		message => 'Processing incomplete.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1075,20 +1111,14 @@ sub _log_complete_processing {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
-		message => (
-			'Processing complete: '.
-			$self->_get_log_processing_results(
-				size_statistics => $arg_hash{'size_statistics'},
-				bloat_statistics => $arg_hash{'bloat_statistics'},
-				base_size_statistics => $arg_hash{'base_size_statistics'},
-				complete => 1)),
+		message => 'Processing complete.',
 		level => 'notice',
 		target => $self->{'_log_target'});
 
 	return;
 }
 
-sub _get_log_processing_results {
+sub _log_processing_results {
 	my ($self, %arg_hash) = @_;
 
 	my $can_be_compacted = (
@@ -1099,26 +1129,30 @@ sub _get_log_processing_results {
 		$arg_hash{'bloat_statistics'}->{'effective_page_count'} and
 		not $arg_hash{'complete'});
 
-	return
-		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
-		$arg_hash{'size_statistics'}->{'total_page_count'}.
-		' pages including toasts and indexes), size reduced by '.
-		PgToolkit::Utils->get_size_pretty(
-			size => ($arg_hash{'base_size_statistics'}->{'size'} -
-					 $arg_hash{'size_statistics'}->{'size'})).' ('.
-		PgToolkit::Utils->get_size_pretty(
-			size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
-					 $arg_hash{'size_statistics'}->{'total_size'})).
-		' including toasts and indexes) in total'.
-		($can_be_compacted ? ', approximately '.
-		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
-		 ($arg_hash{'size_statistics'}->{'page_count'} -
-		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-		 ' pages) that is '.
-		 PgToolkit::Utils->get_size_pretty(
-			 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
-		 ' more were expected to be compacted after this attempt' :
-		 '').'.';
+	$self->{'_logger'}->write(
+		message => (
+			'Processing results: '.
+			$arg_hash{'size_statistics'}->{'page_count'}.' pages left ('.
+			$arg_hash{'size_statistics'}->{'total_page_count'}.
+			' pages including toasts and indexes), size reduced by '.
+			PgToolkit::Utils->get_size_pretty(
+				size => ($arg_hash{'base_size_statistics'}->{'size'} -
+						 $arg_hash{'size_statistics'}->{'size'})).' ('.
+			PgToolkit::Utils->get_size_pretty(
+				size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
+						 $arg_hash{'size_statistics'}->{'total_size'})).
+			' including toasts and indexes) in total'.
+			($can_be_compacted ? ', approximately '.
+			 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+			 ($arg_hash{'size_statistics'}->{'page_count'} -
+			  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
+			 ' pages) that is '.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+			 ' more were expected to be compacted after this attempt' :
+			 '').'.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
 }
 
 sub _log_deadlock_detected {
@@ -1136,8 +1170,8 @@ sub _log_cannot_extract_system_attribute {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => ('Stopped processing as a system attribute extraction '.
-					'error has occurred.'),
+		message => ('System attribute extraction error has occurred, '.
+					'processing stopped.'),
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1148,8 +1182,19 @@ sub _log_relation_does_not_exist {
 	my $self = shift;
 
 	$self->{'_logger'}->write(
-		message => ('Stopped processing as a relation does not exist '.
-					'error has occurred.'),
+		message => ('Relation does not exist error has occurred, '.
+					'processing stopped.'),
+		level => 'warning',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_data_error {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => $arg_hash{'message'}.', processing stopped.',
 		level => 'warning',
 		target => $self->{'_log_target'});
 
@@ -1171,13 +1216,13 @@ sub _log_pgstattuple_duration {
 sub _sleep {
 	my ($self, $time) = @_;
 
-	sleep($time);
+	PgToolkit::Utils->sleep($time);
 
 	return;
 }
 
 sub _time {
-	return time();
+	return PgToolkit::Utils->time();
 }
 
 sub _has_special_triggers {
@@ -1208,6 +1253,10 @@ WHERE
     attnum < 0;
 SQL
 		);
+
+	if (not defined $result->[0]->[0]) {
+		die('DataError Can not get max tupples per page.');
+	}
 
 	return $result->[0]->[0];
 }
@@ -1303,12 +1352,21 @@ SQL
 			);
 	}
 
-	return {
+	$result = {
 		'effective_page_count' => $result->[0]->[0],
 		'free_percent' => (defined $result->[0]->[1] and
 						   $result->[0]->[1] > 0) ? $result->[0]->[1] : 0,
 		'free_space' => (defined $result->[0]->[2] and
 						 $result->[0]->[2] > 0) ? $result->[0]->[2] : 0};
+
+	if (not defined $result->{'effective_page_count'} or
+		not defined $result->{'free_percent'} or
+		not defined $result->{'free_space'})
+	{
+		die('DataError Can not get bloat statistics.');
+	}
+
+	return $result;
 }
 
 sub _get_size_statistics {
@@ -1330,11 +1388,21 @@ FROM (
 SQL
 		);
 
-	return {
+	$result = {
 		'size' => $result->[0]->[0],
 		'total_size' => $result->[0]->[1],
 		'page_count' => $result->[0]->[2],
 		'total_page_count' => $result->[0]->[3]};
+
+	if (not defined $result->{'size'} or
+		not defined $result->{'total_size'} or
+		not defined $result->{'page_count'} or
+		not defined $result->{'total_page_count'})
+	{
+		die('DataError Can not get size statistics.');
+	}
+
+	return $result;
 }
 
 sub _do_vacuum {
@@ -1382,6 +1450,10 @@ ORDER BY
 LIMIT 1;
 SQL
 		);
+
+	if (not defined $result->[0]->[0]) {
+		die('DataError Can not get update column.');
+	}
 
 	return $result->[0]->[0];
 }
@@ -1475,9 +1547,17 @@ FROM (
 SQL
 		);
 
-	return {
+	$result = {
 		'size' => $result->[0]->[0],
 		'page_count' => $result->[0]->[1]};
+
+	if (not defined $result->{'size'} or
+		not defined $result->{'page_count'})
+	{
+		die('DataError Can not get index size statistics.');
+	}
+
+	return $result;
 }
 
 sub _get_index_bloat_statistics {
@@ -1517,9 +1597,17 @@ FROM (
 SQL
 		);
 
-	return {
+	$result = {
 		'free_percent' => $result->[0]->[0],
 		'free_space' => $result->[0]->[1]};
+
+	if (not defined $result->{'free_percent'} or
+		not defined $result->{'free_space'})
+	{
+		die('DataError Can not get index bloat statistics.');
+	}
+
+	return $result;
 }
 
 sub _get_reindex_query {
@@ -1528,9 +1616,11 @@ sub _get_reindex_query {
 	my $sql = $arg_hash{'data'}->{'definition'};
 	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
 	if (defined $arg_hash{'data'}->{'tablespace'}) {
-		$sql =~ s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
+		$sql =~
+			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
 	}
-	$sql .= ';';
+	$sql .= '; -- '.$self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname());
 
 	return $sql;
 
@@ -1561,7 +1651,8 @@ sub _get_alter_index_query {
 		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
 		  'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
 		  ' RENAME TO '.$index_ident.'; ')
-		).'END;';
+		).'END; -- '.$self->{'_database'}->quote_ident(
+			string => $self->{'_database'}->get_dbname());
 }
 
 sub _get_straight_reindex_query {
@@ -1572,7 +1663,10 @@ sub _get_straight_reindex_query {
 	my $index_ident = $self->{'_database'}->quote_ident(
 		string => $arg_hash{'data'}->{'name'});
 
-	return 'REINDEX '.$schema_ident.'.'.$index_ident.';';
+	return
+		'REINDEX INDEX '.$schema_ident.'.'.$index_ident.'; -- '.
+		$self->{'_database'}->quote_ident(
+			string => $self->{'_database'}->get_dbname());
 
 }
 
@@ -1581,6 +1675,36 @@ sub _reindex {
 
 	$self->_execute_and_log(
 		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+
+	return;
+}
+
+sub _begin {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => 'BEGIN;');
+
+	return;
+}
+
+sub _commit {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => 'COMMIT;');
+
+	return;
+}
+
+sub _rollback {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => 'ROLLBACK;');
 
 	return;
 }
@@ -1597,13 +1721,17 @@ sub _alter_index {
 sub _get_pages_per_round {
 	my ($self, %arg_hash) = @_;
 
-	return ceil(
+	my $result = ceil(
 		(sort {$a <=> $b}
 		 (sort {$b <=> $a}
 		  $arg_hash{'page_count'} /
 		  $self->{'_pages_per_round_divisor'},
 		  1)[0],
 		 $self->{'_max_pages_per_round'})[0]);
+
+	$result = (sort {$a <=> $b} $result, $arg_hash{'to_page'})[0];
+
+	return $result;
 }
 
 sub _get_pages_before_vacuum {

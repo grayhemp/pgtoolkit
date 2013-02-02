@@ -36,7 +36,7 @@ sub init {
 				$sql_pattern =~ s/<[a-z_]+?=(.+?)>/$1/g;
 
 				is($self->call_pos($pos), 'execute');
-				like({$self, $self->call_args($pos)}->{'sql'},
+				like({'self', $self->call_args($pos)}->{'sql'},
 					 qr/$sql_pattern/);
 			} else {
 				is($self->call_pos($pos), undef);
@@ -101,6 +101,15 @@ sub init {
 		[[29750, 35700, 85, 102]]];
 
 	$self->{'mock'}->{'data_hash'} = {
+		'begin' => {
+			'sql_pattern' => qr/BEGIN;/,
+			'row_list' => []},
+		'commit' => {
+			'sql_pattern' => qr/COMMIT;/,
+			'row_list' => []},
+		'rollback' => {
+			'sql_pattern' => qr/ROLLBACK;/,
+			'row_list' => []},
 		'has_special_triggers' => {
 			'sql_pattern' => (
 				qr/SELECT count\(1\) FROM pg_catalog\.pg_trigger.+/s.
@@ -141,8 +150,7 @@ sub init {
 				qr/SELECT public\._clean_pages\(\s+'schema.table', 'column', /s.
 				qr/<to_page>,\s+<pages_per_round=5>, 10/s),
 			'row_list_sequence' => [
-				[[94]], [[89]], [[84]],
-				'No more free space left in the table']},
+				[[94]], [[89]], [[84]], [[-1]]]},
 		'vacuum' => {
 			'sql_pattern' => qr/VACUUM schema\.table/,
 			'row_list' => [[undef]]},

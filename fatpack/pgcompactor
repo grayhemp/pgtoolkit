@@ -394,27 +394,25 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   						'Processing complete: '.
   						($attempt ? ($attempt - 1).' retries from '.
   						 $self->{'_max_retry_count'} : ' no attempts to '.
-  						 'process have been done') .', size reduced by '.
-  						PgToolkit::Utils->get_size_pretty(
-  							size => $self->get_size_delta()).' ('.
-  						PgToolkit::Utils->get_size_pretty(
-  							size => $self->get_total_size_delta()).' '.
-  						'including toasts and indexes) in total, '.
-  						$databases_size_delta_report.'.'),
+  						 'process have been done').'.'),
   					level => 'notice');
   			} else {
   				$self->{'_logger'}->write(
   					message => (
   						'Processing incomplete: '.$self->_incomplete_count().
-  						' databases left, size reduced by '.
-  						PgToolkit::Utils->get_size_pretty(
-  							size => $self->get_size_delta()).' ('.
-  						PgToolkit::Utils->get_size_pretty(
-  							size => $self->get_total_size_delta()).' '.
-  						'including toasts and indexes) in total, '.
-  						$databases_size_delta_report.'.'),
+  						' databases left.'),
   					level => 'warning');
   			}
+  			$self->{'_logger'}->write(
+  				message => (
+  					'Processing results: size reduced by '.
+  					PgToolkit::Utils->get_size_pretty(
+  						size => $self->get_size_delta()).' ('.
+  					PgToolkit::Utils->get_size_pretty(
+  						size => $self->get_total_size_delta()).' '.
+  					'including toasts and indexes) in total, '.
+  					$databases_size_delta_report.'.'),
+  				level => 'notice');
   		}
   	} else {
   		$self->{'_logger'}->write(
@@ -699,28 +697,27 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   	if (not $self->{'_dry_run'}) {
   		if ($self->is_processed()) {
   			$self->{'_logger'}->write(
-  				message => (
-  					'Processing complete: size reduced by '.
-  					PgToolkit::Utils->get_size_pretty(
-  						size => $self->get_size_delta()).' ('.
-  					PgToolkit::Utils->get_size_pretty(
-  						size => $self->get_total_size_delta()).' including '.
-  					'toasts and indexes) in total.'),
-  				level => 'info',
+  				message => 'Processing complete.',
+  				level => 'notice',
   				target => $self->{'_log_target'});
   		} else {
   			$self->{'_logger'}->write(
   				message => (
   					'Processing incomplete: '.$self->_incomplete_count().
-  					' tables left, size reduced by '.
-  					PgToolkit::Utils->get_size_pretty(
-  						size => $self->get_size_delta()).' ('.
-  					PgToolkit::Utils->get_size_pretty(
-  						size => $self->get_total_size_delta()).
-  					' including toasts and indexes) in total.'),
+  					' tables left.'),
   				level => 'warning',
   				target => $self->{'_log_target'});
   		}
+  		$self->{'_logger'}->write(
+  			message => (
+  				'Processing results: size reduced by '.
+  				PgToolkit::Utils->get_size_pretty(
+  					size => $self->get_size_delta()).' ('.
+  				PgToolkit::Utils->get_size_pretty(
+  					size => $self->get_total_size_delta()).
+  				' including toasts and indexes) in total.'),
+  			level => 'notice',
+  			target => $self->{'_log_target'});
   	}
   
   	return;
@@ -959,7 +956,8 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
           FOR _ctid IN EXECUTE _update_query USING _ctid_list
           LOOP
               IF _ctid > _max_ctid THEN
-                  RAISE EXCEPTION 'No more free space left in the table.';
+                  _result_page := -1;
+                  EXIT _outer_loop;
               ELSIF _ctid >= _min_ctid THEN
                   -- The tuple is still in the range, more updates are needed
                   _next_ctid_list := _next_ctid_list || _ctid;
@@ -1036,7 +1034,6 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   use warnings;
   
   use POSIX;
-  use Time::HiRes qw(time sleep);
   
   use PgToolkit::Utils;
   
@@ -1231,6 +1228,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	$self->{'_pages_before_vacuum_upper_divisor'} =
   		$arg_hash{'pages_before_vacuum_upper_divisor'};
   
+  	$self->{'_is_dropped'} = 0;
   	$self->{'_is_processed'} = 0;
   
   	return;
@@ -1246,6 +1244,10 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
   		if ($@ =~ ('relation "'.$name.'" does not exist')) {
   			$self->_log_relation_does_not_exist();
+  			$self->{'_is_dropped'} = 1;
+  			$self->{'_is_processed'} = 1;
+  		} elsif ($@ =~ /DataError (.*?)\./) {
+  			$self->_log_data_error(message => $1);
   			$self->{'_is_processed'} = 1;
   		} else {
   			my $error = $@;
@@ -1287,31 +1289,39 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	}
   
   	if (not $is_skipped) {
-  		$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
-  		if ($self->{'_pgstattuple_schema_ident'}) {
-  			$self->_log_pgstattuple_duration(
-  				duration => $self->{'_database'}->get_duration());
-  		}
-  
-  		if (not defined
-  			$self->{'_bloat_statistics'}->{'effective_page_count'})
-  		{
-  			$self->_do_analyze();
-  			$self->_log_analyze_complete(
-  				duration => $self->{'_database'}->get_duration(),
-  				phrase => 'required initial');
-  
+  		eval {
   			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
   			if ($self->{'_pgstattuple_schema_ident'}) {
   				$self->_log_pgstattuple_duration(
   					duration => $self->{'_database'}->get_duration());
   			}
+  		};
+  		if ($@) {
+  			if ($@ =~ 'DataError') {
+  				$self->_do_analyze();
+  				$self->_log_analyze_complete(
+  					duration => $self->{'_database'}->get_duration(),
+  					phrase => 'required initial');
   
-  			if (not defined
-  				$self->{'_bloat_statistics'}->{'effective_page_count'})
-  			{
-  				$self->_log_skipping_can_not_get_bloat_statistics();
-  				$is_skipped = 1;;
+  				eval {
+  					$self->{'_bloat_statistics'} =
+  						$self->_get_bloat_statistics();
+  					if ($self->{'_pgstattuple_schema_ident'}) {
+  						$self->_log_pgstattuple_duration(
+  							duration => $self->{'_database'}->get_duration());
+  					}
+  				};
+  
+  				if ($@) {
+  					if ($@ =~ 'DataError') {
+  						$self->_log_skipping_can_not_get_bloat_statistics();
+  						$is_skipped = 1;;
+  					} else {
+  						die($@);
+  					}
+  				}
+  			} else {
+  				die($@);
   			}
   		}
   	}
@@ -1352,59 +1362,86 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			$self->_log_processing_forced();
   		}
   
-  		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
-  		my $column_ident = $self->{'_database'}->quote_ident(
-  			string => $self->_get_update_column());
-  		my $pages_per_round = $self->_get_pages_per_round(
-  			page_count => $self->{'_size_statistics'}->{'page_count'});
-  		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
-  			expected_page_count => $expected_page_count,
-  			page_count => $self->{'_size_statistics'}->{'page_count'});
-  		$self->_log_column(name => $column_ident);
-  		$self->_log_pages_per_round(value => $pages_per_round);
-  		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
-  
   		my $vacuum_page_count = 0;
   		my $initial_size_statistics = {%{$self->{'_size_statistics'}}};
   		my $to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
   		my $progress_report_time = $self->_time();
   		my $clean_pages_total_duration = 0;
   		my $last_loop = $self->{'_size_statistics'}->{'page_count'} + 1;
-  		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
   		my $expected_error_occurred = 0;
+  
+  		my $expected_page_count = $self->{'_size_statistics'}->{'page_count'};
+  		my $column_ident = $self->{'_database'}->quote_ident(
+  			string => $self->_get_update_column());
+  		my $pages_per_round = $self->_get_pages_per_round(
+  			page_count => $self->{'_size_statistics'}->{'page_count'},
+  			to_page => $to_page);
+  		my $pages_before_vacuum = $self->_get_pages_before_vacuum(
+  			expected_page_count => $expected_page_count,
+  			page_count => $self->{'_size_statistics'}->{'page_count'});
+  		my $max_tupples_per_page = $self->_get_max_tupples_per_page();
+  
+  		$self->_log_column(name => $column_ident);
+  		$self->_log_pages_per_round(value => $pages_per_round);
+  		$self->_log_pages_before_vacuum(value => $pages_before_vacuum);
   
   		my $loop;
   		for ($loop = $self->{'_size_statistics'}->{'page_count'};
   			 $loop > 0 ; $loop--)
   		{
   			my $start_time = $self->_time();
-  
   			my $last_to_page = $to_page;
+  
+  			$self->_begin();
+  
   			eval {
   				$to_page = $self->_clean_pages(
   					column_ident => $column_ident,
   					to_page => $last_to_page,
-  					pages_per_round => (
-  						sort {$a <=> $b}
-  						$pages_per_round, $last_to_page)[0],
+  					pages_per_round => $pages_per_round,
   					max_tupples_per_page => $max_tupples_per_page);
+  
   				$clean_pages_total_duration =
   					$clean_pages_total_duration +
   					$self->{'_database'}->get_duration();
   			};
+  
   			if ($@) {
-  				if ($@ =~ 'No more free space left in the table') {
-  					# Normal cleaning completion
-  				} elsif ($@ =~ 'deadlock detected') {
+  				$self->_rollback();
+  
+  				if ($@ =~ 'deadlock detected') {
   					$self->_log_deadlock_detected();
   					next;
   				} elsif ($@ =~ 'cannot extract system attribute') {
   					$self->_log_cannot_extract_system_attribute();
   					$expected_error_occurred = 1;
+  					last;
   				} else {
   					die($@);
   				}
-  				last;
+  			} else {
+  				if (defined $to_page) {
+  					# Normal cleaning completion
+  					if ($to_page == -1) {
+  						$self->_rollback();
+  						$to_page = $last_to_page;
+  						last;
+  					}
+  				} else {
+  					# Bug trap warning
+  					$self->{'_logger'}->write(
+  						message => (
+  							'Incorrect result of cleaning:'.
+  							' column_ident '.$column_ident.
+  							', to_page '.$last_to_page.
+  							', pages_per_round '.$pages_per_round.
+  							', max_tupples_per_page '.
+  							$max_tupples_per_page.'.'),
+  						level => 'warning',
+  						target => $self->{'_log_target'});
+  				}
+  
+  				$self->_commit();
   			}
   
   			$self->_sleep(
@@ -1450,24 +1487,6 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   				$vacuum_page_count = 0;
   
-  				if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
-  					if ($self->{'_size_statistics'}->{'page_count'} == 0) {
-  						$to_page = 0;
-  						last;
-  					} else {
-  						$to_page =
-  							$self->{'_size_statistics'}->{'page_count'} - 1;
-  					}
-  				}
-  
-  				my $last_pages_per_round = $pages_per_round;
-  				$pages_per_round = $self->_get_pages_per_round(
-  					page_count => $self->{'_size_statistics'}->{'page_count'});
-  				if ($last_pages_per_round != $pages_per_round) {
-  					$self->_log_pages_per_round(
-  						value => $pages_per_round);
-  				}
-  
   				my $last_pages_before_vacuum = $pages_before_vacuum;
   				$pages_before_vacuum = $self->_get_pages_before_vacuum(
   					expected_page_count => $expected_page_count,
@@ -1476,6 +1495,24 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   					$self->_log_pages_before_vacuum(
   						value => $pages_before_vacuum);
   				}
+  			}
+  
+  			if ($to_page >= $self->{'_size_statistics'}->{'page_count'}) {
+  				$to_page = $self->{'_size_statistics'}->{'page_count'} - 1;
+  			}
+  
+  			if ($to_page <= 1) {
+  				$to_page = 0;
+  				last;
+  			}
+  
+  			my $last_pages_per_round = $pages_per_round;
+  			$pages_per_round = $self->_get_pages_per_round(
+  				page_count => $self->{'_size_statistics'}->{'page_count'},
+  				to_page => $to_page);
+  			if ($last_pages_per_round != $pages_per_round) {
+  				$self->_log_pages_per_round(
+  					value => $pages_per_round);
   			}
   		}
   
@@ -1522,6 +1559,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   	my $will_be_skipped = (
   		not $self->{'_force'} and (
+  			$is_skipped or
   			$self->{'_size_statistics'}->{'page_count'} <
   			$self->{'_min_page_count'} or
   			$self->{'_bloat_statistics'}->{'free_percent'} <
@@ -1631,21 +1669,21 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		}
   	}
   
-  	if (not $self->{'_dry_run'}) {
-  		if ($is_compacted or
-  			$is_skipped and $is_reindexed or
-  			not $is_skipped and $will_be_skipped)
-  		{
-  			$self->_log_complete_processing(
-  				size_statistics => $self->{'_size_statistics'},
-  				bloat_statistics => $self->{'_bloat_statistics'},
-  				base_size_statistics => $self->{'_base_size_statistics'});
-  		} elsif (not $is_skipped) {
-  			$self->_log_incomplete_processing(
-  				size_statistics => $self->{'_size_statistics'},
-  				bloat_statistics => $self->{'_bloat_statistics'},
-  				base_size_statistics => $self->{'_base_size_statistics'});
+  	if (not $self->{'_dry_run'} and not ($is_skipped and not $is_reindexed)) {
+  		my $complete = (
+  			$is_compacted or $will_be_skipped or $is_skipped and $is_reindexed);
+  
+  		if ($complete) {
+  			$self->_log_complete_processing();
+  		} else {
+  			$self->_log_incomplete_processing();
   		}
+  
+  		$self->_log_processing_results(
+  			size_statistics => $self->{'_size_statistics'},
+  			bloat_statistics => $self->{'_bloat_statistics'},
+  			base_size_statistics => $self->{'_base_size_statistics'},
+  			complete => $complete);
   	}
   
   	$self->{'_is_processed'} = (
@@ -1673,9 +1711,9 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	return $self->{'_is_processed'};
   }
   
-  =head2 B<get_ident()>
+  =head2 B<get_log_ident()>
   
-  Returns a table ident.
+  Returns a table ident for log.
   
   =head3 Returns
   
@@ -1703,6 +1741,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $self = shift;
   
   	return
+  		$self->{'_is_dropped'} ? 0 :
   		$self->{'_base_size_statistics'}->{'size'} -
   		$self->{'_size_statistics'}->{'size'};
   }
@@ -1721,6 +1760,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $self = shift;
   
   	return
+  		$self->{'_is_dropped'} ? 0 :
   		$self->{'_base_size_statistics'}->{'total_size'} -
   		$self->{'_size_statistics'}->{'total_size'};
   }
@@ -1812,7 +1852,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my ($self, %arg_hash) = @_;
   
   	$self->{'_logger'}->write(
-  		message => 'Skipping processing: can not get bloat statistics.',
+  		message => 'Can not get bloat statistics, processing stopped.',
   		level => 'warning',
   		target => $self->{'_log_target'});
   
@@ -2088,13 +2128,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my ($self, %arg_hash) = @_;
   
   	$self->{'_logger'}->write(
-  		message => (
-  			'Processing incomplete: '.
-  			$self->_get_log_processing_results(
-  				size_statistics => $arg_hash{'size_statistics'},
-  				bloat_statistics => $arg_hash{'bloat_statistics'},
-  				base_size_statistics => $arg_hash{'base_size_statistics'},
-  				complete => 0)),
+  		message => 'Processing incomplete.',
   		level => 'warning',
   		target => $self->{'_log_target'});
   
@@ -2105,20 +2139,14 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my ($self, %arg_hash) = @_;
   
   	$self->{'_logger'}->write(
-  		message => (
-  			'Processing complete: '.
-  			$self->_get_log_processing_results(
-  				size_statistics => $arg_hash{'size_statistics'},
-  				bloat_statistics => $arg_hash{'bloat_statistics'},
-  				base_size_statistics => $arg_hash{'base_size_statistics'},
-  				complete => 1)),
+  		message => 'Processing complete.',
   		level => 'notice',
   		target => $self->{'_log_target'});
   
   	return;
   }
   
-  sub _get_log_processing_results {
+  sub _log_processing_results {
   	my ($self, %arg_hash) = @_;
   
   	my $can_be_compacted = (
@@ -2129,26 +2157,30 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		$arg_hash{'bloat_statistics'}->{'effective_page_count'} and
   		not $arg_hash{'complete'});
   
-  	return
-  		'left '.$arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
-  		$arg_hash{'size_statistics'}->{'total_page_count'}.
-  		' pages including toasts and indexes), size reduced by '.
-  		PgToolkit::Utils->get_size_pretty(
-  			size => ($arg_hash{'base_size_statistics'}->{'size'} -
-  					 $arg_hash{'size_statistics'}->{'size'})).' ('.
-  		PgToolkit::Utils->get_size_pretty(
-  			size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
-  					 $arg_hash{'size_statistics'}->{'total_size'})).
-  		' including toasts and indexes) in total'.
-  		($can_be_compacted ? ', approximately '.
-  		 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
-  		 ($arg_hash{'size_statistics'}->{'page_count'} -
-  		  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
-  		 ' pages) that is '.
-  		 PgToolkit::Utils->get_size_pretty(
-  			 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
-  		 ' more were expected to be compacted after this attempt' :
-  		 '').'.';
+  	$self->{'_logger'}->write(
+  		message => (
+  			'Processing results: '.
+  			$arg_hash{'size_statistics'}->{'page_count'}.' pages left ('.
+  			$arg_hash{'size_statistics'}->{'total_page_count'}.
+  			' pages including toasts and indexes), size reduced by '.
+  			PgToolkit::Utils->get_size_pretty(
+  				size => ($arg_hash{'base_size_statistics'}->{'size'} -
+  						 $arg_hash{'size_statistics'}->{'size'})).' ('.
+  			PgToolkit::Utils->get_size_pretty(
+  				size => ($arg_hash{'base_size_statistics'}->{'total_size'} -
+  						 $arg_hash{'size_statistics'}->{'total_size'})).
+  			' including toasts and indexes) in total'.
+  			($can_be_compacted ? ', approximately '.
+  			 $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+  			 ($arg_hash{'size_statistics'}->{'page_count'} -
+  			  $arg_hash{'bloat_statistics'}->{'effective_page_count'}).
+  			 ' pages) that is '.
+  			 PgToolkit::Utils->get_size_pretty(
+  				 size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+  			 ' more were expected to be compacted after this attempt' :
+  			 '').'.'),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
   }
   
   sub _log_deadlock_detected {
@@ -2166,8 +2198,8 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $self = shift;
   
   	$self->{'_logger'}->write(
-  		message => ('Stopped processing as a system attribute extraction '.
-  					'error has occurred.'),
+  		message => ('System attribute extraction error has occurred, '.
+  					'processing stopped.'),
   		level => 'warning',
   		target => $self->{'_log_target'});
   
@@ -2178,8 +2210,19 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $self = shift;
   
   	$self->{'_logger'}->write(
-  		message => ('Stopped processing as a relation does not exist '.
-  					'error has occurred.'),
+  		message => ('Relation does not exist error has occurred, '.
+  					'processing stopped.'),
+  		level => 'warning',
+  		target => $self->{'_log_target'});
+  
+  	return;
+  }
+  
+  sub _log_data_error {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'_logger'}->write(
+  		message => $arg_hash{'message'}.', processing stopped.',
   		level => 'warning',
   		target => $self->{'_log_target'});
   
@@ -2201,13 +2244,13 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   sub _sleep {
   	my ($self, $time) = @_;
   
-  	sleep($time);
+  	PgToolkit::Utils->sleep($time);
   
   	return;
   }
   
   sub _time {
-  	return time();
+  	return PgToolkit::Utils->time();
   }
   
   sub _has_special_triggers {
@@ -2238,6 +2281,10 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
       attnum < 0;
   SQL
   		);
+  
+  	if (not defined $result->[0]->[0]) {
+  		die('DataError Can not get max tupples per page.');
+  	}
   
   	return $result->[0]->[0];
   }
@@ -2333,12 +2380,21 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			);
   	}
   
-  	return {
+  	$result = {
   		'effective_page_count' => $result->[0]->[0],
   		'free_percent' => (defined $result->[0]->[1] and
   						   $result->[0]->[1] > 0) ? $result->[0]->[1] : 0,
   		'free_space' => (defined $result->[0]->[2] and
   						 $result->[0]->[2] > 0) ? $result->[0]->[2] : 0};
+  
+  	if (not defined $result->{'effective_page_count'} or
+  		not defined $result->{'free_percent'} or
+  		not defined $result->{'free_space'})
+  	{
+  		die('DataError Can not get bloat statistics.');
+  	}
+  
+  	return $result;
   }
   
   sub _get_size_statistics {
@@ -2360,11 +2416,21 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   SQL
   		);
   
-  	return {
+  	$result = {
   		'size' => $result->[0]->[0],
   		'total_size' => $result->[0]->[1],
   		'page_count' => $result->[0]->[2],
   		'total_page_count' => $result->[0]->[3]};
+  
+  	if (not defined $result->{'size'} or
+  		not defined $result->{'total_size'} or
+  		not defined $result->{'page_count'} or
+  		not defined $result->{'total_page_count'})
+  	{
+  		die('DataError Can not get size statistics.');
+  	}
+  
+  	return $result;
   }
   
   sub _do_vacuum {
@@ -2412,6 +2478,10 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   LIMIT 1;
   SQL
   		);
+  
+  	if (not defined $result->[0]->[0]) {
+  		die('DataError Can not get update column.');
+  	}
   
   	return $result->[0]->[0];
   }
@@ -2505,9 +2575,17 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   SQL
   		);
   
-  	return {
+  	$result = {
   		'size' => $result->[0]->[0],
   		'page_count' => $result->[0]->[1]};
+  
+  	if (not defined $result->{'size'} or
+  		not defined $result->{'page_count'})
+  	{
+  		die('DataError Can not get index size statistics.');
+  	}
+  
+  	return $result;
   }
   
   sub _get_index_bloat_statistics {
@@ -2547,9 +2625,17 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   SQL
   		);
   
-  	return {
+  	$result = {
   		'free_percent' => $result->[0]->[0],
   		'free_space' => $result->[0]->[1]};
+  
+  	if (not defined $result->{'free_percent'} or
+  		not defined $result->{'free_space'})
+  	{
+  		die('DataError Can not get index bloat statistics.');
+  	}
+  
+  	return $result;
   }
   
   sub _get_reindex_query {
@@ -2558,9 +2644,11 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $sql = $arg_hash{'data'}->{'definition'};
   	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
   	if (defined $arg_hash{'data'}->{'tablespace'}) {
-  		$sql =~ s/(WHERE .*)?$/TABLESPACE $arg_hash{'data'}->{'tablespace'} $1/;
+  		$sql =~
+  			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
   	}
-  	$sql .= ';';
+  	$sql .= '; -- '.$self->{'_database'}->quote_ident(
+  		string => $self->{'_database'}->get_dbname());
   
   	return $sql;
   
@@ -2591,7 +2679,8 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
   		  'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
   		  ' RENAME TO '.$index_ident.'; ')
-  		).'END;';
+  		).'END; -- '.$self->{'_database'}->quote_ident(
+  			string => $self->{'_database'}->get_dbname());
   }
   
   sub _get_straight_reindex_query {
@@ -2602,7 +2691,10 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $index_ident = $self->{'_database'}->quote_ident(
   		string => $arg_hash{'data'}->{'name'});
   
-  	return 'REINDEX '.$schema_ident.'.'.$index_ident.';';
+  	return
+  		'REINDEX INDEX '.$schema_ident.'.'.$index_ident.'; -- '.
+  		$self->{'_database'}->quote_ident(
+  			string => $self->{'_database'}->get_dbname());
   
   }
   
@@ -2611,6 +2703,36 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   	$self->_execute_and_log(
   		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+  
+  	return;
+  }
+  
+  sub _begin {
+  	my $self = shift;
+  
+  	$self->_execute_and_log(
+  		level => 'debug1',
+  		sql => 'BEGIN;');
+  
+  	return;
+  }
+  
+  sub _commit {
+  	my $self = shift;
+  
+  	$self->_execute_and_log(
+  		level => 'debug1',
+  		sql => 'COMMIT;');
+  
+  	return;
+  }
+  
+  sub _rollback {
+  	my $self = shift;
+  
+  	$self->_execute_and_log(
+  		level => 'debug1',
+  		sql => 'ROLLBACK;');
   
   	return;
   }
@@ -2627,13 +2749,17 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   sub _get_pages_per_round {
   	my ($self, %arg_hash) = @_;
   
-  	return ceil(
+  	my $result = ceil(
   		(sort {$a <=> $b}
   		 (sort {$b <=> $a}
   		  $arg_hash{'page_count'} /
   		  $self->{'_pages_per_round_divisor'},
   		  1)[0],
   		 $self->{'_max_pages_per_round'})[0]);
+  
+  	$result = (sort {$a <=> $b} $result, $arg_hash{'to_page'})[0];
+  
+  	return $result;
   }
   
   sub _get_pages_before_vacuum {
@@ -3004,17 +3130,24 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   		die('DatabaseError No driver found "'.$arg_hash{'driver'}.'".');
   	}
   
-  	$self->{'dbh'} = DBI->connect(
-  		'dbi:'.$arg_hash{'driver'}.
-  		':dbname='.($arg_hash{'dbname'} ? $self->_get_escaped_dbname() : '').
-  		(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
-  		';port='.($arg_hash{'port'} or ''),
-  		$arg_hash{'user'}, $arg_hash{'password'},
-  		{
-  			 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
-  			 PrintWarn => 0, PrintError => 0,
-  			 pg_server_prepare => 0, pg_enable_utf8 => 0
-  		});
+  	eval {
+  		$self->{'dbh'} = DBI->connect(
+  			'dbi:'.$arg_hash{'driver'}.
+  			':dbname='.($arg_hash{'dbname'} ?
+  						$self->_get_escaped_dbname() : '').
+  			(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
+  			';port='.($arg_hash{'port'} or ''),
+  			$arg_hash{'user'}, $arg_hash{'password'},
+  			{
+  				RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
+  				PrintWarn => 0, PrintError => 0,
+  				pg_server_prepare => 0, pg_enable_utf8 => 0
+  			});
+  	};
+  
+  	if ($@) {
+  		die('DatabaseError '.$@);
+  	}
   
   	if ($arg_hash{'set_hash'}) {
   		$self->execute(
@@ -3132,6 +3265,9 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   use warnings;
   
   use IPC::Open3;
+  use IO::Handle;
+  
+  use PgToolkit::Utils;
   
   =head1 NAME
   
@@ -3209,18 +3345,25 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   
   	$self->{'_set_hash'} = $arg_hash{'set_hash'};
   
-  	$self->{'_command'} = sprintf(
-  		'%s%s -q -A -t -X %s %s %s %s -P null="<NULL>"',
+  	my $psql_command_line = sprintf(
+  		'%s%s -w -q -A -t -X %s %s %s %s -P null="<NULL>"',
   		@opt_hash{'password', 'path', 'host', 'port', 'dbname', 'user'});
-  	$self->{'_command'} =~ s/\s+/ /g;
+  	$psql_command_line =~ s/\s+/ /g;
+  
+  	$self->_start_psql(psql_command_line => $psql_command_line);
   
   	eval {
-  		$self->_run_psql(
-  			command => $self->{'_command'}, sql => 'SELECT 1;');
+  		$self->execute(
+  			sql => join(
+  				' ',
+  				map(
+  					'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
+  					keys %{$self->{'_set_hash'}}),
+  				'SELECT 1;'));
   	};
   	if ($@) {
-  		if ($@ =~ 'DatabaseError') {
-  			die('DatabaseError Can not run psql.');
+  		if ($@ =~ 'DatabaseError (.*)') {
+  			die('DatabaseError Can not execute command: '.$1);
   		} else {
   			die($@);
   		}
@@ -3264,15 +3407,7 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   sub _execute {
   	my ($self, %arg_hash) = @_;
   
-  	my $sql = join(
-  		' ',
-  		map(
-  			'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
-  			keys %{$self->{'_set_hash'}}),
-  		$arg_hash{'sql'});
-  
-  	my $raw_data = $self->_run_psql(
-  		command => $self->{'_command'}, sql => $sql);
+  	my $raw_data = $self->_send_to_psql(command => $arg_hash{'sql'});
   
   	my $result = [];
   	for my $row_data (split(qr/\n/, $raw_data)) {
@@ -3301,24 +3436,76 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   	return 'psql';
   }
   
-  sub _run_psql {
+  sub _start_psql {
   	my ($self, %arg_hash) = @_;
   
-  	my $pid = open3(\*CHLD_IN, \*CHLD_OUT, \*CHLD_ERR, $arg_hash{'command'});
-  	print CHLD_IN $arg_hash{'sql'};
-  	close CHLD_IN;
-  	waitpid($pid, 0);
+  	$self->{'in'} = new IO::Handle();
+  	$self->{'out'} = new IO::Handle();
+  	$self->{'err'} = new IO::Handle();
+  
+  	$self->{'pid'} = open3(
+  		$self->{'in'}, $self->{'out'}, $self->{'err'},
+  		$arg_hash{'psql_command_line'});
+  
   	my $exit_status = $? >> 8;
   
-  	my $err_output = join('', <CHLD_ERR>);
+  	$self->{'out'}->blocking(0);
+  	$self->{'err'}->blocking(0);
   
-  	if ($exit_status or ($err_output and $err_output =~ /^ERROR: /)) {
-  		die(join("\n", ('DatabaseError Can not execute the command',
-  						$arg_hash{'command'}, $arg_hash{'sql'},
-  						join('', <CHLD_OUT>), $err_output)));
+  	$self->{'in'}->autoflush(1);
+  	$self->{'out'}->autoflush(1);
+  	$self->{'err'}->autoflush(1);
+  
+  	if ($exit_status) {
+  		die(join(' ', ('DatabaseError Can not start psql: ',
+  					   $arg_hash{'psql_command_line'},
+  					   join('', $self->{'out'}->getlines()),
+  					   join('', $self->{'err'}->getlines()))));
   	}
   
-  	return join('', <CHLD_OUT>);
+  	return;
+  }
+  
+  sub _send_to_psql {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'in'}->print(
+  		$arg_hash{'command'}.';'."\n".'\echo pgcompactor_EOA'."\n");
+  
+  	my $err_output = join('', $self->{'err'}->getlines());
+  
+  	if ($err_output and $err_output =~ /ERROR:/) {
+  		die(join(' ', ('DatabaseError Can not execute the command: ',
+  						$arg_hash{'command'}, $err_output,
+  					   join('', $self->{'out'}->getlines()))));
+  	}
+  
+  	my $result = '';
+  	while (1) {
+  		my $line = $self->{'out'}->getline();
+  
+  		if (defined $line) {
+  			if ($line eq 'pgcompactor_EOA'."\n") {
+  				last;
+  			} else {
+  				$result .= $line;
+  			}
+  		} else {
+  			PgToolkit::Utils->sleep(0.001);
+  		}
+  	}
+  
+  	return $result;
+  }
+  
+  sub DESTROY {
+  	my $self = shift;
+  
+  	if (defined $self->{'in'}) {
+  		close $self->{'in'};
+  	}
+  
+  	return;
   }
   
   =head1 SEE ALSO
@@ -3396,6 +3583,7 @@ $fatpacked{"PgToolkit/DatabaseChooser.pm"} = <<'PGTOOLKIT_DATABASECHOOSER';
   	my ($class, %arg_hash) = @_;
   
   	my $self;
+  	my $errors = [];
   
   	for my $constructor (@{$arg_hash{'constructor_list'}}) {
   		eval {
@@ -3403,7 +3591,9 @@ $fatpacked{"PgToolkit/DatabaseChooser.pm"} = <<'PGTOOLKIT_DATABASECHOOSER';
   		};
   		if ($@) {
   			if ($@ !~ 'DatabaseError') {
-  				die($@)
+  				die($@);
+  			} else {
+  				push(@{$errors}, $@);
   			}
   		} else {
   			last;
@@ -3411,7 +3601,8 @@ $fatpacked{"PgToolkit/DatabaseChooser.pm"} = <<'PGTOOLKIT_DATABASECHOOSER';
   	}
   
   	if (not defined $self) {
-  		die(join("", ('DatabaseChooserError Can not find an adapter.')));
+  		die('DatabaseChooserError Can not find an adapter among supported, '.
+  			'reasons: '."\n".join('', @{$errors}));
   	}
   
   	return $self;
@@ -3441,6 +3632,8 @@ $fatpacked{"PgToolkit/Logger.pm"} = <<'PGTOOLKIT_LOGGER';
   
   use strict;
   use warnings;
+  
+  use IO::Handle;
   
   =head1 NAME
   
@@ -3498,15 +3691,8 @@ $fatpacked{"PgToolkit/Logger.pm"} = <<'PGTOOLKIT_LOGGER';
   	$self->{'_level_code'} = $self->_get_level_code(
   		level => $arg_hash{'level'});
   
-  	# Setting autoflush
-  	{
-  		my $default = select();
-  		select($self->{'_out_handle'});
-  		$| = 1;
-  		select($self->{'_err_handle'});
-  		$| = 1;
-  		select($default);
-  	}
+  	$self->{'_out_handle'}->autoflush(1);
+  	$self->{'_err_handle'}->autoflush(1);
   
   	if (not defined $self->{'_level_code'}) {
   		die('LoggerError Wrong logging level "'.$arg_hash{'level'}.
@@ -3884,6 +4070,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   use PgToolkit::DatabaseChooser;
   use PgToolkit::Logger;
   use PgToolkit::Options;
+  use PgToolkit::Utils;
   
   =head1 NAME
   
@@ -4013,15 +4200,27 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   
   	my $options = $self->get_options();
   
-  	my %param_hash = (
-  		dbname => $arg_hash{'dbname'},
+  	my %hpud_hash = (
   		host => $options->get(name => 'host'),
   		port => $options->get(name => 'port'),
   		user => $options->get(name => 'user'),
-  		password => $options->get(name => 'password'),
+  		dbname => $arg_hash{'dbname'});
+  
+  	my %param_hash = (
+  		password => (
+  			$options->get(name => 'password') or
+  			PgToolkit::Utils->get_pgpass_password(
+  				pgpassfile => (
+  					($ENV{'PGPASSFILE'} and -r $ENV{'PGPASSFILE'}) ?
+  					$ENV{'PGPASSFILE'} : undef),
+  				home => (
+  					($ENV{'HOME'} and -r $ENV{'HOME'}.'/.pgpass') ?
+  					$ENV{'HOME'}.'/.pgpass' : undef),
+  				%hpud_hash)),
   		set_hash => {
   			'synchronous_commit' => 'off',
-  			'session_replication_role' => 'replica'});
+  			'session_replication_role' => 'replica'},
+  		%hpud_hash);
   
   	my $constructor_list = [
   		sub {
@@ -4073,10 +4272,11 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		$self->{'_options'} = PgToolkit::Options->new(
   			definition_hash => {
   				# connection
-  				'host|h:s' => undef,
-  				'port|p:i' => '5432',
-  				'user|U:s' => do { `whoami` =~ /(.*?)\n/; $1 },
-  				'password|W:s' => undef,
+  				'host|h:s' => ($ENV{'PGHOST'} or undef),
+  				'port|p:i' => ($ENV{'PGPORT'} or '5432'),
+  				'user|U:s' => ($ENV{'PGUSER'} or
+  							   do { `whoami` =~ /(.*)\n/; $1 }),
+  				'password|W:s' => ($ENV{'PGPASSWORD'} or undef),
   				'path-to-psql|P:s' => 'psql',
   				# target
   				'all|a:i' => 1,
@@ -4134,7 +4334,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   				}
   			},
   			kit => 'PgToolkit',
-  			version => 'v1.0beta4');
+  			version => 'v1.0rc1');
   	}
   
   	return $self->{'_options'};
@@ -4164,6 +4364,8 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   
   =item L<PgToolkit::Options>
   
+  =item L<PgToolkit::Utils>
+  
   =back
   
   =head1 LICENSE AND COPYRIGHT
@@ -4191,6 +4393,8 @@ $fatpacked{"PgToolkit/Utils.pm"} = <<'PGTOOLKIT_UTILS';
   use strict;
   use warnings;
   
+  use Time::HiRes;
+  
   =head1 NAME
   
   B<PgToolkit::Utils> - a utility functions class.
@@ -4210,7 +4414,7 @@ $fatpacked{"PgToolkit/Utils.pm"} = <<'PGTOOLKIT_UTILS';
   =head2 B<get_size_pretty()>
   
   Converts size into human readable format. It works exactly like
-  pg_size_pretty() works.
+  C<pg_size_pretty()> works.
   
   =head3 Arguments
   
@@ -4246,6 +4450,120 @@ $fatpacked{"PgToolkit/Utils.pm"} = <<'PGTOOLKIT_UTILS';
   	return
   		($size < 0 ? -1 : 1) * int(abs($size) + 0.5).
   		' '.$postfix_list->[$index];
+  }
+  
+  =head2 B<get_pgpass_password()>
+  
+  Parses a C<.pgpass> file and returns the password that matches
+  connection parameters. The custom location file is looked up prior to
+  the user's home one. Note that if no password found in the custom
+  location file the user's home one will not be looked up.
+  
+  =head3 Arguments
+  
+  =over 4
+  
+  =item C<pgpassfile>
+  
+  a custom location password file
+  
+  =item C<home>
+  
+  a user home password file
+  
+  =item C<host>
+  
+  =item C<port>
+  
+  =item C<user>
+  
+  =item C<dbname>
+  
+  =back
+  
+  =head3 Returns
+  
+  A password string or undef if there is no appropriate entry in the
+  file.
+  
+  =cut
+  
+  sub get_pgpass_password {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $pgpass;
+  	if ($arg_hash{'pgpassfile'}) {
+  		open($pgpass, '<', $arg_hash{'pgpassfile'});
+  	} elsif ($arg_hash{'home'}) {
+  		open($pgpass, '<', $arg_hash{'home'});
+  	}
+  
+  	my $password;
+  	if (defined $pgpass) {
+  		my $template = join(
+  			':', map(
+  				do {
+  					if (defined $_) {
+  						s/([\\:])/\\$1/g;
+  						'(?:'.quotemeta($_).'|\*)';
+  					} else {
+  						'\*';
+  					}
+  				},
+  				$arg_hash{'host'}, $arg_hash{'port'}, $arg_hash{'dbname'},
+  				$arg_hash{'user'}));
+  
+  		while (<$pgpass>) {
+  			if (/^$template:(.*)$/) {
+  				$password = $1;
+  				last;
+  			}
+  		}
+  
+  		close($pgpass);
+  	}
+  
+  	return $password;
+  }
+  
+  =head2 B<sleep()>
+  
+  Implements a high resolution C<sleep()>.
+  
+  =head3 Arguments
+  
+  =over 4
+  
+  =item C<time>
+  
+  =back
+  
+  =cut
+  
+  sub sleep {
+  	my ($self, $time) = @_;
+  
+  	Time::HiRes::sleep($time);
+  
+  	return;
+  }
+  
+  =head2 B<sleep()>
+  
+  Implements a high resolution C<time()>.
+  
+  =head3 Arguments
+  
+  =over 4
+  
+  =item C<time>
+  
+  =back
+  
+  =cut
+  
+  sub time {
+  	return Time::HiRes::time();
   }
   
   =head1 SEE ALSO
@@ -4326,7 +4644,7 @@ pgcompactor [OPTION...]
 =head1 DESCRIPTION
 
 B<pgcompactor> is a maintenance tool for PostgreSQL to reduce bloat
-for tables without heavily locking them.
+for tables and indexes without heavily locking them.
 
 The tool is an automation of the solutions described on the pages:
 
@@ -4390,6 +4708,12 @@ C<debug0> and C<debug1>. By default C<notice>.
 The B<pgcompactor> tries to connect to the database with the DBI
 Perl module using either DBD::Pg or DBD::PgPP driver first. If it
 fails the utility tries to work via psql.
+
+If some of the main connection options are not specified the tool
+tries to get them from C<PGHOST>, C<PGPORT>, C<PGUSER>, C<PGPASSWORD>
+environment variables. If password is still not specified it tries to
+get it from the password file that C<PGPASSFILE> refers to and if this
+file does not exist it tries to get it from C<HOME/.pgpass> file.
 
 =over 4
 
