@@ -211,7 +211,7 @@ sub _send_to_psql {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'in'}->print(
-		$arg_hash{'command'}.';', '\echo pgcompactor_EOA'."\n");
+		$arg_hash{'command'}.';'."\n".'\echo pgcompactor_EOA'."\n");
 
 	my $err_output = join('', $self->{'err'}->getlines());
 
