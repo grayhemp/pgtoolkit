@@ -1228,6 +1228,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	$self->{'_pages_before_vacuum_upper_divisor'} =
   		$arg_hash{'pages_before_vacuum_upper_divisor'};
   
+  	$self->{'_is_dropped'} = 0;
   	$self->{'_is_processed'} = 0;
   
   	return;
@@ -1243,6 +1244,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		my $name = $self->{'_schema_name'}.'.'.$self->{'_table_name'};
   		if ($@ =~ ('relation "'.$name.'" does not exist')) {
   			$self->_log_relation_does_not_exist();
+  			$self->{'_is_dropped'} = 1;
   			$self->{'_is_processed'} = 1;
   		} elsif ($@ =~ /DataError (.*?)\./) {
   			$self->_log_data_error(message => $1);
@@ -1739,6 +1741,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $self = shift;
   
   	return
+  		$self->{'_is_dropped'} ? 0 :
   		$self->{'_base_size_statistics'}->{'size'} -
   		$self->{'_size_statistics'}->{'size'};
   }
@@ -1757,6 +1760,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $self = shift;
   
   	return
+  		$self->{'_is_dropped'} ? 0 :
   		$self->{'_base_size_statistics'}->{'total_size'} -
   		$self->{'_size_statistics'}->{'total_size'};
   }
@@ -3466,7 +3470,7 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   	my ($self, %arg_hash) = @_;
   
   	$self->{'in'}->print(
-  		$arg_hash{'command'}.';', '\echo pgcompactor_EOA'."\n");
+  		$arg_hash{'command'}.';'."\n".'\echo pgcompactor_EOA'."\n");
   
   	my $err_output = join('', $self->{'err'}->getlines());
   
