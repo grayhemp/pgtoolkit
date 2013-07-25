@@ -1858,6 +1858,36 @@ sub test_not_processed : Test {
 	ok(not $table_compactor->is_processed());
 }
 
+sub test_not_processed_and_last_attempt : Test {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[35000, 42000, 100, 120]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 35000, 100, 100]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[4] =
+		[[35000, 35000, 100, 100]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
+		[[85, 10, 1200]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
+		[[85, 10, 1200]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		min_free_percent => 10);
+		#pgstattuple_schema_name => 'public',
+		#reindex => 1);
+
+	$table_compactor->process(attempt => 2);
+
+	ok(not $table_compactor->is_processed());
+}
+
 sub test_processed_if_in_min_page_count : Test {
 	my $self = shift;
 
