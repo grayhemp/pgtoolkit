@@ -669,7 +669,7 @@ sub test_reindex : Test(35) {
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'reindex3'}= {
 		'sql_pattern' =>
-			qr/CREATE INDEX CONCURRENTLY pgcompactor_tmp$$ ON /.
+			qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.
 			qr/schema\.table USING btree \(column3\) /.
 			qr/TABLESPACE tablespace;/,
 		'row_list' => []};
@@ -678,7 +678,7 @@ sub test_reindex : Test(35) {
 	->{'alter_index3'}= {
 		'sql_pattern' =>
 			qr/BEGIN; DROP INDEX schema\.table_idx3; /.
-			qr/ALTER INDEX schema\.pgcompactor_tmp$$ /.
+			qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 			qr/RENAME TO table_idx3; END;/,
 		'row_list' => []};
 

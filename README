@@ -24,7 +24,7 @@ environment variable must be set to the lib/ directory.
 
 Presented tools:
 
-- pgcompactor - a tables and indexes bloat reducing tool.
+- pgcompact - a tables and indexes bloat reducing tool.
 
 The list of changes can be found in the CHANGES file. PgToolkit is
 released under the PostgreSQL License, read the COPYRIGHT file for

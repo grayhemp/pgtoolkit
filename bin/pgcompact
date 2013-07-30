@@ -7,11 +7,11 @@ use PgToolkit::Registry::Compactor;
 
 =head1 NAME
 
-B<pgcompactor> - a PostgreSQL bloat reducing tool.
+B<pgcompact> - a PostgreSQL bloat reducing tool.
 
 =head1 SYNOPSIS
 
-pgcompactor [OPTION...]
+pgcompact [OPTION...]
 
 =over 4
 
@@ -38,8 +38,8 @@ pgcompactor [OPTION...]
 
 =head1 DESCRIPTION
 
-B<pgcompactor> is a maintenance tool for PostgreSQL to reduce bloat
-for tables and indexes without heavily locking them.
+B<pgcompact> is a maintenance tool for PostgreSQL to reduce bloat for
+tables and indexes without heavily locking them.
 
 The tool is an automation of the solutions described on the pages:
 
@@ -55,7 +55,7 @@ by Hubert Lubaczewski (aka Depesz).
 
 =back
 
-If pgstattuple is installed B<pgcompactor> uses it to gather a better
+If pgstattuple is installed B<pgcompact> uses it to gather a better
 statistics. It is highly recommended if there are a lot of toast data
 in the database.
 
@@ -100,9 +100,9 @@ C<debug0> and C<debug1>. By default C<notice>.
 
 =head2 Connection options
 
-The B<pgcompactor> tries to connect to the database with the DBI
-Perl module using either DBD::Pg or DBD::PgPP driver first. If it
-fails the utility tries to work via psql.
+The B<pgcompact> tries to connect to the database with the DBI Perl
+module using either DBD::Pg or DBD::PgPP driver first. If it fails the
+utility tries to work via psql.
 
 If some of the main connection options are not specified the tool
 tries to get them from C<PGHOST>, C<PGPORT>, C<PGUSER>, C<PGPASSWORD>

@@ -211,7 +211,7 @@ sub _send_to_psql {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'in'}->print(
-		$arg_hash{'command'}.';'."\n".'\echo pgcompactor_EOA'."\n");
+		$arg_hash{'command'}.';'."\n".'\echo pgcompact_EOA'."\n");
 
 	my $err_output = join('', $self->{'err'}->getlines());
 
@@ -226,7 +226,7 @@ sub _send_to_psql {
 		my $line = $self->{'out'}->getline();
 
 		if (defined $line) {
-			if ($line eq 'pgcompactor_EOA'."\n") {
+			if ($line eq 'pgcompact_EOA'."\n") {
 				last;
 			} else {
 				$result .= $line;

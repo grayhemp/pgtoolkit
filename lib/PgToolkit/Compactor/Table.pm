@@ -1614,7 +1614,7 @@ sub _get_reindex_query {
 	my ($self, %arg_hash) = @_;
 
 	my $sql = $arg_hash{'data'}->{'definition'};
-	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompactor_tmp$$/;
+	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_tmp$$/;
 	if (defined $arg_hash{'data'}->{'tablespace'}) {
 		$sql =~
 			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
@@ -1647,9 +1647,9 @@ sub _get_alter_index_query {
 		  'ALTER TABLE '.$self->{'_ident'}.
 		  ' ADD CONSTRAINT '.$constraint_ident.' '.
 		  $arg_hash{'data'}->{'contypedef'}.
-		  ' USING INDEX pgcompactor_tmp'.$$.'; ') :
+		  ' USING INDEX pgcompact_tmp'.$$.'; ') :
 		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-		  'ALTER INDEX '.$schema_ident.'.pgcompactor_tmp'.$$.
+		  'ALTER INDEX '.$schema_ident.'.pgcompact_tmp'.$$.
 		  ' RENAME TO '.$index_ident.'; ')
 		).'END; -- '.$self->{'_database'}->quote_ident(
 			string => $self->{'_database'}->get_dbname());
