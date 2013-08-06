@@ -161,7 +161,7 @@ sub get_database_adapter {
 					$ENV{'HOME'}.'/.pgpass' : undef),
 				%hpud_hash)),
 		set_hash => {
-			'lc_messages' => 'C',
+			'lc_messages' => '\'C\'',
 			'synchronous_commit' => 'off',
 			'session_replication_role' => 'replica'},
 		%hpud_hash);
