@@ -5,7 +5,7 @@ use warnings;
 
 =head1 NAME
 
-B<PgToolkit::DatabaseChooser> - a database factory class.
+B<PgToolkit::DatabaseChooser> - database factory class.
 
 =head1 SYNOPSIS
 
@@ -72,13 +72,16 @@ sub new {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2012, PostgreSQL-Consulting.com
+Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+
+PgToolkit is released under the PostgreSQL License, read the COPYRIGHT
+file for additional information.
 
 =head1 AUTHOR
 
 =over 4
 
-=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+=item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
 
 =back
 

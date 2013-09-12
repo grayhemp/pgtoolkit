@@ -7,7 +7,7 @@ use PgToolkit::Registry::Compactor;
 
 =head1 NAME
 
-B<pgcompact> - a PostgreSQL bloat reducing tool.
+B<pgcompact> - PostgreSQL bloat reducing tool.
 
 =head1 SYNOPSIS
 
@@ -38,8 +38,8 @@ pgcompact [OPTION...]
 
 =head1 DESCRIPTION
 
-B<pgcompact> is a maintenance tool for PostgreSQL to reduce bloat for
-tables and indexes without heavily locking them.
+B<pgcompact> is a tool for PostgreSQL to reduce bloat for tables and
+indexes without heavily locking them.
 
 The tool is an automation of the solutions described on the pages:
 
@@ -317,15 +317,18 @@ if (__PACKAGE__ eq 'main') {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2012, PostgreSQL-Consulting.com
+Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+
+PgToolkit is released under the PostgreSQL License, read the COPYRIGHT
+file for additional information.
 
 =head1 AUTHOR
 
 =over 4
 
-=item L<Maxim Boguk|mailto:maxim.boguk@postgresql-consulting.com>
+=item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
 
-=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+=item L<Maxim Boguk|mailto:maxim.boguk@gmail.com>
 
 =back
 

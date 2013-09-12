@@ -8,7 +8,7 @@
 # The TAG argument is required. The script is assumed to be run in the
 # repository root.
 #
-# Sergey Konoplev <gray.ru@gmail.com>
+# Copyright (c) 2011-2013 Sergey Konoplev
 
 BIN_DIR='./bin'
 FATPACK_DIR='./fatpack'

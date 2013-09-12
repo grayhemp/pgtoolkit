@@ -1,31 +1,38 @@
-PgToolkit is a set of scripts for PostgreSQL maintenance and
-monitoring by PostgreSQL-Consulting.com.
+PgToolkit - tools for PostgreSQL maintenance and monitoring
 
-The first way to deploy the toolkit is to get the latest version of
+- pgcompact - tables and indexes bloat reducing tool.
+
+The easiest way to deploy the toolkit is to get the latest version of
 the autonomous scripts archive pgtoolkit-vX-fatpack.tar.gz from the
-PgToolkit project's download page on Google Code:
-
-http://code.google.com/p/pgtoolkit/downloads/list
-
-These scripts are packed with all the required dependencies so you
-will need to have Perl installed only. Just unpack it and enjoy.
+project page http://code.google.com/. These scripts are packed with
+all the required dependencies so you will need to have Perl installed
+only. Just unpack it to your bin directory and enjoy.
 
 Another way is to checkout the source code from the project's
 repository:
 
-svn checkout http://pgtoolkit.googlecode.com/svn/tags/vX/ pgtoolkit
+  $ svn co http://pgtoolkit.googlecode.com/svn/tags/vX/ pgtoolkit
 
-The workdir contains a fatpack/ directory. It also houses the
-autonomous scripts so you can use them straight away.
+The work directory contains a fatpack directory. It also houses the
+autonomous scripts so you can use them straight away. If you want to
+use non-autonomous versions of these scripts you will find them in the
+bin directory. To make them work the PERL5LIB environment variable
+must be set to the lib directory.
 
-If you want to use non-autonomous versions of these scripts you will
-find them in the bin/ directory. To make them work the PERL5LIB
-environment variable must be set to the lib/ directory.
+Email us if have any questions:
 
-Presented tools:
+- Sergey Konoplev mailto:gray.ru@gmail.com - proposals, feature
+  requests, bug reports and code related stuff.
+- Maxim Boguk mailto:maxim.boguk@gmail.com - proposals and ideas.
 
-- pgcompact - a tables and indexes bloat reducing tool.
+Thank you for contribution:
 
-The list of changes can be found in the CHANGES file. PgToolkit is
+- PostgreSQL-Consulting.com mailto:support@postgresql-consulting.com
+  for a huge amount of ideas and lots of testing.
+- Lonni Friedman for your ideas.
+- Rural Hunter  for ideas and testing.
+
+The list of changes can be found in the file CHANGES. PgToolkit is
 released under the PostgreSQL License, read the COPYRIGHT file for
 additional information.
+

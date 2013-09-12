@@ -11,7 +11,7 @@ use PgToolkit::Utils;
 
 =head1 NAME
 
-B<PgToolkit::Compactor::Table> - a table level processing for bloat reducing.
+B<PgToolkit::Compactor::Table> - table level processing for bloat reducing.
 
 =head1 SYNOPSIS
 
@@ -1759,13 +1759,16 @@ sub _get_pages_before_vacuum {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2012, PostgreSQL-Consulting.com
+Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+
+PgToolkit is released under the PostgreSQL License, read the COPYRIGHT
+file for additional information.
 
 =head1 AUTHOR
 
 =over 4
 
-=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+=item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
 
 =back
 

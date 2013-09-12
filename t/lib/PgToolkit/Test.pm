@@ -7,7 +7,7 @@ use warnings;
 
 =head1 NAME
 
-B<PgToolkit::Test> - a base class for all test cases.
+B<PgToolkit::Test> - base class for all test cases.
 
 =head1 SYNOPSIS
 
@@ -15,8 +15,8 @@ B<PgToolkit::Test> - a base class for all test cases.
 
 =head1 DESCRIPTION
 
-B<PgToolkit::Test> a base class for unit tests. It houses some testing
-automatization.
+B<PgToolkit::Test> is a base class for unit tests. It houses some
+testing automatization.
 
 To avoid running tests in abstract test classes call the SKIP_CLASS
 method like this.
@@ -29,15 +29,16 @@ INIT { Test::Class->runtests() }
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2011 postgresql-consulting.com
+Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
 
-TODO Licence boilerplate
+PgToolkit is released under the PostgreSQL License, read the COPYRIGHT
+file for additional information.
 
 =head1 AUTHOR
 
 =over 4
 
-=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+=item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
 
 =back
 
