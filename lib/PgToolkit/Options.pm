@@ -110,7 +110,7 @@ sub init {
 			(keys %{$arg_hash{'definition_hash'}}));
 	}
 
-	$0 =~ /.*\/(.*?)$/;
+	$0 =~ /(?:.*\/)?(.*?)$/;
 	my $prog_name = $1;
 
 	if (
