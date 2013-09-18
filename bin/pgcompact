@@ -237,6 +237,8 @@ Do not use pgstattuple even if it is installed. By default is off.
 
 =item B<--system-catalog>
 
+Warning! This feature is experimatal, use at your own risk.
+
 Allow tables from system catalog to be processed as well. By default
 it is off.
 
