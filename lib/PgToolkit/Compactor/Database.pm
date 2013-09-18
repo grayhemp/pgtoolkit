@@ -68,7 +68,11 @@ a list of table names to exclude from processing
 
 =item C<no_pgstatuple>
 
-do not use pgstattuple to calculate statictics.
+do not use pgstattuple to calculate statictics
+
+=item C<system_catalog>
+
+process system catalog as well.
 
 =back
 
@@ -97,6 +101,8 @@ sub _init {
 		$pgstattuple_schema_name = $self->_get_pgstattuple_schema_name();
 	}
 
+	$self->{'_system_catalog'} = $arg_hash{'system_catalog'};
+
 	if ($pgstattuple_schema_name) {
 		$self->{'_logger'}->write(
 			message => 'Statictics calculation method: pgstattuple.',
@@ -113,7 +119,8 @@ sub _init {
 		schema_name_list => $arg_hash{'schema_name_list'},
 		excluded_schema_name_list => $arg_hash{'excluded_schema_name_list'},
 		table_name_list => $arg_hash{'table_name_list'},
-		excluded_table_name_list => $arg_hash{'excluded_table_name_list'});
+		excluded_table_name_list => $arg_hash{'excluded_table_name_list'},
+		system_catalog => $arg_hash{'system_catalog'});
 
 	$self->{'_table_compactor_list'} = [];
 	for my $table_data (@{$table_data_list}) {
@@ -314,6 +321,12 @@ sub _get_table_data_list {
 			') AND';
 	}
 
+	my $not_in_system_catalog = '';
+	if (not $arg_hash{'system_catalog'}) {
+		$not_in_system_catalog =
+			"schemaname NOT IN ('pg_catalog', 'information_schema') AND";
+	}
+
 	my $result = $self->_execute_and_log(
 			sql => <<SQL
 SELECT schemaname, tablename FROM pg_catalog.pg_tables
@@ -322,8 +335,8 @@ WHERE
     $schema_not_in
     $table_in
     $table_not_in
-    schemaname NOT IN ('pg_catalog', 'information_schema') AND
-    schemaname !~ 'pg_.*'
+    $not_in_system_catalog
+    schemaname !~ 'pg_t.*'
 ORDER BY
     pg_catalog.pg_relation_size(
         quote_ident(schemaname) || '.' || quote_ident(tablename)),

@@ -91,7 +91,8 @@ sub get_database_compactor {
 		excluded_schema_name_list => $options->get(name => 'exclude-schema'),
 		table_name_list => $options->get(name => 'table'),
 		excluded_table_name_list => $options->get(name => 'exclude-table'),
-		no_pgstatuple => $options->get(name => 'no-pgstattuple'));
+		no_pgstatuple => $options->get(name => 'no-pgstattuple'),
+		system_catalog => $options->get(name => 'system-catalog'));
 }
 
 =head2 B<get_table_compactor()>
@@ -236,6 +237,7 @@ sub get_options {
 				'no-routine-vacuum|R' => 0,
 				'no-final-analyze|L' => 0,
 				'no-pgstattuple|S' => 0,
+				'system-catalog|C' => 0,
 				'reindex|r' => 0,
 				'print-reindex-queries|s' => 0,
 				'force|f' => 0,
