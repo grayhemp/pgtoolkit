@@ -1055,10 +1055,10 @@ sub _log_reindex {
 		message => (
 			'Reindex'.($self->{'_force'} ? ' forced' : '').': '.
 			$arg_hash{'ident'}.', '.
-			($arg_hash{'size_statistics'} ? 'initial size '.
-			 $arg_hash{'size_statistics'}->{'page_count'}.' pages ('.
+			($arg_hash{'initial_size_statistics'} ? 'initial size '.
+			 $arg_hash{'initial_size_statistics'}->{'page_count'}.' pages ('.
 			 PgToolkit::Utils->get_size_pretty(
-				 size => $arg_hash{'size_statistics'}->{'size'}).
+				 size => $arg_hash{'initial_size_statistics'}->{'size'}).
 			 '), has been reduced by '.
 			 int($free_percent).'% ('.
 			 PgToolkit::Utils->get_size_pretty(
