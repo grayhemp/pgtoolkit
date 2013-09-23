@@ -18,7 +18,7 @@ sub mock_sth {
 
 			$self->set_always('value_list', [@_]);
 
-			return;
+			return 1;
 		});
 
 	$sth_mock->mock(
@@ -59,6 +59,12 @@ sub mock_sth {
 			}
 
 			return $return_list;
+		});
+
+	$sth_mock->mock(
+		'errstr',
+		sub {
+			return 'some error';
 		});
 
 	return $sth_mock;
