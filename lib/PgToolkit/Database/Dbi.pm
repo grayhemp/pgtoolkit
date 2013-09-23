@@ -70,30 +70,30 @@ sub init {
 
 	eval { require DBI; };
 	if ($@) {
-		die('DatabaseError DBI module not found.');
+		die('DatabaseError DBI module not found.'."\n");
 	}
 
 	if (not grep($_ eq $arg_hash{'driver'}, DBI->available_drivers())) {
-		die('DatabaseError No driver found "'.$arg_hash{'driver'}.'".');
+		die('DatabaseError No driver found "'.$arg_hash{'driver'}.'".'."\n");
 	}
 
-	eval {
-		$self->{'dbh'} = DBI->connect(
-			'dbi:'.$arg_hash{'driver'}.
-			':dbname='.($arg_hash{'dbname'} ?
-						$self->_get_escaped_dbname() : '').
-			(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
-			';port='.($arg_hash{'port'} or ''),
-			$arg_hash{'user'}, $arg_hash{'password'},
-			{
-				RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
-				PrintWarn => 0, PrintError => 0,
-				pg_server_prepare => 0, pg_enable_utf8 => 0
-			});
-	};
+	my $dsn = (
+		'dbi:'.$arg_hash{'driver'}.
+		':dbname='.($arg_hash{'dbname'} ? $self->_get_escaped_dbname() : '').
+		(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
+		';port='.($arg_hash{'port'} or ''));
 
-	if ($@) {
-		die('DatabaseError '.$@);
+	$self->{'dbh'} = DBI->connect(
+		$dsn, $arg_hash{'user'}, $arg_hash{'password'},
+		{
+			RaiseError => 0, ShowErrorStatement => 1, AutoCommit => 1,
+			PrintWarn => 0, PrintError => 0,
+			pg_server_prepare => 0, pg_enable_utf8 => 0
+		});
+
+	if (not defined $self->{'dbh'}) {
+		die('DatabaseError Can not connect to database: '."\n".
+			$dsn.';user='.$arg_hash{'user'}."\n".DBI->errstr."\n");
 	}
 
 	if ($arg_hash{'set_hash'}) {
@@ -144,17 +144,20 @@ sub _execute {
 	my ($self, %arg_hash) = @_;
 
 	my $result;
-	eval {
-		if ($arg_hash{'sql'} =~ /^SELECT/) {
-			$self->{'sth'} = $self->{'dbh'}->prepare($arg_hash{'sql'});
-			$self->{'sth'}->execute();
-			$result = $self->{'sth'}->fetchall_arrayref();
-		} else {
-			$self->{'dbh'}->do($arg_hash{'sql'});
+	if ($arg_hash{'sql'} =~ /^SELECT/) {
+		$self->{'sth'} = $self->{'dbh'}->prepare($arg_hash{'sql'});
+
+		if (not $self->{'sth'}->execute()) {
+			die('DatabaseError Can not execute statement: '."\n".
+				$self->{'sth'}->errstr."\n");
 		}
-	};
-	if ($@) {
-		die('DatabaseError '.$@);
+
+		$result = $self->{'sth'}->fetchall_arrayref();
+	} else {
+		if (not $self->{'dbh'}->do($arg_hash{'sql'})) {
+			die('DatabaseError Can not execute command: '."\n".
+				$self->{'dbh'}->errstr."\n");
+		}
 	}
 
 	return $result

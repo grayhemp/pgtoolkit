@@ -63,8 +63,8 @@ sub new {
 	}
 
 	if (not defined $self) {
-		die('DatabaseChooserError Can not find an adapter among supported, '.
-			'reasons: '."\n".join('', @{$errors}));
+		die('DatabaseChooserError Can not find an adapter amongst supported: '.
+			"\n".join('', @{$errors}));
 	}
 
 	return $self;

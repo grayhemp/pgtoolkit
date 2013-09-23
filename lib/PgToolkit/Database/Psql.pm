@@ -7,6 +7,7 @@ use warnings;
 
 use IPC::Open3;
 use IO::Handle;
+use POSIX ':sys_wait_h';
 
 use PgToolkit::Utils;
 
@@ -18,8 +19,8 @@ B<PgToolkit::Database::Psql> - psql facade class.
 
 	my $database = PgToolkit::Database::Psql->new(
 		path => '/path/to/psql', host => 'somehost', port => '5432',
-		dbname => 'somedb', user => 'someuser',password => 'secret',
-		set_hash => {'statement_timeout' => 0});
+		dbname => 'somedb', user => 'someuser', password => 'secret',
+		set_hash => {'statement_timeout' => 0}, timeout => 3600);
 
 	my $result = $database->execute(sql => 'SELECT * FROM sometable;');
 
@@ -47,7 +48,11 @@ a path to psql, default 'psql'
 
 =item C<set_hash>
 
-a set of configuration parameters to set.
+a set of configuration parameters to set
+
+=item C<timeout>
+
+an execution timeout, default 3600 seconds.
 
 =back
 
@@ -86,29 +91,23 @@ sub init {
 
 	$self->{'_set_hash'} = $arg_hash{'set_hash'};
 
-	my $psql_command_line = sprintf(
-		'%s%s -w -q -A -t -X %s %s %s %s -P null="<NULL>"',
+	$self->{'_timeout'} = (defined $arg_hash{'timeout'}) ?
+		$arg_hash{'timeout'} : 3600;
+
+	$self->{'psql_command_line'} = sprintf(
+		'%s%s -wqAtX %s %s %s %s -P null="<NULL>"',
 		@opt_hash{'password', 'path', 'host', 'port', 'dbname', 'user'});
-	$psql_command_line =~ s/\s+/ /g;
+	$self->{'psql_command_line'} =~ s/\s+/ /g;
 
-	$self->_start_psql(psql_command_line => $psql_command_line);
+	$self->_start_psql();
 
-	eval {
-		$self->execute(
-			sql => join(
-				' ',
-				map(
-					'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
-					keys %{$self->{'_set_hash'}}),
-				'SELECT 1;'));
-	};
-	if ($@) {
-		if ($@ =~ 'DatabaseError (.*)') {
-			die('DatabaseError Can not execute command: '.$1);
-		} else {
-			die($@);
-		}
-	}
+	$self->execute(
+		sql => join(
+			' ',
+			map(
+				'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
+				keys %{$self->{'_set_hash'}}),
+			'SELECT 1;'));
 
 	return;
 }
@@ -186,9 +185,7 @@ sub _start_psql {
 
 	$self->{'pid'} = open3(
 		$self->{'in'}, $self->{'out'}, $self->{'err'},
-		$arg_hash{'psql_command_line'});
-
-	my $exit_status = $? >> 8;
+		$self->{'psql_command_line'});
 
 	$self->{'out'}->blocking(0);
 	$self->{'err'}->blocking(0);
@@ -196,13 +193,6 @@ sub _start_psql {
 	$self->{'in'}->autoflush(1);
 	$self->{'out'}->autoflush(1);
 	$self->{'err'}->autoflush(1);
-
-	if ($exit_status) {
-		die(join(' ', ('DatabaseError Can not start psql: ',
-					   $arg_hash{'psql_command_line'},
-					   join('', $self->{'out'}->getlines()),
-					   join('', $self->{'err'}->getlines()))));
-	}
 
 	return;
 }
@@ -213,15 +203,9 @@ sub _send_to_psql {
 	$self->{'in'}->print(
 		$arg_hash{'command'}.';'."\n".'\echo pgcompact_EOA'."\n");
 
-	my $err_output = join('', $self->{'err'}->getlines());
-
-	if ($err_output and $err_output =~ /ERROR:/) {
-		die(join(' ', ('DatabaseError Can not execute the command: ',
-						$arg_hash{'command'}, $err_output,
-					   join('', $self->{'out'}->getlines()))));
-	}
-
 	my $result = '';
+	my $exit_status;
+	my $start_time = PgToolkit::Utils->time();
 	while (1) {
 		my $line = $self->{'out'}->getline();
 
@@ -234,6 +218,26 @@ sub _send_to_psql {
 		} else {
 			PgToolkit::Utils->sleep(0.001);
 		}
+
+		if ((my $pid = waitpid($self->{'pid'}, WNOHANG)) > 0) {
+			die(join("\n", ('DatabaseError Can not connect to database: ',
+							$self->{'psql_command_line'},
+							join('', $self->{'err'}->getlines()))));
+		}
+
+		if (PgToolkit::Utils->time() - $start_time > $self->{'_timeout'}) {
+			waitpid($self->{'pid'}, WNOHANG);
+			die(join("\n", ('DatabaseError Execution terminated my timeout '.
+							'('.$self->{'_timeout'}.' sec): ',
+							$arg_hash{'command'})));
+		}
+	}
+
+	my $err_output = join('', $self->{'err'}->getlines());
+
+	if ($err_output and $err_output =~ /(ERROR|FATAL|PANIC):/) {
+		die(join("\n", ('DatabaseError Can not executie command: ',
+						' '.$arg_hash{'command'}, ' '.$err_output)));
 	}
 
 	return $result;
