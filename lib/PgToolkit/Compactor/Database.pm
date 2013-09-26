@@ -336,7 +336,8 @@ WHERE
     $table_in
     $table_not_in
     $not_in_system_catalog
-    schemaname !~ 'pg_t.*'
+    NOT (schemaname = 'pg_catalog' AND tablename = 'pg_index') AND
+    schemaname !~ 'pg_(temp|toast).*'
 ORDER BY
     pg_catalog.pg_relation_size(
         quote_ident(schemaname) || '.' || quote_ident(tablename)),

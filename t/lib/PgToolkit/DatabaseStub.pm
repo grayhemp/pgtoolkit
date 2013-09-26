@@ -215,8 +215,10 @@ sub init {
 			'sql_pattern' =>
 				qr/SELECT schemaname, tablename /.
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_t\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema1', 'table1'], ['schema1', 'table2'],
 						   ['schema2', 'table1'], ['schema2', 'table2']]},
 		'get_table_data_list2' => {
@@ -225,8 +227,10 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/schemaname IN \('schema1', 'schema2'\) AND\s+/s.
 				qr/schemaname NOT IN \('schema2'\) AND\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_t\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema1', 'table1'], ['schema1', 'table2']]},
 		'get_table_data_list3' => {
 			'sql_pattern' =>
@@ -234,8 +238,10 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/schemaname NOT IN \('schema1'\) AND\s+/s.
 				qr/tablename IN \('table1', 'table2'\) AND\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_t\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema2', 'table1'], ['schema2', 'table2']]},
 		'get_table_data_list4' => {
 			'sql_pattern' =>
@@ -243,16 +249,20 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/tablename IN \('table1', 'table2'\) AND\s+/s.
 				qr/tablename NOT IN \('table2'\) AND\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_t\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema1', 'table1'], ['schema2', 'table1']]},
 		'get_table_data_list_system_catalog' => {
 			'sql_pattern' =>
 				qr/SELECT schemaname, tablename /.
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/schemaname IN \('pg_catalog'\) AND\s+/s.
-				qr/tablename IN \('pg_class'\) AND\s+/s.
-				qr/\s+schemaname !~ 'pg_t\.\*'\s+ORDER BY/s,
+				qr/tablename IN \('pg_class'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['pg_catalog', 'pg_class']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
