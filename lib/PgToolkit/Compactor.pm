@@ -148,8 +148,8 @@ sub _execute_and_log {
 
 Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
 
-PgToolkit is released under the PostgreSQL License, read the COPYRIGHT
-file for additional information.
+PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
+for additional information.
 
 =head1 AUTHOR
 

@@ -1,4 +1,6 @@
-PgToolkit - tools for PostgreSQL maintenance and monitoring
+# PgToolkit - tools for PostgreSQL maintenance and monitoring
+
+## License and Copyright
 
 Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
 
