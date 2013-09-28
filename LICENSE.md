@@ -2,7 +2,7 @@
 
 ## License and Copyright
 
-Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+Copyright &copy; 2011-2013 Sergey Konoplev, Maxim Boguk
 
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose, without fee, and without a written
