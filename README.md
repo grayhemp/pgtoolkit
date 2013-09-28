@@ -37,6 +37,22 @@ If [pgstattuple] is installed `pgcompact` uses it to get a better
 statistics. It is highly recommended to be for TOASTed tables and
 indexes.
 
+### Usage examples
+
+Shows usage manual.
+
+    pgcompact --man
+
+Compacts all the bloated tables in all the database in the cluster
+plus their bloated indexes. Prints additional progress information.
+
+    pgcompact --all --reindex --verbose info
+
+Compacts all the bloated tables in the billing database and their
+bloated indexes excepts ones that are in the `pgq` schema.
+
+    pgcompact --dbname billing --exclude-schema pgq --reindex
+
 ### Features
 
 - Requires no dependencies except `Perl >=5.8.8`, so it can just be
@@ -61,22 +77,6 @@ indexes.
 - Instructs administrators, supplying them with ready to use DDL, to
   manually rebuild database objects which can not be rebuilt
   automatically.
-
-### Usage examples
-
-Shows usage manual.
-
-    pgcompact --man
-
-Compacts all the bloated tables in all the database in the cluster
-plus their bloated indexes. Prints additional progress information.
-
-    pgcompact --all --reindex --verbose info
-
-Compacts all the bloated tables in the billing database and their
-bloated indexes excepts ones that are in the `pgq` schema.
-
-    pgcompact --dbname billing --exclude-schema pgq --reindex
 
 ## License and Copyright
 
