@@ -38,10 +38,11 @@ pgcompact [OPTION...]
 
 =head1 DESCRIPTION
 
-B<pgcompact> is a tool for PostgreSQL to reduce bloat for tables and
-indexes without heavily locking them.
+B<pgcompact> is a tool to reduce bloat for tables and indexes without
+heavy locks.
 
-The tool is an automation of the solutions described on the pages:
+Initially the tool is an automation of the solutions proposed in these
+publications:
 
 =over 4
 
@@ -55,9 +56,25 @@ by Hubert Lubaczewski (aka Depesz).
 
 =back
 
-If pgstattuple is installed B<pgcompact> uses it to gather a better
-statistics. It is highly recommended if there are a lot of toast data
-in the database.
+If pgstattuple is installed B<pgcompact> uses it to get a better
+statistics. It is highly recommended to be for TOASTed tables and
+indexes.
+
+=head2 Usage examples
+
+Shows usage manual.
+
+	pgcompact --man
+
+Compacts all the bloated tables in all the database in the cluster
+plus their bloated indexes. Prints additional progress information.
+
+	pgcompact --all --reindex --verbose info
+
+Compacts all the bloated tables in the billing database and their
+bloated indexes excepts ones that are in the pgq schema.
+
+	pgcompact --dbname billing --exclude-schema pgq --reindex
 
 =head1 OPTIONS
 
@@ -102,11 +119,11 @@ C<debug0> and C<debug1>. By default C<notice>.
 
 The B<pgcompact> tries to connect to the database with the DBI Perl
 module using either DBD::Pg or DBD::PgPP driver first. If it fails the
-utility tries to work via psql.
+utility tries to work via psql using bidirectional communications.
 
-If some of the main connection options are not specified the tool
-tries to get them from C<PGHOST>, C<PGPORT>, C<PGUSER>, C<PGPASSWORD>
-environment variables. If password is still not specified it tries to
+If some of the connection options is not specified the tool tries to
+get it from C<PGHOST>, C<PGPORT>, C<PGUSER>, C<PGPASSWORD> environment
+variables. If password is still unknown after that than it tries to
 get it from the password file that C<PGPASSFILE> refers to and if this
 file does not exist it tries to get it from C<HOME/.pgpass> file.
 
@@ -149,7 +166,7 @@ A path to the psql program. By default C<psql>.
 
 Note that if you specified a database, schema or table that is not in
 the cluster it will be ignored. Redundant exclusions will be ignored
-too. All this options except C<--all> can be specified several times.
+too. All these options except C<--all> can be specified several times.
 
 =over 4
 
@@ -157,7 +174,7 @@ too. All this options except C<--all> can be specified several times.
 
 =item B<--all>
 
-Process all databases of the cluster.
+Process all the databases in the cluster.
 
 =item B<-d> DBNAME
 
@@ -208,7 +225,7 @@ A table to exclude from processing.
 
 =item B<--dry-run>
 
-Print statistics only without affecting data.
+Print statistics only, without affecting any data.
 
 =item B<-I>
 
@@ -218,14 +235,14 @@ Print statistics only without affecting data.
 
 =item B<--no-routine-vacuum>
 
-Turn off initial/routine vacuum. By default all the vacuums are
+Turn off the initial/routine vacuum. By default all the vacuums are
 on. Final vacuum can not be turned off.
 
 =item B<-L>
 
 =item B<--no-final-analyze>
 
-Turn off final analyze. By default final analyze is performed.
+Turn off the final analyze. By default the final analyze is performed.
 
 =item B<-S>
 
@@ -239,8 +256,8 @@ Do not use pgstattuple even if it is installed. By default is off.
 
 Warning! This feature is experimental, use at your own risk.
 
-Allow tables from system catalog to be processed as well. By default
-it is off.
+Allow tables from system catalog to be processed as well. It does not
+process pg_indexes, as it txid dependant. By default it is off.
 
 =item B<-r>
 
@@ -259,8 +276,8 @@ reindex later.
 
 =item B<--force>
 
-Try to compact even those tables that do not meet minimal bloat
-requirements.
+Try to compact even those tables and indexes that do not meet minimal
+bloat requirements.
 
 =item B<-c> PAGES
 
@@ -307,8 +324,7 @@ processing. By default it is 20.
 
 =item B<--progress-report-period> SECONDS
 
-An interval in seconds to report the progress of processing
-with. Default is 60 seconds.
+An interval in seconds to report the progress. Default is 60 seconds.
 
 =back
 
