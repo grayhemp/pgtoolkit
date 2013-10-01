@@ -2,6 +2,25 @@
 
 ## Changes
 
+### 2013-10-01 - PgToolkit v1.0.0
+
+Note that `pgcompactor` was renamed to `pgcompact`.
+
+- Set `lc_messages` to `C` to simplify message processing
+- Renamed `pgcompactor` to pgcompact
+- Fixed the `lc_messages` invalid value issue
+- Reviewed documentation and licensing info
+- Added a short list of `pgcompact`'s abilities
+- Fixed the `$prog_name` in concatenation error
+- Added an experimental feature of compacting system catalog
+- Excluded `pg_catalog.pg_index` from compacting list
+- Fixed wrong initial index size reporting after reindexing
+- Fixed `psql` error trapping and adjusted error reporting
+- Improved the error processing in database adapters
+- Reviewed the `pgcompact`'s man
+- Adapted to comply with `GitHub`
+- Added future plans
+
 ### 2013-02-01 - PgToolkit v1.0rc1
 
 - Refactored information files, `PgToolkit` is released under the
