@@ -51,7 +51,7 @@ sub test_init : Test(6) {
 			[$db->{'dbh'}->call_args(-1)],
 			[$db->{'dbh'}, 'DBI', @{$data_hash->{'dbh_arg_list'}},
 			 {
-				 RaiseError => 1, ShowErrorStatement => 1, AutoCommit => 1,
+				 RaiseError => 0, ShowErrorStatement => 1, AutoCommit => 1,
 				 PrintWarn => 0, PrintError => 0,
 				 pg_server_prepare => 0, pg_enable_utf8 => 0
 			 }]);

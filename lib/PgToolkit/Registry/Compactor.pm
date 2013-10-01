@@ -17,7 +17,7 @@ use PgToolkit::Utils;
 
 =head1 NAME
 
-B<PgToolkit::Registry::Compactor> - a registry of the compactor components.
+B<PgToolkit::Registry::Compactor> - registry of the compactor components.
 
 =head1 SYNOPSIS
 
@@ -91,7 +91,8 @@ sub get_database_compactor {
 		excluded_schema_name_list => $options->get(name => 'exclude-schema'),
 		table_name_list => $options->get(name => 'table'),
 		excluded_table_name_list => $options->get(name => 'exclude-table'),
-		no_pgstatuple => $options->get(name => 'no-pgstattuple'));
+		no_pgstatuple => $options->get(name => 'no-pgstattuple'),
+		system_catalog => $options->get(name => 'system-catalog'));
 }
 
 =head2 B<get_table_compactor()>
@@ -161,6 +162,7 @@ sub get_database_adapter {
 					$ENV{'HOME'}.'/.pgpass' : undef),
 				%hpud_hash)),
 		set_hash => {
+			'lc_messages' => '\'C\'',
 			'synchronous_commit' => 'off',
 			'session_replication_role' => 'replica'},
 		%hpud_hash);
@@ -235,6 +237,7 @@ sub get_options {
 				'no-routine-vacuum|R' => 0,
 				'no-final-analyze|L' => 0,
 				'no-pgstattuple|S' => 0,
+				'system-catalog|C' => 0,
 				'reindex|r' => 0,
 				'print-reindex-queries|s' => 0,
 				'force|f' => 0,
@@ -277,7 +280,7 @@ sub get_options {
 				}
 			},
 			kit => 'PgToolkit',
-			version => 'v1.0rc1');
+			version => 'v1.0.0');
 	}
 
 	return $self->{'_options'};
@@ -313,13 +316,16 @@ sub get_options {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2012, PostgreSQL-Consulting.com
+Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+
+PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
+for additional information.
 
 =head1 AUTHOR
 
 =over 4
 
-=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+=item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
 
 =back
 

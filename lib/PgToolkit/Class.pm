@@ -5,7 +5,7 @@ use warnings;
 
 =head1 NAME
 
-B<PgToolkit::Class> - a base class.
+B<PgToolkit::Class> - base class.
 
 =head1 SYNOPSIS
 
@@ -69,13 +69,16 @@ sub init {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2012, PostgreSQL-Consulting.com
+Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+
+PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
+for additional information.
 
 =head1 AUTHOR
 
 =over 4
 
-=item L<Sergey Konoplev|mailto:sergey.konoplev@postgresql-consulting.com>
+=item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
 
 =back
 

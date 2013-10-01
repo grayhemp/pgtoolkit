@@ -669,7 +669,7 @@ sub test_reindex : Test(35) {
 	$self->{'database'}->{'mock'}->{'data_hash'}
 	->{'reindex3'}= {
 		'sql_pattern' =>
-			qr/CREATE INDEX CONCURRENTLY pgcompactor_tmp$$ ON /.
+			qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.
 			qr/schema\.table USING btree \(column3\) /.
 			qr/TABLESPACE tablespace;/,
 		'row_list' => []};
@@ -678,7 +678,7 @@ sub test_reindex : Test(35) {
 	->{'alter_index3'}= {
 		'sql_pattern' =>
 			qr/BEGIN; DROP INDEX schema\.table_idx3; /.
-			qr/ALTER INDEX schema\.pgcompactor_tmp$$ /.
+			qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 			qr/RENAME TO table_idx3; END;/,
 		'row_list' => []};
 
@@ -1854,6 +1854,36 @@ sub test_not_processed : Test {
 		min_free_percent => 7);
 
 	$table_compactor->process(attempt => 1);
+
+	ok(not $table_compactor->is_processed());
+}
+
+sub test_not_processed_and_last_attempt : Test {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[35000, 42000, 100, 120]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 35000, 100, 100]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[4] =
+		[[35000, 35000, 100, 100]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
+		[[85, 10, 1200]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[2] =
+		[[85, 10, 1200]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		min_free_percent => 10);
+		#pgstattuple_schema_name => 'public',
+		#reindex => 1);
+
+	$table_compactor->process(attempt => 2);
 
 	ok(not $table_compactor->is_processed());
 }

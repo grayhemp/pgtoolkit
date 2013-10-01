@@ -28,8 +28,8 @@ sub test_init : Test(5) {
 
 	my $db = $self->{'database_constructor'}->();
 
-	is($db->{'psql_command_line'},
-	   'PGPASSWORD=somepassword psql -w -q -A -t -X -h somehost -p 5432 '.
+	is($db->get_psql_command_line(),
+	   'PGPASSWORD=somepassword psql -wqAtX -h somehost -p 5432 '.
 	   '-d somedb -U someuser -P null="<NULL>"');
 	is($db->get_dbname(), 'somedb');
 
@@ -38,14 +38,14 @@ sub test_init : Test(5) {
 		dbname => 'anotherdb', user => 'anotheruser',
 		password => 'anotherpassword');
 
-	is($db->{'psql_command_line'},
-	   'PGPASSWORD=anotherpassword /usr/bin/psql -w -q -A -t -X '.
+	is($db->get_psql_command_line(),
+	   'PGPASSWORD=anotherpassword /usr/bin/psql -wqAtX '.
 	   '-h anotherhost -p 6432 -d anotherdb -U anotheruser -P null="<NULL>"');
 	is($db->get_dbname(), 'anotherdb');
 
 	is(PgToolkit::DatabasePsqlTest::Stub->new()
 	   ->{'psql_command_line'},
-	   'psql -w -q -A -t -X -P null="<NULL>"');
+	   'psql -wqAtX -P null="<NULL>"');
 }
 
 sub test_execute : Test(5) {
@@ -139,8 +139,6 @@ sub init {
 sub _start_psql {
 	my ($self, %arg_hash) = @_;
 
-	$self->{'psql_command_line'} = $arg_hash{'psql_command_line'};
-
 	return;
 }
 
@@ -148,6 +146,12 @@ sub _send_to_psql {
 	my ($self, %arg_hash) = @_;
 
 	return $self->{'mock'}->_send_to_psql(%arg_hash);
+}
+
+sub get_psql_command_line {
+	my ($self, %arg_hash) = @_;
+
+	return $self->{'psql_command_line'};
 }
 
 1;

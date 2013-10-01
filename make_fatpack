@@ -1,42 +1,41 @@
 #!/bin/bash
 #
-# The download files making script.
+# A script to make packed with dependencies versions of tools.
 #
-# The script makes autonomous Perl scripts built by the fatpack
-# utility (App::FatPacker) and a .tar.gz archive of them.
+# Makes autonomous Perl scripts with the fatpack utility
+# (App::FatPacker) and archive them in pgtoolkit-vX-fatpack.tar.gz.
 #
-# The TAG argument is required. The script is assumed to be run at the
+# The TAG argument is required. The script is assumed to be run in the
 # repository root.
 #
-# Copyright (c) 2012, PostgreSQL-Consulting.com
-#
-# Sergey Konoplev <sergey.konoplev@postgresql-consulting.com>
+# Copyright (c) 2011-2013 Sergey Konoplev
 
-BINDIR=bin
-FATPACKDIR=fatpack
-
-scriptlist=$(ls -1 $BINDIR)
+BIN_DIR='./bin'
+FATPACK_DIR='./fatpack'
+PERL='/usr/bin/perl'
 
 if [ $# -ne 1 ]; then
     echo "Usage: make_files TAG" >&2
     exit 1
 fi
 
+script_list=$(ls -1 $BIN_DIR)
+
 # Fatpack the scripts
-rm $FATPACKDIR/*
+find $FATPACK_DIR -type f -delete
 mkdir fatlib
-for script in $scriptlist; do
-    (echo "#!/usr/bin/perl"; fatpack file; cat $BINDIR/$script) \
-	> $FATPACKDIR/$script 2> /dev/null
-    chmod 755 $FATPACKDIR/$script
-    echo $FATPACKDIR/$script
+for script in $script_list; do
+    (echo "#!$PERL"; fatpack file; cat $BIN_DIR/$script) \
+	> $FATPACK_DIR/$script 2> /dev/null
+    chmod 755 $FATPACK_DIR/$script
+    echo $FATPACK_DIR/$script
 done
 rm -rf fatlib
 
 # Archive the fatpacked scripts and remove them
-fatpacktargz=pgtoolkit-$1-fatpack.tar.gz
+fatpack_targz=pgtoolkit-$1-fatpack.tar.gz
 (
-    cd $FATPACKDIR/
-    tar -czf $fatpacktargz *
-    echo $FATPACKDIR/$fatpacktargz    
+    cd $FATPACK_DIR/
+    tar -czf $fatpack_targz *
+    echo $FATPACK_DIR/$fatpack_targz    
 )

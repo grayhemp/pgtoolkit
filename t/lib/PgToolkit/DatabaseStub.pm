@@ -190,33 +190,35 @@ sub init {
 				 'btree', undef, undef, 1, 2000]]},
 		'reindex1' => {
 			'sql_pattern' =>
-				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompactor_tmp$$ /.
+				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompact_tmp$$ /.
 				qr/ON schema\.table USING btree \(column1\);/,
 			'row_list' => []},
 		'alter_index1' => {
 			'sql_pattern' =>
 				qr/BEGIN; ALTER TABLE schema\.table DROP CONSTRAINT /.
 				qr/table_pkey; ALTER TABLE schema\.table ADD CONSTRAINT /.
-				qr/table_pkey PRIMARY KEY USING INDEX pgcompactor_tmp$$; END;/,
+				qr/table_pkey PRIMARY KEY USING INDEX pgcompact_tmp$$; END;/,
 			'row_list' => []},
 		'reindex2' => {
 			'sql_pattern' =>
-				qr/CREATE INDEX CONCURRENTLY pgcompactor_tmp$$ ON /.
+				qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.
 				qr/schema\.table USING btree \(column2\) /.
 				qr/TABLESPACE tablespace WHERE column2 = 1;/,
 			'row_list' => []},
 		'alter_index2' => {
 			'sql_pattern' =>
 				qr/BEGIN; DROP INDEX schema\.table_idx2; /.
-				qr/ALTER INDEX schema\.pgcompactor_tmp$$ /.
+				qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 				qr/RENAME TO table_idx2; END;/,
 			'row_list' => []},
 		'get_table_data_list1' => {
 			'sql_pattern' =>
 				qr/SELECT schemaname, tablename /.
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema1', 'table1'], ['schema1', 'table2'],
 						   ['schema2', 'table1'], ['schema2', 'table2']]},
 		'get_table_data_list2' => {
@@ -225,8 +227,10 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/schemaname IN \('schema1', 'schema2'\) AND\s+/s.
 				qr/schemaname NOT IN \('schema2'\) AND\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema1', 'table1'], ['schema1', 'table2']]},
 		'get_table_data_list3' => {
 			'sql_pattern' =>
@@ -234,8 +238,10 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/schemaname NOT IN \('schema1'\) AND\s+/s.
 				qr/tablename IN \('table1', 'table2'\) AND\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema2', 'table1'], ['schema2', 'table2']]},
 		'get_table_data_list4' => {
 			'sql_pattern' =>
@@ -243,9 +249,21 @@ sub init {
 				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
 				qr/tablename IN \('table1', 'table2'\) AND\s+/s.
 				qr/tablename NOT IN \('table2'\) AND\s+/s.
-				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\) /.
-				qr/AND\s+schemaname !~ 'pg_\.\*'\s+ORDER BY/s,
+				qr/schemaname NOT IN \('pg_catalog', 'information_schema'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
 			'row_list' => [['schema1', 'table1'], ['schema2', 'table1']]},
+		'get_table_data_list_system_catalog' => {
+			'sql_pattern' =>
+				qr/SELECT schemaname, tablename /.
+				qr/FROM pg_catalog\.pg_tables\nWHERE\s+/s.
+				qr/schemaname IN \('pg_catalog'\) AND\s+/s.
+				qr/tablename IN \('pg_class'\)/.
+				qr/\s+AND\s+NOT \(schemaname = 'pg_catalog' AND /.
+				qr/tablename = 'pg_index'\) AND\s+/s.
+				qr/schemaname !~ 'pg_\(temp|toast\)\.\*'\s+ORDER BY/s,
+			'row_list' => [['pg_catalog', 'pg_class']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
 				qr/CREATE OR REPLACE FUNCTION public\._clean_pages/,

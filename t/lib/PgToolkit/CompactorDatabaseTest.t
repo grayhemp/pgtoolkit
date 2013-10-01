@@ -39,6 +39,7 @@ sub setup : Test(setup) {
 			table_name_list => [],
 			excluded_table_name_list => [],
 			no_pgstattuple => 0,
+			system_catalog => 0,
 			@_);
 	};
 }
@@ -140,7 +141,26 @@ sub test_init_creates_table_compactors_in_the_returning_order : Test(20) {
 	}
 }
 
-sub test_process_procecces_table_compactors_in_their_order  : Test(12) {
+sub test_process_system_catalog_if_specified : Test(2) {
+	my $self = shift;
+
+	$self->{'database_compactor_constructor'}->(
+		schema_name_list => ['pg_catalog'],
+		table_name_list => ['pg_class'],
+		system_catalog => 1)->process();
+
+	my $mock = $self->{'table_compactor_mock_list'}->[0];
+
+	is($mock->call_pos(1), 'init');
+	is_deeply(
+		[$mock->call_args(1)],
+		[$mock, 'database' => $self->{'database'},
+		 'schema_name' => 'pg_catalog',
+		 'table_name' => 'pg_class',
+		 'pgstattuple_schema_name' => undef]);
+}
+
+sub test_process_procecces_table_compactors_in_their_order : Test(12) {
 	my $self = shift;
 
 	$self->{'database_compactor_constructor'}->()->process(attempt => 2);
