@@ -2,7 +2,7 @@
 
 Currently the package contains the only tool `pgcompact`, we are
 planning to add much more in the future. The list of changes can be
-found in [CHANGES.md]. Stay tuned.
+found in [CHANGES.md]. The To-Do List is in [TODO.md]. Stay tuned.
 
 ## Installation
 
@@ -104,8 +104,14 @@ PgToolkit is released under the PostgreSQL License, read
 - Rural Hunter for ideas and testing.
 
 [CHANGES.md]: ../stable/CHANGES.md
+[TODO.md]: ../stable/CHANGES.md
 [LICENSE.md]: ../stable/LICENSE.md
 [pgstattuple]: http://www.postgresql.org/docs/9.3/static/pgstattuple.html
 [1]: http://github.com/grayhemp/pgtoolkit/archive/stable.tar.gz
 [2]: http://blog.endpoint.com/2010/09/reducing-bloat-without-locking.html
 [3]: http://depesz.com/index.php/2010/10/17/reduce-bloat-of-table-without-longexclusive-locks
+
+
+
+
+
