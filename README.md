@@ -12,9 +12,15 @@ be installed only. Just unpack the archive to your `bin` directory and
 enjoy. If you need a specific version or branch of the tools, replace
 the `stable` with its name string in [the URL][1].
 
-Another way is to clone the repository:
+Another way is to `git clone` the repository:
 
     git clone git@github.com:grayhemp/pgtoolkit.git
+
+Or to `svn checkout` it:
+
+    svn checkout https://github.com/grayhemp/pgtoolkit
+
+Do not forget to switch to the necessary version branch afterwards.
 
 It contains a `fatpack` directory that also houses the autonomous
 scripts so you can use them straight away. If you want to use
