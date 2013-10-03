@@ -104,7 +104,7 @@ PgToolkit is released under the PostgreSQL License, read
 - Rural Hunter for ideas and testing.
 
 [CHANGES.md]: ../stable/CHANGES.md
-[TODO.md]: ../stable/CHANGES.md
+[TODO.md]: ../stable/TODO.md
 [LICENSE.md]: ../stable/LICENSE.md
 [pgstattuple]: http://www.postgresql.org/docs/9.3/static/pgstattuple.html
 [1]: http://github.com/grayhemp/pgtoolkit/archive/stable.tar.gz
