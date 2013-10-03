@@ -49,7 +49,7 @@ Shows usage manual.
 
     pgcompact --man
 
-Compacts all the bloated tables in all the database in the cluster
+Compacts all the bloated tables in all the databases in the cluster
 plus their bloated indexes. Prints additional progress information.
 
     pgcompact --all --reindex --verbose info
