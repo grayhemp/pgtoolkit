@@ -164,7 +164,8 @@ sub get_database_adapter {
 		set_hash => {
 			'lc_messages' => '\'C\'',
 			'synchronous_commit' => 'off',
-			'session_replication_role' => 'replica'},
+			'session_replication_role' => 'replica',
+			'statement_timeout' => '\'0\''},
 		%hpud_hash);
 
 	my $constructor_list = [

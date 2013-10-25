@@ -366,7 +366,9 @@ SELECT
         FROM pg_catalog.pg_depend
         LEFT JOIN pg_catalog.pg_constraint ON
             pg_catalog.pg_constraint.oid = refobjid
-        WHERE objid = indexoid OR refobjid = indexoid
+        WHERE
+            (objid = indexoid AND classid = pgclassid) OR
+            (refobjid = indexoid AND refclassid = pgclassid)
     )::integer AS allowed,
     pg_catalog.pg_relation_size(indexoid)
 FROM (
@@ -375,6 +377,7 @@ FROM (
         (
             quote_ident(schemaname) || '.' ||
             quote_ident(indexname))::regclass AS indexoid,
+        'pg_catalog.pg_class'::regclass AS pgclassid,
         string_to_array(
             regexp_replace(
                 version(), E'.*PostgreSQL (\\d+\\.\\d+).*', E'\\1'),

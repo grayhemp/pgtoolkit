@@ -52,7 +52,7 @@ a set of configuration parameters to set
 
 =item C<timeout>
 
-an execution timeout, default 3600 seconds.
+an execution timeout in seconds, default is 10 hours.
 
 =back
 
@@ -92,7 +92,7 @@ sub init {
 	$self->{'_set_hash'} = $arg_hash{'set_hash'};
 
 	$self->{'_timeout'} = (defined $arg_hash{'timeout'}) ?
-		$arg_hash{'timeout'} : 3600;
+		$arg_hash{'timeout'} : 36000;
 
 	$self->{'psql_command_line'} = sprintf(
 		'%s%s -wqAtX %s %s %s %s -P null="<NULL>"',

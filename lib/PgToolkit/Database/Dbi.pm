@@ -92,8 +92,9 @@ sub init {
 		});
 
 	if (not defined $self->{'dbh'}) {
-		die('DatabaseError Can not connect to database: '."\n".
-			$dsn.';user='.$arg_hash{'user'}."\n".DBI->errstr."\n");
+		die(join("\n", ('DatabaseError Can not connect to database: ',
+						$dsn.';user='.$arg_hash{'user'},
+						DBI->errstr)));
 	}
 
 	if ($arg_hash{'set_hash'}) {
@@ -148,15 +149,17 @@ sub _execute {
 		$self->{'sth'} = $self->{'dbh'}->prepare($arg_hash{'sql'});
 
 		if (not $self->{'sth'}->execute()) {
-			die('DatabaseError Can not execute statement: '."\n".
-				$self->{'sth'}->errstr."\n");
+			die(join("\n", ('DatabaseError Can not execute statement: ',
+							$arg_hash{'sql'},
+							$self->{'sth'}->errstr)));
 		}
 
 		$result = $self->{'sth'}->fetchall_arrayref();
 	} else {
 		if (not $self->{'dbh'}->do($arg_hash{'sql'})) {
-			die('DatabaseError Can not execute command: '."\n".
-				$self->{'dbh'}->errstr."\n");
+			die(join("\n", ('DatabaseError Can not execute command: ',
+							$arg_hash{'sql'},
+							$self->{'dbh'}->errstr."\n")));
 		}
 	}
 

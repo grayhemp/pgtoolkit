@@ -1,8 +1,10 @@
 # PgToolkit - tools for PostgreSQL maintenance
 
 Currently the package contains the only tool `pgcompact`, we are
-planning to add much more in the future. The list of changes can be
-found in [CHANGES.md]. The To-Do List is in [TODO.md]. Stay tuned.
+planning to add much more in the future.  Stay tuned.
+
+The list of changes can be found in [CHANGES.md]. The To-Do List is in
+[TODO.md].
 
 ## Installation
 
@@ -30,7 +32,8 @@ must be set to the `lib` directory.
 
 ## pgcompact
 
-A tool to reduce bloat for tables and indexes without heavy locks.
+A tool to reduce bloat for tables and indexes without heavy locks and
+full table rebuilding.
 
 Initially the tool is an automation of the solutions proposed in these
 publications:
@@ -45,11 +48,11 @@ indexes.
 
 ### Usage examples
 
-Shows usage manual.
+Shows user manual.
 
     pgcompact --man
 
-Compacts all the bloated tables in all the database in the cluster
+Compacts all the bloated tables in all the databases in the cluster
 plus their bloated indexes. Prints additional progress information.
 
     pgcompact --all --reindex --verbose info
@@ -63,8 +66,8 @@ bloated indexes excepts ones that are in the `pgq` schema.
 
 - Requires no dependencies except `Perl >=5.8.8`, so it can just be
   copied to server and run
-- Works with `DBD::Pg`, `DBD::PgPP` or even using psql if there are no
-  former ones, detects and chose the best option automatically
+- Works with `DBD::Pg`, `DBD::PgPP` or even using `psql` if there are
+  no former ones, detects and chooses the best option automatically
 - Can process specified tables, schemes, databases or the whole
   cluster
 - Has an ability to exclude tables, schemes or databases from
@@ -106,7 +109,7 @@ PgToolkit is released under the PostgreSQL License, read
 [CHANGES.md]: ../stable/CHANGES.md
 [TODO.md]: ../stable/TODO.md
 [LICENSE.md]: ../stable/LICENSE.md
-[pgstattuple]: http://www.postgresql.org/docs/9.3/static/pgstattuple.html
+[pgstattuple]: http://www.postgresql.org/docs/current/static/pgstattuple.html
 [1]: http://github.com/grayhemp/pgtoolkit/archive/stable.tar.gz
 [2]: http://blog.endpoint.com/2010/09/reducing-bloat-without-locking.html
 [3]: http://depesz.com/index.php/2010/10/17/reduce-bloat-of-table-without-longexclusive-locks
