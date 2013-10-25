@@ -2552,7 +2552,9 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
           FROM pg_catalog.pg_depend
           LEFT JOIN pg_catalog.pg_constraint ON
               pg_catalog.pg_constraint.oid = refobjid
-          WHERE objid = indexoid OR refobjid = indexoid
+          WHERE
+              (objid = indexoid AND classid = pgclassid) OR
+              (refobjid = indexoid AND refclassid = pgclassid)
       )::integer AS allowed,
       pg_catalog.pg_relation_size(indexoid)
   FROM (
@@ -2561,6 +2563,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
           (
               quote_ident(schemaname) || '.' ||
               quote_ident(indexname))::regclass AS indexoid,
+          'pg_catalog.pg_class'::regclass AS pgclassid,
           string_to_array(
               regexp_replace(
                   version(), E'.*PostgreSQL (\\\\d+\\\\.\\\\d+).*', E'\\\\1'),
@@ -3178,8 +3181,9 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   		});
   
   	if (not defined $self->{'dbh'}) {
-  		die('DatabaseError Can not connect to database: '."\n".
-  			$dsn.';user='.$arg_hash{'user'}."\n".DBI->errstr."\n");
+  		die(join("\n", ('DatabaseError Can not connect to database: ',
+  						$dsn.';user='.$arg_hash{'user'},
+  						DBI->errstr)));
   	}
   
   	if ($arg_hash{'set_hash'}) {
@@ -3234,15 +3238,17 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   		$self->{'sth'} = $self->{'dbh'}->prepare($arg_hash{'sql'});
   
   		if (not $self->{'sth'}->execute()) {
-  			die('DatabaseError Can not execute statement: '."\n".
-  				$self->{'sth'}->errstr."\n");
+  			die(join("\n", ('DatabaseError Can not execute statement: ',
+  							$arg_hash{'sql'},
+  							$self->{'sth'}->errstr)));
   		}
   
   		$result = $self->{'sth'}->fetchall_arrayref();
   	} else {
   		if (not $self->{'dbh'}->do($arg_hash{'sql'})) {
-  			die('DatabaseError Can not execute command: '."\n".
-  				$self->{'dbh'}->errstr."\n");
+  			die(join("\n", ('DatabaseError Can not execute command: ',
+  							$arg_hash{'sql'},
+  							$self->{'dbh'}->errstr."\n")));
   		}
   	}
   
@@ -3350,7 +3356,7 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   
   =item C<timeout>
   
-  an execution timeout, default 3600 seconds.
+  an execution timeout in seconds, default is 10 hours.
   
   =back
   
@@ -3390,7 +3396,7 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   	$self->{'_set_hash'} = $arg_hash{'set_hash'};
   
   	$self->{'_timeout'} = (defined $arg_hash{'timeout'}) ?
-  		$arg_hash{'timeout'} : 3600;
+  		$arg_hash{'timeout'} : 36000;
   
   	$self->{'psql_command_line'} = sprintf(
   		'%s%s -wqAtX %s %s %s %s -P null="<NULL>"',
@@ -4276,7 +4282,8 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		set_hash => {
   			'lc_messages' => '\'C\'',
   			'synchronous_commit' => 'off',
-  			'session_replication_role' => 'replica'},
+  			'session_replication_role' => 'replica',
+  			'statement_timeout' => '\'0\''},
   		%hpud_hash);
   
   	my $constructor_list = [
