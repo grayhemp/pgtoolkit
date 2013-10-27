@@ -108,9 +108,9 @@ Thank you:
 - Lonni Friedman for your ideas
 - Rural Hunter for ideas and testing.
 
--[CHANGES.md]: CHANGES.md
--[TODO.md]: TODO.md
--[LICENSE.md]: LICENSE.md
+[CHANGES.md]: CHANGES.md
+[TODO.md]: TODO.md
+[LICENSE.md]: LICENSE.md
 [pgstattuple]: http://www.postgresql.org/docs/current/static/pgstattuple.html
 [1]: http://github.com/grayhemp/pgtoolkit/archive/stable.tar.gz
 [2]: http://blog.endpoint.com/2010/09/reducing-bloat-without-locking.html
