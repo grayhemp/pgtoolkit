@@ -101,20 +101,17 @@ PgToolkit is released under the PostgreSQL License, read
 
 ## Contributors
 
+Thank you:
+
 - [PostgreSQL-Consulting.com](http://www.postgresql-consulting.com)
   for a huge amount of ideas and lots of testing
 - Lonni Friedman for your ideas
 - Rural Hunter for ideas and testing.
 
-[CHANGES.md]: ../stable/CHANGES.md
-[TODO.md]: ../stable/TODO.md
-[LICENSE.md]: ../stable/LICENSE.md
+-[CHANGES.md]: CHANGES.md
+-[TODO.md]: TODO.md
+-[LICENSE.md]: LICENSE.md
 [pgstattuple]: http://www.postgresql.org/docs/current/static/pgstattuple.html
 [1]: http://github.com/grayhemp/pgtoolkit/archive/stable.tar.gz
 [2]: http://blog.endpoint.com/2010/09/reducing-bloat-without-locking.html
 [3]: http://depesz.com/index.php/2010/10/17/reduce-bloat-of-table-without-longexclusive-locks
-
-
-
-
-
