@@ -259,6 +259,10 @@ sub DESTROY {
 
 =item L<IPC::Open3>
 
+=item L<IO::Handle>
+
+=item L<POSIX>
+
 =item L<PgToolkit::Database>
 
 =back

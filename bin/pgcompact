@@ -3,9 +3,9 @@
 use strict;
 use warnings;
 
-use Cwd qw(abs_path);
+use Cwd;
 use FindBin;
-use lib abs_path( "$FindBin::Bin/../lib" );
+use lib Cwd::abs_path($FindBin::Bin.'/../lib' );
 
 use PgToolkit::Registry::Compactor;
 
@@ -343,6 +343,20 @@ if (__PACKAGE__ eq 'main') {
 }
 
 1;
+
+=head1 SEE ALSO
+
+=over 4
+
+=item L<Cwd>
+
+=item L<FindBin>
+
+=item L<lib>
+
+=item L<PgToolkit::Registry::Compactor>
+
+=back
 
 =head1 LICENSE AND COPYRIGHT
 
