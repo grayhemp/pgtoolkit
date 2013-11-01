@@ -165,13 +165,14 @@ sub init {
 				qr/SELECT size, ceil\(size \/ bs\) AS page_count.+/s.
 				qr/SELECT\s+pg_catalog\.pg_relation_size\('schema.<name>'/s),
 			'row_list_sequence' => [[[1000, 200]], [[850, 170]],
+									[[500, 100]], [[425, 85]],
 									[[500, 100]], [[425, 85]]]},
 		'get_index_bloat_statistics' => {
 			'sql_pattern' => (
 				qr/SELECT.+avg_leaf_density.+/s.
 				qr/public.pgstatindex\(\s*'schema\.<name>'\) AS pgsi.+/s.
 				qr/pg_catalog.pg_class.oid = 'schema\.<name>'::regclass/),
-			'row_list_sequence' => [[[15, 150]], [[15, 75]]]},
+			'row_list_sequence' => [[[15, 150]], [[15, 75]], [[15, 75]]]},
 		'get_index_data_list' => {
 			'sql_pattern' => (
 				qr/SELECT\s+/s.
@@ -187,7 +188,11 @@ sub init {
 				['table_idx2', 'tablespace',
 				 'CREATE INDEX table_idx2 ON schema.table '.
 				 'USING btree (column2) WHERE column2 = 1',
-				 'btree', undef, undef, 1, 2000]]},
+				 'btree', undef, undef, 1, 2000],
+				['table_idx3', 'tablespace',
+				 'CREATE INDEX table_idx3 ON schema.table '.
+				 'USING btree (column3)',
+				 'btree', undef, undef, 1, 3000]]},
 		'reindex1' => {
 			'sql_pattern' =>
 				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompact_tmp$$ /.
@@ -210,6 +215,18 @@ sub init {
 				qr/BEGIN; DROP INDEX schema\.table_idx2; /.
 				qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 				qr/RENAME TO table_idx2; END;/,
+			'row_list' => []},
+		'reindex3' => {
+			'sql_pattern' =>
+				qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.
+				qr/schema\.table USING btree \(column3\) /.
+				qr/TABLESPACE tablespace;/,
+			'row_list' => []},
+		'alter_index3' => {
+			'sql_pattern' =>
+				qr/BEGIN; DROP INDEX schema\.table_idx3; /.
+				qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
+				qr/RENAME TO table_idx3; END;/,
 			'row_list' => []},
 		'get_table_data_list1' => {
 			'sql_pattern' =>
