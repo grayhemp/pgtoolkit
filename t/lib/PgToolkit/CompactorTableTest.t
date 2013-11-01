@@ -656,34 +656,6 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 sub test_reindex : Test(35) {
 	my $self = shift;
 
-	# $self->{'database'}->{'mock'}->{'data_hash'}
-	# ->{'get_index_size_statistics'}->{'row_list_sequence'}->[4] = [[500, 100]];
-	# $self->{'database'}->{'mock'}->{'data_hash'}
-	# ->{'get_index_size_statistics'}->{'row_list_sequence'}->[5] = [[425, 85]];
-
-	# $self->{'database'}->{'mock'}->{'data_hash'}
-	# ->{'get_index_data_list'}->{'row_list'}->[2] = [
-	# 	'table_idx3', 'tablespace',
-	# 	'CREATE INDEX table_idx3 ON schema.table '.
-	# 	'USING btree (column3)',
-	# 	'btree', undef, undef, 1, 3000];
-
-	# $self->{'database'}->{'mock'}->{'data_hash'}
-	# ->{'reindex3'}= {
-	# 	'sql_pattern' =>
-	# 		qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.
-	# 		qr/schema\.table USING btree \(column3\) /.
-	# 		qr/TABLESPACE tablespace;/,
-	# 	'row_list' => []};
-
-	# $self->{'database'}->{'mock'}->{'data_hash'}
-	# ->{'alter_index3'}= {
-	# 	'sql_pattern' =>
-	# 		qr/BEGIN; DROP INDEX schema\.table_idx3; /.
-	# 		qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
-	# 		qr/RENAME TO table_idx3; END;/,
-	# 	'row_list' => []};
-
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		reindex => 1);
 
