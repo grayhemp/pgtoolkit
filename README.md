@@ -87,6 +87,11 @@ bloated indexes excepts ones that are in the `pgq` schema.
   manually rebuild database objects which can not be rebuilt
   automatically.
 
+## See Also
+
+- [PgCookbook](https://github.com/grayhemp/pgcookbook) - a PostgreSQL
+  documentation project
+
 ## License and Copyright
 
 Copyright &copy; 2011-2013 Sergey Konoplev, Maxim Boguk
