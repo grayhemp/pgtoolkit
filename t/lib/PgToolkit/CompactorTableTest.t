@@ -701,6 +701,54 @@ sub test_reindex : Test(35) {
 		$i++, undef);
 }
 
+sub test_reindex_blocking_alter_passes : Test(35) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 23;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
 sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
 	my $self = shift;
 
