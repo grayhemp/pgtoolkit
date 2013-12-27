@@ -45,6 +45,8 @@ sub setup : Test(setup) {
 			pages_before_vacuum_lower_threshold => 1000,
 			pages_before_vacuum_upper_divisor => 50,
 			max_retry_count => 2,
+			locked_alter_timeout => 500,
+			locked_alter_count => 3,
 			@_);
 	};
 }
@@ -701,8 +703,14 @@ sub test_reindex : Test(35) {
 		$i++, undef);
 }
 
-sub test_reindex_blocking_alter_passes : Test(35) {
+sub test_reindex_alter_acquired_lock : Test(39) {
 	my $self = shift;
+
+	unshift(
+		$self->{'database'}->{'mock'}->{'data_hash'}
+		->{'alter_index2'}->{'row_list_sequence'},
+		'canceling statement due to statement timeout',
+		'canceling statement due to statement timeout');
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		reindex => 1);
@@ -731,8 +739,10 @@ sub test_reindex_blocking_alter_passes : Test(35) {
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
-	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index2');
+	for (my $j = 0; $j < 3; $j++) {
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'alter_index2');
+	}
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -747,6 +757,78 @@ sub test_reindex_blocking_alter_passes : Test(35) {
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+}
+
+sub test_reindex_alter_didnt_acquire_lock : Test(37) {
+	my $self = shift;
+
+	splice(
+		$self->{'database'}->{'mock'}->{'data_hash'}
+		->{'get_index_size_statistics'}->{'row_list_sequence'},
+		3, 1);
+
+	unshift(
+		$self->{'database'}->{'mock'}->{'data_hash'}
+		->{'alter_index2'}->{'row_list_sequence'},
+		'canceling statement due to statement timeout',
+		'canceling statement due to statement timeout',
+		'canceling statement due to statement timeout');
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 23;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'analyze');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_pkey');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex2');
+	for (my $j = 0; $j < 3; $j++) {
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'alter_index2');
+	}
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'reindex3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+}
+
+sub test_reindex_alter_didnt_acquire_lock_last_attempt_print_query : Test(1) {
+}
+
+sub test_reindex_reuse_alter_didnt_acquire_lock_last_attempt : Test(1) {
+}
+
+sub test_reindex_clean_alter_didnt_acquire_lock_last_attempt : Test(1) {
+}
+
+sub test_reindex_not_processed_alter_didnt_acquire_lock_last : Test(1) {
 }
 
 sub test_reindex_if_last_attempt_and_not_processed : Test(35) {

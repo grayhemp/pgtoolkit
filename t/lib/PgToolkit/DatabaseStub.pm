@@ -200,7 +200,8 @@ sub init {
 			'row_list' => []},
 		'alter_index1' => {
 			'sql_pattern' =>
-				qr/BEGIN; ALTER TABLE schema\.table DROP CONSTRAINT /.
+				qr/BEGIN; SET statement_timeout TO 500; /.
+				qr/ALTER TABLE schema\.table DROP CONSTRAINT /.
 				qr/table_pkey; ALTER TABLE schema\.table ADD CONSTRAINT /.
 				qr/table_pkey PRIMARY KEY USING INDEX pgcompact_tmp$$; END;/,
 			'row_list' => []},
@@ -212,10 +213,11 @@ sub init {
 			'row_list' => []},
 		'alter_index2' => {
 			'sql_pattern' =>
-				qr/BEGIN; DROP INDEX schema\.table_idx2; /.
+				qr/BEGIN; SET statement_timeout TO 500; /.
+				qr/DROP INDEX schema\.table_idx2; /.
 				qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 				qr/RENAME TO table_idx2; END;/,
-			'row_list' => []},
+			'row_list_sequence' => [[[]]]},
 		'reindex3' => {
 			'sql_pattern' =>
 				qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.
@@ -224,7 +226,8 @@ sub init {
 			'row_list' => []},
 		'alter_index3' => {
 			'sql_pattern' =>
-				qr/BEGIN; DROP INDEX schema\.table_idx3; /.
+				qr/BEGIN; SET statement_timeout TO 500; /.
+				qr/DROP INDEX schema\.table_idx3; /.
 				qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 				qr/RENAME TO table_idx3; END;/,
 			'row_list' => []},

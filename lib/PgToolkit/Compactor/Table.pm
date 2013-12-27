@@ -38,7 +38,9 @@ B<PgToolkit::Compactor::Table> - table level processing for bloat reducing.
 		pages_before_vacuum_lower_divisor = 16,
 		pages_before_vacuum_lower_threshold = 1000,
 		pages_before_vacuum_upper_divisor = 50,
-		max_retry_count => 10);
+		max_retry_count => 10,
+		locked_alter_timeout => 1000,
+		locked_alter_count => 100);
 
 	$table_compactor->process();
 
@@ -150,7 +152,15 @@ are used to calculate a pages before vacuum value, recommended to set to
 
 =item C<max_retry_count>
 
-a maximum amount of attempts to compact cluster.
+a maximum amount of attempts to compact cluster
+
+=item C<locked_alter_timeout>
+
+a timeout for the (locked) ALTER INDEX queries
+
+=item C<locked_alter_count>
+
+amount of attempts to accure a lock for ALTER INDEX queries.
 
 =back
 
@@ -185,6 +195,8 @@ sub _init {
 	$self->{'_reindex'} = $arg_hash{'reindex'};
 	$self->{'_print_reindex_queries'} = $arg_hash{'print_reindex_queries'};
 	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
+	$self->{'_locked_alter_timeout'} = $arg_hash{'locked_alter_timeout'};
+	$self->{'_locked_alter_count'} = $arg_hash{'locked_alter_count'};
 
 	$self->{'_progress_report_period'} = $arg_hash{'progress_report_period'};
 	if ($arg_hash{'pgstattuple_schema_name'}) {
@@ -615,19 +627,57 @@ sub _process {
 			if (not $self->{'_dry_run'} and $self->{'_reindex'}) {
 				$self->_reindex(data => $index_data);
 				$duration = $self->{'_database'}->get_duration();
-				$self->_alter_index(data => $index_data);
-				$duration += $self->{'_database'}->get_duration();
-				$self->_log_reindex(
-					ident => $index_ident,
-					initial_size_statistics => $initial_index_size_statistics,
-					size_statistics => $self->_get_index_size_statistics(
-						ident => $index_ident),
-					duration => $duration);
 
-				$is_reindexed = 1;
+				my $locked_alter_attempt = 0;
+				while ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
+					eval {
+						$self->_alter_index(data => $index_data);
+						$duration += $self->{'_database'}->get_duration();
+					};
+					if ($@) {
+						if ($@ =~ ('canceling statement due '.
+								   'to statement timeout'))
+						{
+							$locked_alter_attempt++;
+							next;
+						} else {
+							die($@);
+						}
+					} else {
+						last;
+					}
+				}
+				if ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
+					$self->_log_reindex(
+						ident => $index_ident,
+						initial_size_statistics => (
+							$initial_index_size_statistics),
+						size_statistics => $self->_get_index_size_statistics(
+							ident => $index_ident),
+						duration => $duration,
+						locked_alter_attempt => $locked_alter_attempt);
+
+					if (defined $is_reindexed) {
+						$is_reindexed = ($is_reindexed and 1);
+					} else {
+						$is_reindexed = 1;
+					}
+				} else {
+					$self->_log_reindex_locked_alter_didnt_acquire_lock(
+						ident => $index_ident,
+						initial_size_statistics => (
+							$initial_index_size_statistics),
+						bloat_statistics => $index_bloat_statistics,
+						data => $index_data,
+						locked_alter_attempt => $locked_alter_attempt);
+					$is_reindexed = 0;
+				}
 			}
 
-			if ($self->{'_dry_run'} or $self->{'_print_reindex_queries'}) {
+			if ($self->{'_dry_run'} or $self->{'_print_reindex_queries'} or
+				$arg_hash{'attempt'} == $self->{'_max_retry_count'} and
+				not $is_reindexed)
+			{
 				$self->_log_reindex_queries(
 					ident => $index_ident,
 					initial_size_statistics => $initial_index_size_statistics,
@@ -1063,7 +1113,8 @@ sub _log_reindex {
 			 int($free_percent).'% ('.
 			 PgToolkit::Utils->get_size_pretty(
 				 size => int($free_space)).'), ' : '').
-			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
+			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds, '.
+			'attempts '.($arg_hash{'locked_alter_attempt'} + 1).'.'),
 		level => 'info',
 		target => $self->{'_log_target'});
 
@@ -1090,6 +1141,28 @@ sub _log_reindex_queries {
 			 $self->_get_reindex_query(data => $arg_hash{'data'})."\n".
 			 $self->_get_alter_index_query(data => $arg_hash{'data'}) :
 			 $self->_get_straight_reindex_query(data => $arg_hash{'data'}))),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_reindex_locked_alter_didnt_acquire_lock {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Reindex'.($self->{'_force'} ? ' forced' : '').': '.
+			$arg_hash{'ident'}.', lock has not been acquired'.
+			($arg_hash{'initial_size_statistics'} ? ', initial size '.
+			 $arg_hash{'initial_size_statistics'}->{'page_count'}.' pages ('.
+			 PgToolkit::Utils->get_size_pretty(
+				 size => $arg_hash{'initial_size_statistics'}->{'size'}).')'.
+			 ($arg_hash{'bloat_statistics'} ? ', can be reduced by '.
+			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+			  PgToolkit::Utils->get_size_pretty(
+				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+			  ')' : '') : '').'.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1643,7 +1716,8 @@ sub _get_alter_index_query {
 	}
 
 	return
-		'BEGIN; '.
+		'BEGIN; SET statement_timeout TO '.
+		$self->{'_locked_alter_timeout'}.'; '.
 		($constraint_ident ?
 		 ('ALTER TABLE '.$self->{'_ident'}.
 		  ' DROP CONSTRAINT '.$constraint_ident.'; '.
