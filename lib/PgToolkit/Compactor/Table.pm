@@ -647,6 +647,7 @@ sub _process {
 						last;
 					}
 				}
+
 				if ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
 					$self->_log_reindex(
 						ident => $index_ident,
@@ -674,10 +675,7 @@ sub _process {
 				}
 			}
 
-			if ($self->{'_dry_run'} or $self->{'_print_reindex_queries'} or
-				$arg_hash{'attempt'} == $self->{'_max_retry_count'} and
-				not $is_reindexed)
-			{
+			if ($self->{'_dry_run'} or $self->{'_print_reindex_queries'}) {
 				$self->_log_reindex_queries(
 					ident => $index_ident,
 					initial_size_statistics => $initial_index_size_statistics,
@@ -691,9 +689,12 @@ sub _process {
 		}
 	}
 
-	if (not $self->{'_dry_run'} and not ($is_skipped and not $is_reindexed)) {
+	if (not $self->{'_dry_run'} and
+		not ($is_skipped and not defined $is_reindexed))
+	{
 		my $complete = (
-			$is_compacted or $will_be_skipped or $is_skipped and $is_reindexed);
+			($is_compacted or $will_be_skipped or $is_skipped) and
+			(defined $is_reindexed ? $is_reindexed : 1));
 
 		if ($complete) {
 			$self->_log_complete_processing();
@@ -709,8 +710,8 @@ sub _process {
 	}
 
 	$self->{'_is_processed'} = (
-		$is_compacted or $is_skipped or $will_be_skipped or
-		$self->{'_dry_run'});
+		($self->{'_dry_run'} or $is_compacted or $is_skipped or
+		 $will_be_skipped) and (defined $is_reindexed ? $is_reindexed : 1));
 
 	return;
 }
