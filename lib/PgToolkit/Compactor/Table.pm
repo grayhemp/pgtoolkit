@@ -658,11 +658,8 @@ sub _process {
 						duration => $duration,
 						locked_alter_attempt => $locked_alter_attempt);
 
-					if (defined $is_reindexed) {
-						$is_reindexed = ($is_reindexed and 1);
-					} else {
-						$is_reindexed = 1;
-					}
+					$is_reindexed =
+						(defined $is_reindexed) ? ($is_reindexed and 1) : 1;
 				} else {
 					$self->_log_reindex_locked_alter_didnt_acquire_lock(
 						ident => $index_ident,
