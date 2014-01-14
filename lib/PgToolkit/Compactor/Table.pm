@@ -661,12 +661,16 @@ sub _process {
 					$is_reindexed =
 						(defined $is_reindexed) ? ($is_reindexed and 1) : 1;
 				} else {
+					$self->_drop_temp_index(data => $index_data);
+					$duration += $self->{'_database'}->get_duration();
+
 					$self->_log_reindex_locked_alter_didnt_acquire_lock(
 						ident => $index_ident,
 						initial_size_statistics => (
 							$initial_index_size_statistics),
 						bloat_statistics => $index_bloat_statistics,
 						data => $index_data,
+						duration => $duration,
 						locked_alter_attempt => $locked_alter_attempt);
 					$is_reindexed = 0;
 				}
@@ -1160,7 +1164,8 @@ sub _log_reindex_locked_alter_didnt_acquire_lock {
 			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 			  PgToolkit::Utils->get_size_pretty(
 				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
-			  ')' : '') : '').'.'),
+			  ')' : '') : '').
+			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1742,7 +1747,6 @@ sub _get_straight_reindex_query {
 		'REINDEX INDEX '.$schema_ident.'.'.$index_ident.'; -- '.
 		$self->{'_database'}->quote_ident(
 			string => $self->{'_database'}->get_dbname());
-
 }
 
 sub _reindex {
@@ -1750,6 +1754,18 @@ sub _reindex {
 
 	$self->_execute_and_log(
 		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+
+	return;
+}
+
+sub _drop_temp_index {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+
+	$self->_execute_and_log(
+		sql => 'DROP INDEX '.$schema_ident.'.pgcompact_tmp'.$$.';');
 
 	return;
 }

@@ -703,7 +703,7 @@ sub test_reindex : Test(35) {
 		$i++, undef);
 }
 
-sub test_reindex_alter_acquired_lock : Test(40) {
+sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
 	my $self = shift;
 
 	unshift(
@@ -761,7 +761,7 @@ sub test_reindex_alter_acquired_lock : Test(40) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_alter_didnt_acquire_lock : Test(38) {
+sub test_reindex_didnt_acquire_lock : Test(40) {
 	my $self = shift;
 
 	splice(
@@ -808,6 +808,8 @@ sub test_reindex_alter_didnt_acquire_lock : Test(38) {
 			$i++, 'alter_index2');
 	}
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_temp_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
@@ -821,16 +823,6 @@ sub test_reindex_alter_didnt_acquire_lock : Test(38) {
 		$i++, undef);
 
 	ok(not $table_compactor->is_processed());
-}
-
-sub test_reindex_not_processed_alter_didnt_acquire_lock_last : Test(1) {
-}
-
-
-sub test_reindex_reuse_alter_didnt_acquire_lock_last_attempt : Test(1) {
-}
-
-sub test_reindex_clean_alter_didnt_acquire_lock_last_attempt : Test(1) {
 }
 
 sub test_reindex_if_last_attempt_and_not_processed : Test(35) {

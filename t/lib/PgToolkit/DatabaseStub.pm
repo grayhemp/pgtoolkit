@@ -218,6 +218,10 @@ sub init {
 				qr/ALTER INDEX schema\.pgcompact_tmp$$ /.
 				qr/RENAME TO table_idx2; END;/,
 			'row_list_sequence' => [[[]]]},
+		'drop_temp_index2' => {
+			'sql_pattern' =>
+				qr/DROP INDEX schema\.pgcompact_tmp$$;/,
+			'row_list' => []},
 		'reindex3' => {
 			'sql_pattern' =>
 				qr/CREATE INDEX CONCURRENTLY pgcompact_tmp$$ ON /.

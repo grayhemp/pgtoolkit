@@ -28,10 +28,10 @@ ALTER TABLE table1 ADD CONSTRAINT table1_pkey PRIMARY KEY (id);
 ALTER TABLE table1 ADD CONSTRAINT table1_uidx1 UNIQUE (id, text_column)
 WITH (fillfactor=50);
 CREATE INDEX table1_idx1 ON table1 (text_column, float_column);
---CREATE INDEX table1_gist ON table1
---USING gist (to_tsvector('english', id::text));
---CREATE INDEX table1_gin ON table1
---USING gin (to_tsvector('english', id::text));
+CREATE INDEX table1_gist ON table1
+    USING gist (to_tsvector('english', id::text));
+CREATE INDEX table1_gin ON table1
+    USING gin (to_tsvector('english', id::text));
 CREATE INDEX table1_hash ON table1 USING hash (text_column);
 DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
