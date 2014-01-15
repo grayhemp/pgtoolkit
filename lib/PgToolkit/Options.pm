@@ -123,7 +123,7 @@ sub init {
 
 		if ($error) {
 			$error = (
-				$prog_name.': '.$error."\n".'Try --help for short help, '.
+				$prog_name.': '.$error."\n".'Use --help for short help, '.
 				'--man for full manual.');
 		}
 	}
@@ -141,7 +141,7 @@ sub init {
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},
 			result => 1,
-			sections => 'NAME|SYNOPSIS');
+			sections => 'NAME|SYNOPSIS|EXAMPLES');
 	} elsif ($option_hash->{'man'}) {
 		$self->_print_help(
 			out_handle_specified => exists $arg_hash{'out_handle'},

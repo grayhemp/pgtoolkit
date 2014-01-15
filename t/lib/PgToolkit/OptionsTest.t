@@ -23,6 +23,10 @@ Some synopsis
 
 Some description
 
+=head1 EXAMPLES
+
+Some examples
+
 =head1 OPTIONS
 
 Some options
@@ -39,6 +43,9 @@ Name:
 Usage:
     Some synopsis
 
+Examples:
+    Some examples
+
 EOF
 		},
 		{'argv' => ['--help'],
@@ -48,6 +55,9 @@ Name:
 
 Usage:
     Some synopsis
+
+Examples:
+    Some examples
 
 EOF
 		},
@@ -161,7 +171,7 @@ sub test_error_check : Test {
 		$out,
 		<<EOF
 OptionsTest.t: Some error 5
-Try --help for short help, --man for full manual.
+Use --help for short help, --man for full manual.
 EOF
 		);
 }
@@ -179,7 +189,7 @@ sub test_unknown_options : Test {
 		$out,
 		<<EOF
 OptionsTest.t: Unknown option: bla
-Try --help for short help, --man for full manual.
+Use --help for short help, --man for full manual.
 EOF
 		);
 }

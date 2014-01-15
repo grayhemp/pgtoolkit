@@ -32,7 +32,6 @@ pgcompact [OPTION...]
 (-a | -d DBNAME...) [-n SCHEMA...] [-t TABLE...] [-D DBNAME...]
 [-N SCHEMA...] [-T TABLE...]
 
-
 =item Behavioural options:
 
 [-IRLSCrsfu] [-c PAGES] [-e SECONDS] [-E RATIO] [-o COUNT] [-x PAGES]
@@ -64,7 +63,7 @@ If pgstattuple is installed B<pgcompact> uses it to get a better
 statistics. It is highly recommended to be for TOASTed tables and
 indexes.
 
-=head2 Usage examples
+=head1 EXAMPLES
 
 Shows usage manual.
 
