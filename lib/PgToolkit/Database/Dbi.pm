@@ -79,9 +79,10 @@ sub init {
 
 	my $dsn = (
 		'dbi:'.$arg_hash{'driver'}.
-		':dbname='.($arg_hash{'dbname'} ? $self->_get_escaped_dbname() : '').
+		(defined $arg_hash{'dbname'} ?
+		 ':dbname='.$self->_get_escaped_dbname() : '').
 		(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
-		';port='.($arg_hash{'port'} or ''));
+		(defined $arg_hash{'port'} ? ';port='.$arg_hash{'port'} : ''));
 
 	$self->{'dbh'} = DBI->connect(
 		$dsn, $arg_hash{'user'}, $arg_hash{'password'},

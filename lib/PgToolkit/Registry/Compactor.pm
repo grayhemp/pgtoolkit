@@ -220,11 +220,10 @@ sub get_options {
 		$self->{'_options'} = PgToolkit::Options->new(
 			definition_hash => {
 				# connection
-				'host|h:s' => ($ENV{'PGHOST'} or undef),
-				'port|p:i' => ($ENV{'PGPORT'} or '5432'),
-				'user|U:s' => ($ENV{'PGUSER'} or
-							   do { `whoami` =~ /(.*)\n/; $1 }),
-				'password|W:s' => ($ENV{'PGPASSWORD'} or undef),
+				'host|h:s' => undef,
+				'port|p:i' => undef,
+				'user|U:s' => undef,
+				'password|W:s' => undef,
 				'path-to-psql|P:s' => 'psql',
 				# target
 				'all|a:i' => 1,
