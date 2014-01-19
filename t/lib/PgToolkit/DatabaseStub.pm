@@ -299,21 +299,21 @@ sub init {
 		'get_dbname_list1' => {
 			'sql_pattern' =>
 				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
-				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
+				qr/datname NOT IN \('template0'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname2'], ['dbname3'], ['dbname4']]},
 		'get_dbname_list2' => {
 			'sql_pattern' =>
 				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
 				qr/datname IN \('dbname1', 'dbname2'\) AND\s+/s.
-				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
+				qr/datname NOT IN \('template0'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname2']]},
 		'get_dbname_list3' => {
 			'sql_pattern' =>
 				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
 				qr/datname NOT IN \('dbname1', 'dbname2'\) AND\s+/s.
-				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
+				qr/datname NOT IN \('template0'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname3'], ['dbname4']]},
 		'get_dbname_list4' => {
@@ -321,7 +321,7 @@ sub init {
 				qr/SELECT datname FROM pg_catalog\.pg_database\nWHERE\s+/s.
 				qr/datname IN \('dbname1', 'dbname3'\) AND\s+/s.
 				qr/datname NOT IN \('dbname2', 'dbname4'\) AND\s+/s.
-				qr/datname NOT IN \('postgres', 'template0', 'template1'\)\n/.
+				qr/datname NOT IN \('template0'\)\n/.
 				qr/ORDER BY pg_catalog\.pg_database_size/,
 			'row_list' => [['dbname1'], ['dbname3']]},
 		'get_pgstattuple_schema_name' => {

@@ -444,7 +444,7 @@ SELECT datname FROM pg_catalog.pg_database
 WHERE
     --datname IN ('dbname1') AND
     --datname NOT IN ('dbname1') AND
-    datname NOT IN ('postgres', 'template0', 'template1')
+    datname NOT IN ('template0')
 ORDER BY pg_catalog.pg_database_size(datname), datname;
 
 -- Get table name list
@@ -455,8 +455,9 @@ WHERE
     --schemaname NOT IN ('public') AND
     --tablename IN ('table1') AND
     --tablename NOT IN ('table1') AND
-    schemaname NOT IN ('pg_catalog', 'information_schema') AND
-    schemaname !~ 'pg_.*'
+    --schemaname NOT IN ('pg_catalog', 'information_schema') AND
+    NOT (schemaname = 'pg_catalog' AND tablename = 'pg_index') AND
+    schemaname !~ 'pg_(temp|toast).*'
 ORDER BY
     pg_catalog.pg_relation_size(
         quote_ident(schemaname) || '.' || quote_ident(tablename)),

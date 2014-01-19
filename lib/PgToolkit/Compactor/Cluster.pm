@@ -262,7 +262,7 @@ SELECT datname FROM pg_catalog.pg_database
 WHERE
     $in
     $not_in
-    datname NOT IN ('postgres', 'template0', 'template1')
+    datname NOT IN ('template0')
 ORDER BY pg_catalog.pg_database_size(datname), datname
 SQL
 		);
