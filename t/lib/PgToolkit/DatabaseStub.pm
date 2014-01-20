@@ -328,7 +328,12 @@ sub init {
 			'sql_pattern' =>
 				qr/SELECT nspname FROM pg_catalog\.pg_proc.+/s.
 				qr/WHERE proname = 'pgstattuple' LIMIT 1/,
-				'row_list' => []}};
+			'row_list' => []},
+		'get_advisory_lock' => {
+			'sql_pattern' =>
+				qr/SELECT pg_try_advisory_lock\(778719306, oid.+/s.
+				qr/WHERE oid = 'schema.table'::regclass/,
+			'row_list' => [[1]]}};
 
 	return;
 }

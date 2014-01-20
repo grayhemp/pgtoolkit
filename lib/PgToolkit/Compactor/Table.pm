@@ -246,30 +246,37 @@ sub _process {
 	my $duration;
 	my $is_skipped;
 
+	if (not $self->_get_advisory_lock()) {
+		$self->_log_skipping_can_not_get_advisory_lock();
+		$is_skipped = 1;
+	}
+
 	$self->{'_size_statistics'} = $self->_get_size_statistics();
 
 	if (not defined $self->{'_base_size_statistics'}) {
 		$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
 	}
 
-	if (not $self->{'_dry_run'} and not $self->{'_no_initial_vacuum'}) {
-		$self->_do_vacuum();
-		$duration = $self->{'_database'}->get_duration();
+	if (not $is_skipped) {
+		if (not $self->{'_dry_run'} and not $self->{'_no_initial_vacuum'}) {
+			$self->_do_vacuum();
+			$duration = $self->{'_database'}->get_duration();
 
-		$self->{'_size_statistics'} = $self->_get_size_statistics();
+			$self->{'_size_statistics'} = $self->_get_size_statistics();
 
-		$self->_log_vacuum_complete(
-			page_count => $self->{'_size_statistics'}->{'page_count'},
-			duration => $duration,
-			to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
-			pages_before_vacuum => (
-				$self->{'_size_statistics'}->{'page_count'}),
-			phrase => 'initial');
-	}
+			$self->_log_vacuum_complete(
+				page_count => $self->{'_size_statistics'}->{'page_count'},
+				duration => $duration,
+				to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
+				pages_before_vacuum => (
+					$self->{'_size_statistics'}->{'page_count'}),
+				phrase => 'initial');
+		}
 
-	if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
-		$self->_log_skipping_empty_table();
-		$is_skipped = 1;;
+		if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
+			$self->_log_skipping_empty_table();
+			$is_skipped = 1;;
+		}
 	}
 
 	if (not $is_skipped) {
@@ -787,6 +794,18 @@ sub get_total_size_delta {
 		$self->{'_is_dropped'} ? 0 :
 		$self->{'_base_size_statistics'}->{'total_size'} -
 		$self->{'_size_statistics'}->{'total_size'};
+}
+
+sub _log_skipping_can_not_get_advisory_lock {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => ('Skipping processing: another instance is working with '.
+					'this table.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
 }
 
 sub _log_skipping_empty_table {
@@ -1807,6 +1826,20 @@ sub _alter_index {
 		sql => $self->_get_alter_index_query(data => $arg_hash{'data'}));
 
 	return;
+}
+
+sub _get_advisory_lock {
+	my ($self, %arg_hash) = @_;
+
+	my $result = $self->_execute_and_log(
+		sql => <<SQL
+SELECT pg_try_advisory_lock(778719306, oid::integer)::integer
+FROM pg_catalog.pg_class
+WHERE oid = '$self->{'_ident'}'::regclass;
+SQL
+		);
+
+	return $result->[0]->[0];
 }
 
 sub _get_pages_per_round {

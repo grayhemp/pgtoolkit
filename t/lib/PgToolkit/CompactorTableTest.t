@@ -51,7 +51,7 @@ sub setup : Test(setup) {
 	};
 }
 
-sub test_dry_run : Test(16) {
+sub test_dry_run : Test(18) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -62,6 +62,8 @@ sub test_dry_run : Test(16) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -81,7 +83,7 @@ sub test_dry_run : Test(16) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_check_special_triggers : Test(12) {
+sub test_check_special_triggers : Test(14) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'has_special_triggers'}->
@@ -93,6 +95,8 @@ sub test_check_special_triggers : Test(12) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -108,7 +112,7 @@ sub test_check_special_triggers : Test(12) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_no_initial_vacuum : Test(6) {
+sub test_no_initial_vacuum : Test(8) {
 	my $self = shift;
 
 	splice(
@@ -124,6 +128,8 @@ sub test_no_initial_vacuum : Test(6) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
@@ -131,7 +137,7 @@ sub test_no_initial_vacuum : Test(6) {
 		$i++, 'has_special_triggers');
 }
 
-sub test_analyze_if_not_analyzed : Test(15) {
+sub test_analyze_if_not_analyzed : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -146,6 +152,8 @@ sub test_analyze_if_not_analyzed : Test(15) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -163,7 +171,28 @@ sub test_analyze_if_not_analyzed : Test(15) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_skip_processing_if_table_is_empty : Test(8) {
+sub test_skip_processing_if_cant_get_advisory_lock : Test(6) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_advisory_lock'}->{'row_list'} = [[0]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 1;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_processing_if_table_is_empty : Test(10) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -177,6 +206,8 @@ sub test_skip_processing_if_table_is_empty : Test(8) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
@@ -187,7 +218,7 @@ sub test_skip_processing_if_table_is_empty : Test(8) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_min_page_count : Test(12) {
+sub test_min_page_count : Test(14) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -201,6 +232,8 @@ sub test_min_page_count : Test(12) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
@@ -215,7 +248,7 @@ sub test_min_page_count : Test(12) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_min_free_percent : Test(12) {
+sub test_min_free_percent : Test(14) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -229,6 +262,8 @@ sub test_min_free_percent : Test(12) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
@@ -243,7 +278,7 @@ sub test_min_free_percent : Test(12) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_force_processing : Test(12) {
+sub test_force_processing : Test(14) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -264,6 +299,8 @@ sub test_force_processing : Test(12) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');
@@ -277,7 +314,7 @@ sub test_force_processing : Test(12) {
 		$i++, 'get_column');
 }
 
-sub test_can_not_get_bloat_statistics : Test(14) {
+sub test_can_not_get_bloat_statistics : Test(16) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -291,6 +328,8 @@ sub test_can_not_get_bloat_statistics : Test(14) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -308,7 +347,7 @@ sub test_can_not_get_bloat_statistics : Test(14) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_can_not_get_size_statistics : Test(4) {
+sub test_can_not_get_size_statistics : Test(6) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -321,6 +360,8 @@ sub test_can_not_get_size_statistics : Test(4) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -338,7 +379,7 @@ sub test_can_not_get_update_column : Test(4) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -357,7 +398,7 @@ sub test_can_not_get_max_tupples_per_page : Test(6) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -379,7 +420,7 @@ sub test_main_processing : Test(36) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -430,7 +471,7 @@ sub test_finish_when_0_pages_returned : Test(16) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -465,7 +506,7 @@ sub test_pages_per_round_not_more_then_to_page : Test(36) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -519,7 +560,7 @@ sub test_cleaned_during_processing : Test(22) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -558,7 +599,7 @@ sub test_main_processing_no_routine_vacuum : Test(32) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 6;
+	my $i = 7;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_column');
@@ -606,7 +647,7 @@ sub test_can_not_get_index_size_statistics : Test(12) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -636,7 +677,7 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -663,7 +704,7 @@ sub test_reindex : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -717,7 +758,7 @@ sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -781,7 +822,7 @@ sub test_reindex_didnt_acquire_lock : Test(40) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -847,7 +888,7 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
 
 	$table_compactor->process(attempt => 2);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -895,7 +936,7 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -954,7 +995,7 @@ sub test_no_reindex_if_not_last_attempt_and_not_processed : Test(7) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -988,7 +1029,7 @@ sub test_reindex_queries_if_last_attempt_and_not_processed : Test(15) {
 
 	$table_compactor->process(attempt => 2);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1016,7 +1057,7 @@ sub test_reindex_queries_if_not_last_attempt_and_processed : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1055,7 +1096,7 @@ sub test_no_reindex_queries_if_not_last_attempt_and_not_processed : Test(7) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1079,7 +1120,7 @@ sub test_no_reindex_if_in_min_free_percent : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1132,7 +1173,7 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1185,7 +1226,7 @@ sub test_no_reindex_queries_if_in_min_free_percent : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1224,7 +1265,7 @@ sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1255,7 +1296,7 @@ sub test_no_reindex_if_in_min_page_count : Test(29) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1301,7 +1342,7 @@ sub test_reindex_if_in_min_page_count_and_forced : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1355,7 +1396,7 @@ sub test_no_reindex_queries_if_in_min_page_count : Test(21) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1396,7 +1437,7 @@ sub test_reindex_queries_if_in_min_page_count_and_forced : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1416,7 +1457,7 @@ sub test_reindex_queries_if_in_min_page_count_and_forced : Test(15) {
 		$i++, undef);
 }
 
-sub test_reindex_if_table_skipped_and_pgstatuple : Test(46) {
+sub test_reindex_if_table_skipped_and_pgstatuple : Test(48) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1431,6 +1472,8 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(46) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1480,7 +1523,7 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(46) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(26) {
+sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(28) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1495,6 +1538,8 @@ sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(26) {
 
 	my $i = 1;
 
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_advisory_lock');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1546,7 +1591,7 @@ sub test_reindex_if_not_processed_and_will_be_skipped : Test(36) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1609,7 +1654,7 @@ sub test_reindex_queries_if_not_processed_and_will_be_skipped : Test(16) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1642,7 +1687,7 @@ sub test_no_reindex_if_index_is_empty_and_forced : Test(29) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1690,7 +1735,7 @@ sub test_no_reindex_queries_if_index_is_empty_and_forced : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1721,7 +1766,7 @@ sub test_no_reindex_if_not_btree : Test(29) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1766,7 +1811,7 @@ sub test_no_reindex_queries_if_not_btree : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1798,7 +1843,7 @@ sub test_reindex_if_not_btree_and_forced : Test(35) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1850,7 +1895,7 @@ sub test_reindex_queries_if_not_btree_and_force : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1881,7 +1926,7 @@ sub test_no_reindex_if_not_allowed : Test(29) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1926,7 +1971,7 @@ sub test_no_reindex_queries_if_not_allowed : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -1958,7 +2003,7 @@ sub test_no_reindex_if_not_allowed_and_forced : Test(29) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -2004,7 +2049,7 @@ sub test_no_reindex_queries_if_not_allowed_and_forced : Test(15) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -2040,7 +2085,7 @@ sub test_loops_count : Test(8) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 307;
+	my $i = 308;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'begin');
@@ -2209,7 +2254,7 @@ sub test_get_pgstattuple_bloat_statistics : Test(2) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 4;
+	my $i = 5;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_pgstattuple_bloat_statistics');
@@ -2223,7 +2268,7 @@ sub test_no_final_analyze : Test(5) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 23;
+	my $i = 24;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
@@ -2243,7 +2288,7 @@ sub test_continue_processing_on_deadlock_detected : Test(12) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 8;
+	my $i = 9;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'begin');
@@ -2277,7 +2322,7 @@ sub test_stop_processing_on_cannot_extract_system_attribute : Test(11) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 8;
+	my $i = 9;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'begin');
@@ -2302,7 +2347,7 @@ sub test_stop_processing_on_relation_does_not_exist : Test(6) {
 
 	$table_compactor->process(attempt => 1);
 
-	my $i = 2;
+	my $i = 3;
 
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'vacuum');

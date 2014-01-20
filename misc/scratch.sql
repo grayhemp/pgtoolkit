@@ -463,4 +463,14 @@ ORDER BY
         quote_ident(schemaname) || '.' || quote_ident(tablename)),
     schemaname, tablename;
 
+-- Get an advisory lock
+
+SELECT pg_try_advisory_lock(778719306, oid::integer)::integer
+FROM pg_catalog.pg_class
+WHERE oid = 'public.table1'::regclass;
+
+SELECT pg_advisory_unlock(778719306, oid::integer)::integer
+FROM pg_catalog.pg_class
+WHERE oid = 'public.table1'::regclass;
+
 --
