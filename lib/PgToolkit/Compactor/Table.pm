@@ -1320,6 +1320,21 @@ sub _time {
 	return PgToolkit::Utils->time();
 }
 
+sub _get_advisory_lock {
+	my ($self, %arg_hash) = @_;
+
+	my $result = $self->_execute_and_log(
+		sql => <<SQL
+SELECT pg_try_advisory_lock(
+	'pg_catalog.pg_class'::regclass::integer, oid::integer)::integer
+FROM pg_catalog.pg_class
+WHERE oid = '$self->{'_ident'}'::regclass;
+SQL
+		);
+
+	return $result->[0]->[0];
+}
+
 sub _has_special_triggers {
 	my $self = shift;
 
@@ -1826,20 +1841,6 @@ sub _alter_index {
 		sql => $self->_get_alter_index_query(data => $arg_hash{'data'}));
 
 	return;
-}
-
-sub _get_advisory_lock {
-	my ($self, %arg_hash) = @_;
-
-	my $result = $self->_execute_and_log(
-		sql => <<SQL
-SELECT pg_try_advisory_lock(778719306, oid::integer)::integer
-FROM pg_catalog.pg_class
-WHERE oid = '$self->{'_ident'}'::regclass;
-SQL
-		);
-
-	return $result->[0]->[0];
 }
 
 sub _get_pages_per_round {

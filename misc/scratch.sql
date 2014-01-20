@@ -465,11 +465,13 @@ ORDER BY
 
 -- Get an advisory lock
 
-SELECT pg_try_advisory_lock(778719306, oid::integer)::integer
+SELECT pg_try_advisory_lock(
+    'pg_catalog.pg_class'::regclass::integer, oid::integer)::integer
 FROM pg_catalog.pg_class
 WHERE oid = 'public.table1'::regclass;
 
-SELECT pg_advisory_unlock(778719306, oid::integer)::integer
+SELECT pg_advisory_unlock(
+    'pg_catalog.pg_class'::regclass::integer, oid::integer)::integer
 FROM pg_catalog.pg_class
 WHERE oid = 'public.table1'::regclass;
 
