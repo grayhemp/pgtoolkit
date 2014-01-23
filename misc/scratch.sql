@@ -475,4 +475,24 @@ SELECT pg_advisory_unlock(
 FROM pg_catalog.pg_class
 WHERE oid = 'public.table1'::regclass;
 
+SELECT pg_try_advisory_lock_shared(
+    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
+FROM pg_catalog.pg_database
+WHERE datname = 'dbname1';
+
+SELECT pg_try_advisory_lock(
+    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
+FROM pg_catalog.pg_database
+WHERE datname = 'dbname1';
+
+SELECT pg_advisory_unlock_shared(
+    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
+FROM pg_catalog.pg_database
+WHERE datname = 'dbname1';
+
+SELECT pg_advisory_unlock(
+    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
+FROM pg_catalog.pg_database
+WHERE datname = 'dbname1';
+
 --
