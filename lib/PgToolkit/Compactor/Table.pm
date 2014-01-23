@@ -246,8 +246,8 @@ sub _process {
 	my $duration;
 	my $is_skipped;
 
-	if (not $self->_get_advisory_lock()) {
-		$self->_log_skipping_can_not_get_advisory_lock();
+	if (not $self->_try_advisory_lock()) {
+		$self->_log_skipping_can_not_try_advisory_lock();
 		$is_skipped = 1;
 	}
 
@@ -796,7 +796,7 @@ sub get_total_size_delta {
 		$self->{'_size_statistics'}->{'total_size'};
 }
 
-sub _log_skipping_can_not_get_advisory_lock {
+sub _log_skipping_can_not_try_advisory_lock {
 	my ($self, %arg_hash) = @_;
 
 	$self->{'_logger'}->write(
@@ -1320,7 +1320,7 @@ sub _time {
 	return PgToolkit::Utils->time();
 }
 
-sub _get_advisory_lock {
+sub _try_advisory_lock {
 	my ($self, %arg_hash) = @_;
 
 	my $result = $self->_execute_and_log(

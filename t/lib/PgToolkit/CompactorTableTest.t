@@ -63,7 +63,7 @@ sub test_dry_run : Test(18) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -96,7 +96,7 @@ sub test_check_special_triggers : Test(14) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -128,7 +128,7 @@ sub test_no_initial_vacuum : Test(8) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -153,7 +153,7 @@ sub test_analyze_if_not_analyzed : Test(17) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -171,11 +171,11 @@ sub test_analyze_if_not_analyzed : Test(17) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_skip_processing_if_cant_get_table_advisory_lock : Test(6) {
+sub test_skip_processing_if_cant_try_advisory_lock_table : Test(6) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_table_advisory_lock'}->{'row_list'} = [[0]];
+	->{'try_advisory_lock_table'}->{'row_list'} = [[0]];
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->();
 
@@ -184,7 +184,7 @@ sub test_skip_processing_if_cant_get_table_advisory_lock : Test(6) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -206,7 +206,7 @@ sub test_skip_processing_if_table_is_empty : Test(10) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -232,7 +232,7 @@ sub test_min_page_count : Test(14) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -262,7 +262,7 @@ sub test_min_free_percent : Test(14) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -299,7 +299,7 @@ sub test_force_processing : Test(14) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -329,7 +329,7 @@ sub test_can_not_get_bloat_statistics : Test(16) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -361,7 +361,7 @@ sub test_can_not_get_size_statistics : Test(6) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1473,7 +1473,7 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(48) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1539,7 +1539,7 @@ sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(28) {
 	my $i = 1;
 
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'get_table_advisory_lock');
+		$i++, 'try_advisory_lock_table');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
