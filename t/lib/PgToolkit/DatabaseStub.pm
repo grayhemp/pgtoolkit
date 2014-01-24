@@ -147,7 +147,8 @@ sub init {
 			'row_list' => [['column']]},
 		'clean_pages' => {
 			'sql_pattern' => (
-				qr/SELECT public\._clean_pages\(\s+'schema.table', 'column', /s.
+				qr/SELECT public\.pgcompact_clean_pages_$$\(\s+/s.
+				qr/'schema.table', 'column', /s.
 				qr/<to_page>,\s+<pages_per_round=5>, 10/s),
 			'row_list_sequence' => [
 				[[94]], [[89]], [[84]], [[-1]]]},
@@ -290,11 +291,11 @@ sub init {
 			'row_list' => [['pg_catalog', 'pg_class']]},
 		'create_clean_pages' => {
 			'sql_pattern' =>
-				qr/CREATE OR REPLACE FUNCTION public\._clean_pages/,
+				qr/CREATE OR REPLACE FUNCTION public\.pgcompact_clean_pages_$$/,
 			'row_list' => []},
 		'drop_clean_pages' => {
 			'sql_pattern' =>
-				qr/DROP FUNCTION public\._clean_pages/,
+				qr/DROP FUNCTION public\.pgcompact_clean_pages_$$/,
 			'row_list' => []},
 		'get_dbname_list1' => {
 			'sql_pattern' =>

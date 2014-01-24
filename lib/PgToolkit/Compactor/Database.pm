@@ -353,15 +353,15 @@ sub _create_clean_pages_function {
 	my $self = shift;
 
 	$self->_execute_and_log(
-		sql => << 'SQL'
-CREATE OR REPLACE FUNCTION public._clean_pages(
+		sql => <<SQL
+CREATE OR REPLACE FUNCTION public.pgcompact_clean_pages_$$(
     i_table_ident text,
     i_column_ident text,
     i_to_page integer,
     i_page_offset integer,
     i_max_tupples_per_page integer)
 RETURNS integer
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql AS \$\$
 DECLARE
     _from_page integer := i_to_page - i_page_offset + 1;
     _min_ctid tid;
@@ -374,7 +374,7 @@ DECLARE
     _update_query text :=
         'UPDATE ONLY ' || i_table_ident ||
         ' SET ' || i_column_ident || ' = ' || i_column_ident ||
-        ' WHERE ctid = ANY($1) RETURNING ctid';
+        ' WHERE ctid = ANY(\$1) RETURNING ctid';
 BEGIN
     -- Check page argument values
     IF NOT (
@@ -437,7 +437,7 @@ BEGIN
     END IF;
 
     RETURN _result_page;
-END $$;
+END \$\$;
 SQL
 		);
 
@@ -449,7 +449,8 @@ sub _drop_clean_pages_function {
 
 	$self->_execute_and_log(
 		sql => <<SQL
-DROP FUNCTION public._clean_pages(text, text, integer, integer, integer);
+DROP FUNCTION public.pgcompact_clean_pages_$$(
+	text, text, integer, integer, integer);
 SQL
 		);
 

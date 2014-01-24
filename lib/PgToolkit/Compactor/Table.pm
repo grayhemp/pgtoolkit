@@ -1574,7 +1574,7 @@ sub _clean_pages {
 	my $result = $self->_execute_and_log(
 		level => 'debug1',
 		sql => <<SQL
-SELECT public._clean_pages(
+SELECT public.pgcompact_clean_pages_$$(
     '$self->{'_ident'}', '$arg_hash{'column_ident'}', $arg_hash{'to_page'},
     $arg_hash{'pages_per_round'}, $arg_hash{'max_tupples_per_page'})
 SQL
