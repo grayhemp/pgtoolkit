@@ -1726,7 +1726,7 @@ sub _get_reindex_query {
 	my ($self, %arg_hash) = @_;
 
 	my $sql = $arg_hash{'data'}->{'definition'};
-	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_tmp$$/;
+	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_index_$$/;
 	if (defined $arg_hash{'data'}->{'tablespace'}) {
 		$sql =~
 			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
@@ -1760,9 +1760,9 @@ sub _get_alter_index_query {
 		  'ALTER TABLE '.$self->{'_ident'}.
 		  ' ADD CONSTRAINT '.$constraint_ident.' '.
 		  $arg_hash{'data'}->{'contypedef'}.
-		  ' USING INDEX pgcompact_tmp'.$$.'; ') :
+		  ' USING INDEX pgcompact_index_'.$$.'; ') :
 		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-		  'ALTER INDEX '.$schema_ident.'.pgcompact_tmp'.$$.
+		  'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
 		  ' RENAME TO '.$index_ident.'; ')
 		).'END; -- '.$self->{'_database'}->quote_ident(
 			string => $self->{'_database'}->get_dbname());
@@ -1798,7 +1798,7 @@ sub _drop_temp_index {
 		string => $self->{'_schema_name'});
 
 	$self->_execute_and_log(
-		sql => 'DROP INDEX '.$schema_ident.'.pgcompact_tmp'.$$.';');
+		sql => 'DROP INDEX '.$schema_ident.'.pgcompact_index_'.$$.';');
 
 	return;
 }
