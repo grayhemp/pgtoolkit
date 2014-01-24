@@ -1326,9 +1326,8 @@ sub _try_advisory_lock {
 	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT pg_try_advisory_lock(
-	'pg_catalog.pg_class'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_class
-WHERE oid = '$self->{'_ident'}'::regclass;
+	'pg_catalog.pg_class'::regclass::integer,
+	'$self->{'_ident'}'::regclass::integer)::integer;
 SQL
 		);
 

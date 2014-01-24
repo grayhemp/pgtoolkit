@@ -333,8 +333,8 @@ sub init {
 		'try_advisory_lock_table' => {
 			'sql_pattern' =>
 				qr/SELECT pg_try_advisory_lock\(/s.
-				qr/\s+'pg_catalog.pg_class'::regclass::integer, oid.+/s.
-				qr/WHERE oid = 'schema.table'::regclass/,
+				qr/\s+'pg_catalog.pg_class'::regclass::integer,\s+/s.
+				qr/'schema.table'::regclass::integer/,
 			'row_list' => [[1]]}};
 
 	return;

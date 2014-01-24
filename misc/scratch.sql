@@ -466,33 +466,11 @@ ORDER BY
 -- Get an advisory lock
 
 SELECT pg_try_advisory_lock(
-    'pg_catalog.pg_class'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_class
-WHERE oid = 'public.table1'::regclass;
+    'pg_catalog.pg_class'::regclass::integer,
+    'public.table1'::regclass::integer)::integer;
 
 SELECT pg_advisory_unlock(
-    'pg_catalog.pg_class'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_class
-WHERE oid = 'public.table1'::regclass;
-
-SELECT pg_try_advisory_lock_shared(
-    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_database
-WHERE datname = 'dbname1';
-
-SELECT pg_try_advisory_lock(
-    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_database
-WHERE datname = 'dbname1';
-
-SELECT pg_advisory_unlock_shared(
-    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_database
-WHERE datname = 'dbname1';
-
-SELECT pg_advisory_unlock(
-    'pg_catalog.pg_database'::regclass::integer, oid::integer)::integer
-FROM pg_catalog.pg_database
-WHERE datname = 'dbname1';
+    'pg_catalog.pg_class'::regclass::integer,
+    'public.table1'::regclass::integer)::integer;
 
 --
