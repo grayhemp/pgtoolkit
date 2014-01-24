@@ -206,31 +206,10 @@ sub test_creates_and_drops_environment : Test(4) {
 	{
 		$self->{'database_compactor_constructor'}->();
 		$self->{'database'}->{'mock'}->is_called(
-			1, 'get_database_advisory_lock_shared');
-		$self->{'database'}->{'mock'}->is_called(
-			2, 'create_clean_pages');
+			1, 'create_clean_pages');
 	}
 	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_database_advisory_lock');
-	$self->{'database'}->{'mock'}->is_called(
-		6, 'drop_clean_pages');
-}
-
-sub test_does_not_drop_environment_if_can_not_acquire_lock : Test(4) {
-	my $self = shift;
-
-	$self->{'database'}->{'mock'}->{'data_hash'}
-	->{'get_database_advisory_lock'}->{'row_list'} = [[0]];
-
-	{
-		$self->{'database_compactor_constructor'}->();
-		$self->{'database'}->{'mock'}->is_called(
-			1, 'get_database_advisory_lock_shared');
-		$self->{'database'}->{'mock'}->is_called(
-			2, 'create_clean_pages');
-	}
-	$self->{'database'}->{'mock'}->is_called(
-		5, 'get_database_advisory_lock');
+		4, 'drop_clean_pages');
 }
 
 sub test_does_not_create_and_drop_environment_if_dry_run : Test(5) {
