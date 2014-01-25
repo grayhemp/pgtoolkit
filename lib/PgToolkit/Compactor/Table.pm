@@ -245,10 +245,11 @@ sub _process {
 
 	my $duration;
 	my $is_skipped;
+	my $is_locked;
 
 	if (not $self->_try_advisory_lock()) {
 		$self->_log_skipping_can_not_try_advisory_lock();
-		$is_skipped = 1;
+		$is_locked = 1;
 	}
 
 	$self->{'_size_statistics'} = $self->_get_size_statistics();
@@ -257,7 +258,7 @@ sub _process {
 		$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
 	}
 
-	if (not $is_skipped) {
+	if (not $is_locked and not $is_skipped) {
 		if (not $self->{'_dry_run'} and not $self->{'_no_initial_vacuum'}) {
 			$self->_do_vacuum();
 			$duration = $self->{'_database'}->get_duration();
@@ -279,7 +280,7 @@ sub _process {
 		}
 	}
 
-	if (not $is_skipped) {
+	if (not $is_locked and not $is_skipped) {
 		eval {
 			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
 			if ($self->{'_pgstattuple_schema_ident'}) {
@@ -317,7 +318,7 @@ sub _process {
 		}
 	}
 
-	if (not $is_skipped) {
+	if (not $is_locked and not $is_skipped) {
 		$self->_log_statistics(
 			size_statistics => $self->{'_size_statistics'},
 			bloat_statistics => $self->{'_bloat_statistics'});
@@ -348,7 +349,7 @@ sub _process {
 	}
 
 	my $is_compacted;
-	if (not $is_skipped and not $self->{'_dry_run'}) {
+	if (not $is_locked and not $is_skipped and not $self->{'_dry_run'}) {
 		if ($self->{'_force'}) {
 			$self->_log_processing_forced();
 		}
@@ -548,16 +549,20 @@ sub _process {
 			not $expected_error_occurred);
 	}
 
-	my $will_be_skipped = (
-		not $self->{'_force'} and (
-			$is_skipped or
-			$self->{'_size_statistics'}->{'page_count'} <
-			$self->{'_min_page_count'} or
-			$self->{'_bloat_statistics'}->{'free_percent'} <
-			$self->{'_min_free_percent'}));
+	my $will_be_skipped;
+	if (not $is_locked) {
+		$will_be_skipped = (
+			not $self->{'_force'} and (
+				$is_skipped or
+				$self->{'_size_statistics'}->{'page_count'} <
+				$self->{'_min_page_count'} or
+				$self->{'_bloat_statistics'}->{'free_percent'} <
+				$self->{'_min_free_percent'}));
+	}
 
 	my $is_reindexed;
-	if (($self->{'_dry_run'} or $is_compacted or
+	if (not $is_locked and
+		($self->{'_dry_run'} or $is_compacted or
 		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
 		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
 		 not $is_skipped and $will_be_skipped) and
@@ -697,7 +702,7 @@ sub _process {
 		}
 	}
 
-	if (not $self->{'_dry_run'} and
+	if (not $is_locked and not $self->{'_dry_run'} and
 		not ($is_skipped and not defined $is_reindexed))
 	{
 		my $complete = (
@@ -718,6 +723,7 @@ sub _process {
 	}
 
 	$self->{'_is_processed'} = (
+		$is_locked or
 		($self->{'_dry_run'} or $is_compacted or $is_skipped or
 		 $will_be_skipped) and (defined $is_reindexed ? $is_reindexed : 1));
 
