@@ -282,7 +282,7 @@ sub get_options {
 				}
 			},
 			kit => 'PgToolkit',
-			version => 'v1.0.0');
+			version => 'v1.0.1');
 	}
 
 	return $self->{'_options'};
@@ -318,7 +318,7 @@ sub get_options {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+Copyright (c) 2011-2014 Sergey Konoplev
 
 PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
 for additional information.

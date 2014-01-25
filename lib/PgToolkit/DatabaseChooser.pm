@@ -72,7 +72,7 @@ sub new {
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+Copyright (c) 2011-2014 Sergey Konoplev
 
 PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
 for additional information.

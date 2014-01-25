@@ -94,7 +94,7 @@ bloated indexes excepts ones that are in the `pgq` schema.
 
 ## License and Copyright
 
-Copyright &copy; 2011-2013 Sergey Konoplev, Maxim Boguk
+Copyright &copy; 2011-2014 Sergey Konoplev, Maxim Boguk
 
 PgToolkit is released under the PostgreSQL License, read
 [LICENSE.md] for additional information.
