@@ -26,7 +26,7 @@ find $FATPACK_DIR -type f -delete
 mkdir fatlib
 for script in $script_list; do
     (echo "#!$PERL"; fatpack file; cat $BIN_DIR/$script) \
-	> $FATPACK_DIR/$script 2> /dev/null
+        > $FATPACK_DIR/$script 2> /dev/null
     chmod 755 $FATPACK_DIR/$script
     echo $FATPACK_DIR/$script
 done
@@ -37,5 +37,5 @@ fatpack_targz=pgtoolkit-$1-fatpack.tar.gz
 (
     cd $FATPACK_DIR/
     tar -czf $fatpack_targz *
-    echo $FATPACK_DIR/$fatpack_targz    
+    echo $FATPACK_DIR/$fatpack_targz
 )
