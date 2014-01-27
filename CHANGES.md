@@ -2,6 +2,25 @@
 
 ## Changes
 
+### 2013-10-01 - PgToolkit v1.0.1
+
+- Fixed the dependency check leading to the inability to re-index some
+  primary keys
+- Turned off statement timeouts for `pgcompact`'s sessions
+- Increased the `psql` response timeout to 10 hours
+- Removed the necessity to set `PERL5LIB` (thanks to Hubert "depesz"
+  Lubaczewski)
+- Fixed the completion check leading to unfinished processing in some
+  cases
+- Made the re-indexation process more lock-friendly by getting rid of
+  long waits for an exclusive locks
+- Added usage examples to the `--help` output
+- Got rid of hard-coded connection parameters (thanks to Hubert
+  "depesz" Lubaczewski)
+- Allowed processing of the `postgres` and `template1` databases
+- Resolved the several simultaneously running instances collisions
+  issue (thanks to Gonzalo Gil)
+
 ### 2013-10-01 - PgToolkit v1.0.0
 
 Note that `pgcompactor` was renamed to `pgcompact`.

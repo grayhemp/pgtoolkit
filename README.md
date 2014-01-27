@@ -1,34 +1,36 @@
 # PgToolkit - tools for PostgreSQL maintenance
 
 Currently the package contains the only tool `pgcompact`, we are
-planning to add much more in the future.  Stay tuned.
+planning to add much more in the future. Stay tuned.
 
 The list of changes can be found in [CHANGES.md]. The To-Do List is in
 [TODO.md].
 
 ## Installation
 
-The easiest way to deploy the toolkit is to get the [latest stable][1]
-version of autonomous scripts. The scripts require `Perl >=5.8.8` to
-be installed only. Just unpack the archive to your `bin` directory and
-enjoy. If you need a specific version or branch of the tools, replace
-the `stable` with its name string in [the URL][1].
+The easiest way to deploy the toolkit is to download the [latest
+stable][1] version, unpack the archive and copy the autonomous scripts
+from the `fatpack` directory to your `bin` or to just add this
+directory to your `PATH`. The autonomous scripts are packed with all
+the dependencies and need `Perl >=5.8.8` to be installed only.
 
-Another way is to `git clone` the repository:
+If you need a specific version or branch of the tools, replace the
+`stable` with its name string in [the URL][1].
+
+Another way is to `git clone` the repository
 
     git clone git@github.com:grayhemp/pgtoolkit.git
 
-Or to `svn checkout` it:
+or to `svn checkout` it
 
     svn checkout https://github.com/grayhemp/pgtoolkit
 
 Do not forget to switch to the necessary version branch afterwards.
 
-It contains a `fatpack` directory that also houses the autonomous
-scripts so you can use them straight away. If you want to use
-non-autonomous versions of these scripts you will find them in the
-`bin` directory. To make them work the `PERL5LIB` environment variable
-must be set to the `lib` directory.
+You can also use the autonomous scripts in the `fatpack` directory or
+the non-autonomous versions of them in the `bin` directory. For the
+latter you need the `lib` directory either to be in the same
+sub-directory with `bin` or to be in your `PERL5LIB`.
 
 ## pgcompact
 
@@ -43,7 +45,7 @@ publications:
   Lubaczewski.
 
 If [pgstattuple] is installed `pgcompact` uses it to get a better
-statistics. It is highly recommended to be for TOASTed tables and
+statistics. It is highly recommended to be for `TOAST`ed tables and
 indexes.
 
 ### Usage examples
@@ -80,12 +82,12 @@ bloated indexes excepts ones that are in the `pgq` schema.
 - Analysis and rebuilding of bloated unique constraints and primary
   keys where possible
 - Incremental processing, in other words one can stop the process and
-  continue at any time later
-- Dynamic adjustment to current load of database, to not affect its
+  continue it at any time later
+- Dynamic adjustment to current load of database to not affect its
   performance
 - Instructs administrators, supplying them with ready to use DDL, to
-  manually rebuild database objects which can not be rebuilt
-  automatically.
+  manually rebuild database objects that can not be rebuilt
+  automatically
 
 ## See Also
 
@@ -111,7 +113,10 @@ Thank you:
 - [PostgreSQL-Consulting.com](http://www.postgresql-consulting.com)
   for a huge amount of ideas and lots of testing
 - Lonni Friedman for your ideas
-- Rural Hunter for ideas and testing.
+- Rural Hunter for ideas and testing
+- Hubert "depesz" Lubaczewski for testing, useful hints and code
+  contributions
+- Gonzalo Gil for testing.
 
 [CHANGES.md]: CHANGES.md
 [TODO.md]: TODO.md

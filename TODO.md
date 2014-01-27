@@ -2,19 +2,13 @@
 
 ## To-Do List
 
-### PgToolkit v1.0.1
+### PgToolkit v1.0.2
 
-- Create a full-update mode for post- column manipulation cleaning
-- Add `--reindex-nonbtree`
-- Add an ability to collect manual reindex commands into a script
-- Make a normal exceptions mechanism
-- Reindex cases with complex `FK` dependencies
-- Use `DROP INDEX CONCURRENTLY`
-- Make a non blocking reindex
-- Print an informative message for "Died" cases
-- Use approximation for not TOASTed tables
-- Fix the TOASTed tables stats approximation
-- Fix the issue with completion message on incomplete tables
+- Use `DROP INDEX CONCURRENTLY` when possible
+- Print `TOAST` tables bloat warnings
+- Use the `INSERT/DELETE` technique when possible
+- Use approximation for not `TOAST`'ed tables as an experimental
+  feature
 
 ### PgToolkit v1.1alpha1
 
@@ -25,7 +19,17 @@
 - Create a `pgcheck` prototype
 - Create a `pgrestore` prototype
 - Create a `pgpitr` prototype
-- Think of a way to compact TOAST tables
+- Think of a way to compact `TOAST` tables
+- Refactor the `Compactor` classes and tests
+- Implement a normal exceptions mechanism
+- Re-index cases with complex foreign key dependencies
+- Create a full-update mode for post- column manipulation cleaning
+- Add the `--reindex-nonbtree` option
+- Add an ability to collect manual re-index commands into a file
+- Add a default database using system user name
+- Add a restricted run time option
+- Fix the `TOAST`'ed tables stats approximation
+- Clean up interruption consequences
 
 ### PgToolkit v1.2alpha1
 
