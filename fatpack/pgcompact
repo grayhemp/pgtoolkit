@@ -77,7 +77,7 @@ $fatpacked{"PgToolkit/Class.pm"} = <<'PGTOOLKIT_CLASS';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -244,7 +244,7 @@ $fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -527,7 +527,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   WHERE
       $in
       $not_in
-      datname NOT IN ('postgres', 'template0', 'template1')
+      datname NOT IN ('template0')
   ORDER BY pg_catalog.pg_database_size(datname), datname
   SQL
   		);
@@ -546,7 +546,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -920,15 +920,15 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   	my $self = shift;
   
   	$self->_execute_and_log(
-  		sql => << 'SQL'
-  CREATE OR REPLACE FUNCTION public._clean_pages(
+  		sql => <<SQL
+  CREATE OR REPLACE FUNCTION public.pgcompact_clean_pages_$$(
       i_table_ident text,
       i_column_ident text,
       i_to_page integer,
       i_page_offset integer,
       i_max_tupples_per_page integer)
   RETURNS integer
-  LANGUAGE plpgsql AS $$
+  LANGUAGE plpgsql AS \$\$
   DECLARE
       _from_page integer := i_to_page - i_page_offset + 1;
       _min_ctid tid;
@@ -941,7 +941,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
       _update_query text :=
           'UPDATE ONLY ' || i_table_ident ||
           ' SET ' || i_column_ident || ' = ' || i_column_ident ||
-          ' WHERE ctid = ANY($1) RETURNING ctid';
+          ' WHERE ctid = ANY(\$1) RETURNING ctid';
   BEGIN
       -- Check page argument values
       IF NOT (
@@ -1004,7 +1004,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
       END IF;
   
       RETURN _result_page;
-  END $$;
+  END \$\$;
   SQL
   		);
   
@@ -1016,7 +1016,8 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   	$self->_execute_and_log(
   		sql => <<SQL
-  DROP FUNCTION public._clean_pages(text, text, integer, integer, integer);
+  DROP FUNCTION public.pgcompact_clean_pages_$$(
+  	text, text, integer, integer, integer);
   SQL
   		);
   
@@ -1034,7 +1035,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -1093,7 +1094,9 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		pages_before_vacuum_lower_divisor = 16,
   		pages_before_vacuum_lower_threshold = 1000,
   		pages_before_vacuum_upper_divisor = 50,
-  		max_retry_count => 10);
+  		max_retry_count => 10,
+  		locked_alter_timeout => 1000,
+  		locked_alter_count => 100);
   
   	$table_compactor->process();
   
@@ -1205,7 +1208,15 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   =item C<max_retry_count>
   
-  a maximum amount of attempts to compact cluster.
+  a maximum amount of attempts to compact cluster
+  
+  =item C<locked_alter_timeout>
+  
+  a timeout for the (locked) ALTER INDEX queries
+  
+  =item C<locked_alter_count>
+  
+  amount of attempts to accure a lock for ALTER INDEX queries.
   
   =back
   
@@ -1240,6 +1251,8 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	$self->{'_reindex'} = $arg_hash{'reindex'};
   	$self->{'_print_reindex_queries'} = $arg_hash{'print_reindex_queries'};
   	$self->{'_max_retry_count'} = $arg_hash{'max_retry_count'};
+  	$self->{'_locked_alter_timeout'} = $arg_hash{'locked_alter_timeout'};
+  	$self->{'_locked_alter_count'} = $arg_hash{'locked_alter_count'};
   
   	$self->{'_progress_report_period'} = $arg_hash{'progress_report_period'};
   	if ($arg_hash{'pgstattuple_schema_name'}) {
@@ -1288,6 +1301,12 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   	my $duration;
   	my $is_skipped;
+  	my $is_locked;
+  
+  	if (not $self->_try_advisory_lock()) {
+  		$self->_log_skipping_can_not_try_advisory_lock();
+  		$is_locked = 1;
+  	}
   
   	$self->{'_size_statistics'} = $self->_get_size_statistics();
   
@@ -1295,27 +1314,29 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		$self->{'_base_size_statistics'} = {%{$self->{'_size_statistics'}}};
   	}
   
-  	if (not $self->{'_dry_run'} and not $self->{'_no_initial_vacuum'}) {
-  		$self->_do_vacuum();
-  		$duration = $self->{'_database'}->get_duration();
+  	if (not $is_locked and not $is_skipped) {
+  		if (not $self->{'_dry_run'} and not $self->{'_no_initial_vacuum'}) {
+  			$self->_do_vacuum();
+  			$duration = $self->{'_database'}->get_duration();
   
-  		$self->{'_size_statistics'} = $self->_get_size_statistics();
+  			$self->{'_size_statistics'} = $self->_get_size_statistics();
   
-  		$self->_log_vacuum_complete(
-  			page_count => $self->{'_size_statistics'}->{'page_count'},
-  			duration => $duration,
-  			to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
-  			pages_before_vacuum => (
-  				$self->{'_size_statistics'}->{'page_count'}),
-  			phrase => 'initial');
+  			$self->_log_vacuum_complete(
+  				page_count => $self->{'_size_statistics'}->{'page_count'},
+  				duration => $duration,
+  				to_page => $self->{'_size_statistics'}->{'page_count'} - 1,
+  				pages_before_vacuum => (
+  					$self->{'_size_statistics'}->{'page_count'}),
+  				phrase => 'initial');
+  		}
+  
+  		if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
+  			$self->_log_skipping_empty_table();
+  			$is_skipped = 1;;
+  		}
   	}
   
-  	if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
-  		$self->_log_skipping_empty_table();
-  		$is_skipped = 1;;
-  	}
-  
-  	if (not $is_skipped) {
+  	if (not $is_locked and not $is_skipped) {
   		eval {
   			$self->{'_bloat_statistics'} = $self->_get_bloat_statistics();
   			if ($self->{'_pgstattuple_schema_ident'}) {
@@ -1353,7 +1374,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		}
   	}
   
-  	if (not $is_skipped) {
+  	if (not $is_locked and not $is_skipped) {
   		$self->_log_statistics(
   			size_statistics => $self->{'_size_statistics'},
   			bloat_statistics => $self->{'_bloat_statistics'});
@@ -1384,7 +1405,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	}
   
   	my $is_compacted;
-  	if (not $is_skipped and not $self->{'_dry_run'}) {
+  	if (not $is_locked and not $is_skipped and not $self->{'_dry_run'}) {
   		if ($self->{'_force'}) {
   			$self->_log_processing_forced();
   		}
@@ -1584,16 +1605,20 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			not $expected_error_occurred);
   	}
   
-  	my $will_be_skipped = (
-  		not $self->{'_force'} and (
-  			$is_skipped or
-  			$self->{'_size_statistics'}->{'page_count'} <
-  			$self->{'_min_page_count'} or
-  			$self->{'_bloat_statistics'}->{'free_percent'} <
-  			$self->{'_min_free_percent'}));
+  	my $will_be_skipped;
+  	if (not $is_locked) {
+  		$will_be_skipped = (
+  			not $self->{'_force'} and (
+  				$is_skipped or
+  				$self->{'_size_statistics'}->{'page_count'} <
+  				$self->{'_min_page_count'} or
+  				$self->{'_bloat_statistics'}->{'free_percent'} <
+  				$self->{'_min_free_percent'}));
+  	}
   
   	my $is_reindexed;
-  	if (($self->{'_dry_run'} or $is_compacted or
+  	if (not $is_locked and
+  		($self->{'_dry_run'} or $is_compacted or
   		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
   		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
   		 not $is_skipped and $will_be_skipped) and
@@ -1670,16 +1695,53 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			if (not $self->{'_dry_run'} and $self->{'_reindex'}) {
   				$self->_reindex(data => $index_data);
   				$duration = $self->{'_database'}->get_duration();
-  				$self->_alter_index(data => $index_data);
-  				$duration += $self->{'_database'}->get_duration();
-  				$self->_log_reindex(
-  					ident => $index_ident,
-  					initial_size_statistics => $initial_index_size_statistics,
-  					size_statistics => $self->_get_index_size_statistics(
-  						ident => $index_ident),
-  					duration => $duration);
   
-  				$is_reindexed = 1;
+  				my $locked_alter_attempt = 0;
+  				while ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
+  					eval {
+  						$self->_alter_index(data => $index_data);
+  						$duration += $self->{'_database'}->get_duration();
+  					};
+  					if ($@) {
+  						if ($@ =~ ('canceling statement due '.
+  								   'to statement timeout'))
+  						{
+  							$locked_alter_attempt++;
+  							next;
+  						} else {
+  							die($@);
+  						}
+  					} else {
+  						last;
+  					}
+  				}
+  
+  				if ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
+  					$self->_log_reindex(
+  						ident => $index_ident,
+  						initial_size_statistics => (
+  							$initial_index_size_statistics),
+  						size_statistics => $self->_get_index_size_statistics(
+  							ident => $index_ident),
+  						duration => $duration,
+  						locked_alter_attempt => $locked_alter_attempt);
+  
+  					$is_reindexed =
+  						(defined $is_reindexed) ? ($is_reindexed and 1) : 1;
+  				} else {
+  					$self->_drop_temp_index(data => $index_data);
+  					$duration += $self->{'_database'}->get_duration();
+  
+  					$self->_log_reindex_locked_alter_didnt_acquire_lock(
+  						ident => $index_ident,
+  						initial_size_statistics => (
+  							$initial_index_size_statistics),
+  						bloat_statistics => $index_bloat_statistics,
+  						data => $index_data,
+  						duration => $duration,
+  						locked_alter_attempt => $locked_alter_attempt);
+  					$is_reindexed = 0;
+  				}
   			}
   
   			if ($self->{'_dry_run'} or $self->{'_print_reindex_queries'}) {
@@ -1696,9 +1758,12 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		}
   	}
   
-  	if (not $self->{'_dry_run'} and not ($is_skipped and not $is_reindexed)) {
+  	if (not $is_locked and not $self->{'_dry_run'} and
+  		not ($is_skipped and not defined $is_reindexed))
+  	{
   		my $complete = (
-  			$is_compacted or $will_be_skipped or $is_skipped and $is_reindexed);
+  			($is_compacted or $will_be_skipped or $is_skipped) and
+  			(defined $is_reindexed ? $is_reindexed : 1));
   
   		if ($complete) {
   			$self->_log_complete_processing();
@@ -1714,8 +1779,9 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	}
   
   	$self->{'_is_processed'} = (
-  		$is_compacted or $is_skipped or $will_be_skipped or
-  		$self->{'_dry_run'});
+  		$is_locked or
+  		($self->{'_dry_run'} or $is_compacted or $is_skipped or
+  		 $will_be_skipped) and (defined $is_reindexed ? $is_reindexed : 1));
   
   	return;
   }
@@ -1790,6 +1856,18 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		$self->{'_is_dropped'} ? 0 :
   		$self->{'_base_size_statistics'}->{'total_size'} -
   		$self->{'_size_statistics'}->{'total_size'};
+  }
+  
+  sub _log_skipping_can_not_try_advisory_lock {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'_logger'}->write(
+  		message => ('Skipping processing: another instance is working with '.
+  					'this table.'),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
+  
+  	return;
   }
   
   sub _log_skipping_empty_table {
@@ -2118,7 +2196,8 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			 int($free_percent).'% ('.
   			 PgToolkit::Utils->get_size_pretty(
   				 size => int($free_space)).'), ' : '').
-  			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
+  			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds, '.
+  			'attempts '.($arg_hash{'locked_alter_attempt'} + 1).'.'),
   		level => 'info',
   		target => $self->{'_log_target'});
   
@@ -2145,6 +2224,29 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			 $self->_get_reindex_query(data => $arg_hash{'data'})."\n".
   			 $self->_get_alter_index_query(data => $arg_hash{'data'}) :
   			 $self->_get_straight_reindex_query(data => $arg_hash{'data'}))),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
+  
+  	return;
+  }
+  
+  sub _log_reindex_locked_alter_didnt_acquire_lock {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'_logger'}->write(
+  		message => (
+  			'Reindex'.($self->{'_force'} ? ' forced' : '').': '.
+  			$arg_hash{'ident'}.', lock has not been acquired'.
+  			($arg_hash{'initial_size_statistics'} ? ', initial size '.
+  			 $arg_hash{'initial_size_statistics'}->{'page_count'}.' pages ('.
+  			 PgToolkit::Utils->get_size_pretty(
+  				 size => $arg_hash{'initial_size_statistics'}->{'size'}).')'.
+  			 ($arg_hash{'bloat_statistics'} ? ', can be reduced by '.
+  			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
+  			  PgToolkit::Utils->get_size_pretty(
+  				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
+  			  ')' : '') : '').
+  			'duration '.sprintf("%.3f", $arg_hash{'duration'}).' seconds.'),
   		level => 'notice',
   		target => $self->{'_log_target'});
   
@@ -2278,6 +2380,20 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   sub _time {
   	return PgToolkit::Utils->time();
+  }
+  
+  sub _try_advisory_lock {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $result = $self->_execute_and_log(
+  		sql => <<SQL
+  SELECT pg_try_advisory_lock(
+  	'pg_catalog.pg_class'::regclass::integer,
+  	'$self->{'_ident'}'::regclass::integer)::integer;
+  SQL
+  		);
+  
+  	return $result->[0]->[0];
   }
   
   sub _has_special_triggers {
@@ -2519,7 +2635,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $result = $self->_execute_and_log(
   		level => 'debug1',
   		sql => <<SQL
-  SELECT public._clean_pages(
+  SELECT public.pgcompact_clean_pages_$$(
       '$self->{'_ident'}', '$arg_hash{'column_ident'}', $arg_hash{'to_page'},
       $arg_hash{'pages_per_round'}, $arg_hash{'max_tupples_per_page'})
   SQL
@@ -2672,7 +2788,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my ($self, %arg_hash) = @_;
   
   	my $sql = $arg_hash{'data'}->{'definition'};
-  	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_tmp$$/;
+  	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_index_$$/;
   	if (defined $arg_hash{'data'}->{'tablespace'}) {
   		$sql =~
   			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
@@ -2698,16 +2814,17 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	}
   
   	return
-  		'BEGIN; '.
+  		'BEGIN; SET statement_timeout TO '.
+  		$self->{'_locked_alter_timeout'}.'; '.
   		($constraint_ident ?
   		 ('ALTER TABLE '.$self->{'_ident'}.
   		  ' DROP CONSTRAINT '.$constraint_ident.'; '.
   		  'ALTER TABLE '.$self->{'_ident'}.
   		  ' ADD CONSTRAINT '.$constraint_ident.' '.
   		  $arg_hash{'data'}->{'contypedef'}.
-  		  ' USING INDEX pgcompact_tmp'.$$.'; ') :
+  		  ' USING INDEX pgcompact_index_'.$$.'; ') :
   		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-  		  'ALTER INDEX '.$schema_ident.'.pgcompact_tmp'.$$.
+  		  'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
   		  ' RENAME TO '.$index_ident.'; ')
   		).'END; -- '.$self->{'_database'}->quote_ident(
   			string => $self->{'_database'}->get_dbname());
@@ -2725,7 +2842,6 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		'REINDEX INDEX '.$schema_ident.'.'.$index_ident.'; -- '.
   		$self->{'_database'}->quote_ident(
   			string => $self->{'_database'}->get_dbname());
-  
   }
   
   sub _reindex {
@@ -2733,6 +2849,18 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   	$self->_execute_and_log(
   		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+  
+  	return;
+  }
+  
+  sub _drop_temp_index {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $schema_ident = $self->{'_database'}->quote_ident(
+  		string => $self->{'_schema_name'});
+  
+  	$self->_execute_and_log(
+  		sql => 'DROP INDEX '.$schema_ident.'.pgcompact_index_'.$$.';');
   
   	return;
   }
@@ -2817,7 +2945,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -3068,7 +3196,7 @@ $fatpacked{"PgToolkit/Database.pm"} = <<'PGTOOLKIT_DATABASE';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -3168,9 +3296,10 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   
   	my $dsn = (
   		'dbi:'.$arg_hash{'driver'}.
-  		':dbname='.($arg_hash{'dbname'} ? $self->_get_escaped_dbname() : '').
+  		(defined $arg_hash{'dbname'} ?
+  		 ':dbname='.$self->_get_escaped_dbname() : '').
   		(defined $arg_hash{'host'} ? ';host='.$arg_hash{'host'} : '').
-  		';port='.($arg_hash{'port'} or ''));
+  		(defined $arg_hash{'port'} ? ';port='.$arg_hash{'port'} : ''));
   
   	$self->{'dbh'} = DBI->connect(
   		$dsn, $arg_hash{'user'}, $arg_hash{'password'},
@@ -3283,7 +3412,7 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -3563,13 +3692,17 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   
   =item L<IPC::Open3>
   
+  =item L<IO::Handle>
+  
+  =item L<POSIX>
+  
   =item L<PgToolkit::Database>
   
   =back
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -3662,7 +3795,7 @@ $fatpacked{"PgToolkit/DatabaseChooser.pm"} = <<'PGTOOLKIT_DATABASECHOOSER';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -3839,7 +3972,7 @@ $fatpacked{"PgToolkit/Logger.pm"} = <<'PGTOOLKIT_LOGGER';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -3983,7 +4116,7 @@ $fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
   
   		if ($error) {
   			$error = (
-  				$prog_name.': '.$error."\n".'Try --help for short help, '.
+  				$prog_name.': '.$error."\n".'Use --help for short help, '.
   				'--man for full manual.');
   		}
   	}
@@ -4001,7 +4134,7 @@ $fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
   		$self->_print_help(
   			out_handle_specified => exists $arg_hash{'out_handle'},
   			result => 1,
-  			sections => 'NAME|SYNOPSIS');
+  			sections => 'NAME|SYNOPSIS|EXAMPLES');
   	} elsif ($option_hash->{'man'}) {
   		$self->_print_help(
   			out_handle_specified => exists $arg_hash{'out_handle'},
@@ -4097,7 +4230,7 @@ $fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -4248,7 +4381,9 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		pages_before_vacuum_lower_divisor => 16,
   		pages_before_vacuum_lower_threshold => 1000,
   		pages_before_vacuum_upper_divisor => 50,
-  		max_retry_count => $options->get(name => 'max-retry-count'));
+  		max_retry_count => $options->get(name => 'max-retry-count'),
+  		locked_alter_timeout => 1000,
+  		locked_alter_count => 100);
   }
   
   =head2 B<get_database_adapter()>
@@ -4336,11 +4471,10 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		$self->{'_options'} = PgToolkit::Options->new(
   			definition_hash => {
   				# connection
-  				'host|h:s' => ($ENV{'PGHOST'} or undef),
-  				'port|p:i' => ($ENV{'PGPORT'} or '5432'),
-  				'user|U:s' => ($ENV{'PGUSER'} or
-  							   do { `whoami` =~ /(.*)\n/; $1 }),
-  				'password|W:s' => ($ENV{'PGPASSWORD'} or undef),
+  				'host|h:s' => undef,
+  				'port|p:i' => undef,
+  				'user|U:s' => undef,
+  				'password|W:s' => undef,
   				'path-to-psql|P:s' => 'psql',
   				# target
   				'all|a:i' => 1,
@@ -4399,7 +4533,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   				}
   			},
   			kit => 'PgToolkit',
-  			version => 'v1.0.0');
+  			version => 'v1.0.1');
   	}
   
   	return $self->{'_options'};
@@ -4435,7 +4569,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -4644,7 +4778,7 @@ $fatpacked{"PgToolkit/Utils.pm"} = <<'PGTOOLKIT_UTILS';
   
   =head1 LICENSE AND COPYRIGHT
   
-  Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+  Copyright (c) 2011-2014 Sergey Konoplev
   
   PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
   for additional information.
@@ -4688,6 +4822,10 @@ unshift @INC, sub {
 use strict;
 use warnings;
 
+use Cwd;
+use FindBin;
+use lib Cwd::abs_path($FindBin::Bin.'/../lib' );
+
 use PgToolkit::Registry::Compactor;
 
 =head1 NAME
@@ -4712,7 +4850,6 @@ pgcompact [OPTION...]
 
 (-a | -d DBNAME...) [-n SCHEMA...] [-t TABLE...] [-D DBNAME...]
 [-N SCHEMA...] [-T TABLE...]
-
 
 =item Behavioural options:
 
@@ -4745,7 +4882,7 @@ If pgstattuple is installed B<pgcompact> uses it to get a better
 statistics. It is highly recommended to be for TOASTed tables and
 indexes.
 
-=head2 Usage examples
+=head1 EXAMPLES
 
 Shows usage manual.
 
@@ -5025,9 +5162,23 @@ if (__PACKAGE__ eq 'main') {
 
 1;
 
+=head1 SEE ALSO
+
+=over 4
+
+=item L<Cwd>
+
+=item L<FindBin>
+
+=item L<lib>
+
+=item L<PgToolkit::Registry::Compactor>
+
+=back
+
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2011-2013 Sergey Konoplev, Maxim Boguk
+Copyright (c) 2011-2014 Sergey Konoplev, Maxim Boguk
 
 PgToolkit is released under the PostgreSQL License, read COPYRIGHT.md
 for additional information.
