@@ -13,7 +13,7 @@
 - Fixed the completion check leading to unfinished processing in some
   cases
 - Made the re-indexation process more lock-friendly by getting rid of
-  long waits for an exclusive locks
+  long waiting for exclusive locks
 - Added usage examples to the `--help` output
 - Got rid of hard-coded connection parameters (thanks to Hubert
   "depesz" Lubaczewski)
