@@ -1758,7 +1758,7 @@ sub _get_alter_index_query {
 	}
 
 	return
-		'BEGIN; SET statement_timeout TO '.
+		'BEGIN; SET LOCAL statement_timeout TO '.
 		$self->{'_locked_alter_timeout'}.'; '.
 		($constraint_ident ?
 		 ('ALTER TABLE '.$self->{'_ident'}.

@@ -201,7 +201,7 @@ sub init {
 			'row_list' => []},
 		'alter_index1' => {
 			'sql_pattern' =>
-				qr/BEGIN; SET statement_timeout TO 500; /.
+				qr/BEGIN; SET LOCAL statement_timeout TO 500; /.
 				qr/ALTER TABLE schema\.table DROP CONSTRAINT /.
 				qr/table_pkey; ALTER TABLE schema\.table ADD CONSTRAINT /.
 				qr/table_pkey PRIMARY KEY USING INDEX pgcompact_index_$$; END;/,
@@ -214,7 +214,7 @@ sub init {
 			'row_list' => []},
 		'alter_index2' => {
 			'sql_pattern' =>
-				qr/BEGIN; SET statement_timeout TO 500; /.
+				qr/BEGIN; SET LOCAL statement_timeout TO 500; /.
 				qr/DROP INDEX schema\.table_idx2; /.
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
 				qr/RENAME TO table_idx2; END;/,
@@ -231,7 +231,7 @@ sub init {
 			'row_list' => []},
 		'alter_index3' => {
 			'sql_pattern' =>
-				qr/BEGIN; SET statement_timeout TO 500; /.
+				qr/BEGIN; SET LOCAL statement_timeout TO 500; /.
 				qr/DROP INDEX schema\.table_idx3; /.
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
 				qr/RENAME TO table_idx3; END;/,
