@@ -2,7 +2,7 @@
 
 ## Changes
 
-### 2014-02-01 - PgToolkit v1.0.1
+### 2014-02-07 - PgToolkit v1.0.1
 
 - Fixed the dependency check leading to the inability to re-index some
   primary keys
