@@ -2814,7 +2814,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	}
   
   	return
-  		'BEGIN; SET statement_timeout TO '.
+  		'BEGIN; SET LOCAL statement_timeout TO '.
   		$self->{'_locked_alter_timeout'}.'; '.
   		($constraint_ident ?
   		 ('ALTER TABLE '.$self->{'_ident'}.
