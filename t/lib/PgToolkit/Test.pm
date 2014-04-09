@@ -27,6 +27,14 @@ method like this.
 
 INIT { Test::Class->runtests() }
 
+=head1 SEE ALSO
+
+=over 4
+
+=item L<Test::Class>
+
+=back
+
 =head1 LICENSE AND COPYRIGHT
 
 Copyright (c) 2011-2014 Sergey Konoplev
