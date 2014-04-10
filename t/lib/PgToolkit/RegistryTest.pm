@@ -22,20 +22,54 @@ derivatives' unit tests. It automates mommon functionality testing.
 
 =cut
 
+=head1 METHODS
+
+=head2 B<is_normal()>
+
+Tests if the service is a normal one.
+
+=head3 Arguments
+
+=over 4
+
+=item C<code_reference>
+
+=item C<class_name>
+
+=back
+
+=cut
+
+sub is_normal {
+	my ($self, %arg_hash) = @_;
+
+	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
+	isnt($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
+
+	return;
+}
+
+=head2 B<is_lazy()>
+
+Tests if the service is a lazy loading.
+
+=head3 Arguments
+
+=over 4
+
+=item C<code_reference>
+
+=item C<class_name>
+
+=back
+
+=cut
+
 sub is_lazy {
 	my ($self, %arg_hash) = @_;
 
 	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
 	is($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
-
-	return;
-}
-
-sub is_prototype {
-	my ($self, %arg_hash) = @_;
-
-	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
-	isnt($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
 
 	return;
 }
