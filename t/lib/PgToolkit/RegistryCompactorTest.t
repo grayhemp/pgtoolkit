@@ -1,35 +1,15 @@
 # -*- mode: Perl; -*-
 package PgToolkit::RegistryCompactorTest;
 
-use base qw(PgToolkit::Test);
+use base qw(PgToolkit::RegistryTest);
 
 use strict;
 use warnings;
-
-use Test::More;
 
 use PgToolkit::DbiStub;
 use PgToolkit::DatabaseStub;
 
 use PgToolkit::Registry::Compactor;
-
-sub is_lazy {
-	my ($self, %arg_hash) = @_;
-
-	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
-	is($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
-
-	return;
-}
-
-sub is_prototype {
-	my ($self, %arg_hash) = @_;
-
-	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});
-	isnt($arg_hash{'code_reference'}->(), $arg_hash{'code_reference'}->());
-
-	return;
-}
 
 sub setup : Test(setup) {
 	my $self = shift;
