@@ -106,7 +106,7 @@ sub init {
 			' ',
 			map(
 				'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
-				keys %{$self->{'_set_hash'}}),
+				sort {$a cmp $b} keys %{$self->{'_set_hash'}}),
 			'SELECT 1;'));
 
 	return;

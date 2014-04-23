@@ -104,7 +104,7 @@ sub init {
 				' ',
 				map(
 					'SET '.$_.' TO '.$arg_hash{'set_hash'}->{$_}.';',
-					keys %{$arg_hash{'set_hash'}})));
+					sort {$a cmp $b} keys %{$arg_hash{'set_hash'}})));
 	}
 
 	return;
