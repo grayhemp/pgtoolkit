@@ -102,13 +102,13 @@ sub init {
 
 	$self->{'mock'}->{'data_hash'} = {
 		'begin' => {
-			'sql_pattern' => qr/BEGIN;/,
+			'sql_pattern' => qr/^BEGIN;$/,
 			'row_list' => []},
 		'commit' => {
-			'sql_pattern' => qr/COMMIT;/,
+			'sql_pattern' => qr/^COMMIT;$/,
 			'row_list' => []},
 		'rollback' => {
-			'sql_pattern' => qr/ROLLBACK;/,
+			'sql_pattern' => qr/^ROLLBACK;$/,
 			'row_list' => []},
 		'has_special_triggers' => {
 			'sql_pattern' => (
