@@ -1,5 +1,5 @@
 # -*- mode: Perl; -*-
-package PgToolkit::CompactorTest;
+package PgToolkit::CompactTest;
 
 use base qw(PgToolkit::Test);
 
@@ -27,8 +27,8 @@ sub setup : Test(setup) {
 		});
 	$self->{'mock'}->set_true('exit');
 
-	$self->{'compactor_constructor'} = sub {
-		return PgToolkit::CompactorStub->new(
+	$self->{'compact_constructor'} = sub {
+		return PgToolkit::CompactStub->new(
 			logger => PgToolkit::Logger->new(
 				level => 'info', err_handle => \*STDOUT),
 			mock => $self->{'mock'},
@@ -40,7 +40,7 @@ sub setup : Test(setup) {
 sub test_init_catches_database_error_and_exits : Test(2) {
 	my $self = shift;
 
-	$self->{'compactor_constructor'}->(die_init_message => 'DatabaseError');
+	$self->{'compact_constructor'}->(die_init_message => 'DatabaseError');
 
 	$self->{'mock'}->is_called(1, 'exit');
 }
@@ -48,7 +48,7 @@ sub test_init_catches_database_error_and_exits : Test(2) {
 sub test_process_catches_database_error_and_exits : Test(2) {
 	my $self = shift;
 
-	$self->{'compactor_constructor'}->
+	$self->{'compact_constructor'}->
 		(die_process_message => 'DatabaseError')->process();
 
 	$self->{'mock'}->is_called(1, 'exit');
@@ -59,7 +59,7 @@ sub test_init_dies_on_other_error : Test {
 
 	throws_ok(
 		sub {
-			$self->{'compactor_constructor'}->(die_init_message => 'SomeError');
+			$self->{'compact_constructor'}->(die_init_message => 'SomeError');
 		},
 		qr/SomeError/);
 }
@@ -69,7 +69,7 @@ sub test_process_dies_on_other_error : Test {
 
 	throws_ok(
 		sub {
-			$self->{'compactor_constructor'}->
+			$self->{'compact_constructor'}->
 				(die_process_message => 'SomeError')->process();
 		},
 		qr/SomeError/);
@@ -77,9 +77,9 @@ sub test_process_dies_on_other_error : Test {
 
 1;
 
-package PgToolkit::CompactorStub;
+package PgToolkit::CompactStub;
 
-use base qw(PgToolkit::Compactor);
+use base qw(PgToolkit::Compact);
 
 use strict;
 use warnings;

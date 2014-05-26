@@ -1,5 +1,5 @@
 # -*- mode: Perl; -*-
-package PgToolkit::CompactorClusterTest;
+package PgToolkit::CompactClusterTest;
 
 use base qw(PgToolkit::Test);
 
@@ -14,26 +14,26 @@ use Test::Exception;
 use PgToolkit::DatabaseStub;
 
 use PgToolkit::Logger;
-use PgToolkit::Compactor::Cluster;
+use PgToolkit::Compact::Cluster;
 
 sub setup : Test(setup) {
 	my $self = shift;
 
 	$self->{'database'} = PgToolkit::DatabaseStub->new(dbname => 'dummy');
 
-	$self->{'cluster_compactor_constructor'} = sub {
-		$self->{'database_compactor_mock_list'} = [];
-		$self->{'database_compactor_mock_process_counter'} = 0;
+	$self->{'cluster_compact_constructor'} = sub {
+		$self->{'database_compact_mock_list'} = [];
+		$self->{'database_compact_mock_process_counter'} = 0;
 
-		PgToolkit::Compactor::Cluster->new(
+		PgToolkit::Compact::Cluster->new(
 			database_constructor => sub {
 				return PgToolkit::DatabaseStub->new(@_);
 			},
 			logger => PgToolkit::Logger->new(
 				level => 'info', err_handle => \*STDOUT),
 			dry_run => 0,
-			database_compactor_constructor => sub {
-				return $self->create_database_compactor_mock(@_);
+			database_compact_constructor => sub {
+				return $self->create_database_compact_mock(@_);
 			},
 			dbname_list => [],
 			excluded_dbname_list => [],
@@ -42,7 +42,7 @@ sub setup : Test(setup) {
 	};
 }
 
-sub create_database_compactor_mock {
+sub create_database_compact_mock {
 	my ($self, @arg_list) = @_;
 	my %arg_hash = @arg_list;
 
@@ -53,8 +53,8 @@ sub create_database_compactor_mock {
 		sub {
 			$mock->set_always(
 				'-process_order',
-				$self->{'database_compactor_mock_process_counter'});
-			$self->{'database_compactor_mock_process_counter'}++;
+				$self->{'database_compact_mock_process_counter'});
+			$self->{'database_compact_mock_process_counter'}++;
 
 			return;
 		});
@@ -64,12 +64,12 @@ sub create_database_compactor_mock {
 	$mock->set_always('-get_log_target', $arg_hash{'database'}->get_dbname());
 
 	$mock->init(@arg_list);
-	push(@{$self->{'database_compactor_mock_list'}}, $mock);
+	push(@{$self->{'database_compact_mock_list'}}, $mock);
 
 	return $mock;
 }
 
-sub test_init_creates_database_compactors_in_the_returning_order : Test(20) {
+sub test_init_creates_database_compacts_in_the_returning_order : Test(20) {
 	my $self = shift;
 
 	my $dbname_list = [
@@ -96,10 +96,10 @@ sub test_init_creates_database_compactors_in_the_returning_order : Test(20) {
 		 'expected' => [@{$dbname_list}[0, 2]]}];
 
 	for my $data_hash (@{$data_hash_list}) {
-		$self->{'cluster_compactor_constructor'}->(%{$data_hash->{'args'}});
+		$self->{'cluster_compact_constructor'}->(%{$data_hash->{'args'}});
 
-		for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
-			my $mock = $self->{'database_compactor_mock_list'}->[$i];
+		for my $i (0 .. @{$self->{'database_compact_mock_list'}} - 1) {
+			my $mock = $self->{'database_compact_mock_list'}->[$i];
 			is($mock->call_pos(1), 'init');
 			is({'self', $mock->call_args(1)}->{'database'}->get_dbname(),
 			   $data_hash->{'expected'}->[$i]);
@@ -107,37 +107,37 @@ sub test_init_creates_database_compactors_in_the_returning_order : Test(20) {
 	}
 }
 
-sub test_process_processes_database_compactors_in_their_order : Test(8) {
+sub test_process_processes_database_compacts_in_their_order : Test(8) {
 	my $self = shift;
 
-	$self->{'cluster_compactor_constructor'}->()->process();
+	$self->{'cluster_compact_constructor'}->()->process();
 
-	for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
-		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(2),
+	for my $i (0 .. @{$self->{'database_compact_mock_list'}} - 1) {
+		is($self->{'database_compact_mock_list'}->[$i]->call_pos(2),
 		   'process');
-		is($self->{'database_compactor_mock_list'}->[$i]->process_order(), $i);
+		is($self->{'database_compact_mock_list'}->[$i]->process_order(), $i);
 	}
 }
 
 sub test_stop_retrying_on_max_retries_count : Test(20) {
 	my $self = shift;
 
-	$self->{'cluster_compactor_constructor'}->(max_retry_count => 1)->process();
+	$self->{'cluster_compact_constructor'}->(max_retry_count => 1)->process();
 
-	for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
-		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(2),
+	for my $i (0 .. @{$self->{'database_compact_mock_list'}} - 1) {
+		is($self->{'database_compact_mock_list'}->[$i]->call_pos(2),
 		   'process');
 		is(
 			{'self',
-			 $self->{'database_compactor_mock_list'}->[$i]->call_args(2)
+			 $self->{'database_compact_mock_list'}->[$i]->call_args(2)
 			}->{'attempt'}, 0);
-		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(3),
+		is($self->{'database_compact_mock_list'}->[$i]->call_pos(3),
 		   'process');
 		is(
 			{'self',
-			 $self->{'database_compactor_mock_list'}->[$i]->call_args(3)
+			 $self->{'database_compact_mock_list'}->[$i]->call_args(3)
 			}->{'attempt'}, 1);
-		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(4),
+		is($self->{'database_compact_mock_list'}->[$i]->call_pos(4),
 		   undef);
 	}
 }
@@ -145,20 +145,20 @@ sub test_stop_retrying_on_max_retries_count : Test(20) {
 sub test_stop_retrying_after_everything_is_processed : Test(8) {
 	my $self = shift;
 
-	my $cluster_compactor =
-		$self->{'cluster_compactor_constructor'}->(max_retry_count => 1);
+	my $cluster_compact =
+		$self->{'cluster_compact_constructor'}->(max_retry_count => 1);
 
-	for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
-		$self->{'database_compactor_mock_list'}->[$i]->mock(
+	for my $i (0 .. @{$self->{'database_compact_mock_list'}} - 1) {
+		$self->{'database_compact_mock_list'}->[$i]->mock(
 			'process', sub { shift->set_true('-is_processed'); });
 	}
 
-	$cluster_compactor->process();
+	$cluster_compact->process();
 
-	for my $i (0 .. @{$self->{'database_compactor_mock_list'}} - 1) {
-		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(2),
+	for my $i (0 .. @{$self->{'database_compact_mock_list'}} - 1) {
+		is($self->{'database_compact_mock_list'}->[$i]->call_pos(2),
 		   'process');
-		is($self->{'database_compactor_mock_list'}->[$i]->call_pos(3),
+		is($self->{'database_compact_mock_list'}->[$i]->call_pos(3),
 		   undef);
 	}
 }
@@ -166,11 +166,11 @@ sub test_stop_retrying_after_everything_is_processed : Test(8) {
 sub test_get_size_delta : Test {
 	my $self = shift;
 
-	my $cluster_compactor = $self->{'cluster_compactor_constructor'}->();
+	my $cluster_compact = $self->{'cluster_compact_constructor'}->();
 
-	for my $database_compactor_mock (@{$self->{'database_compactor_mock_list'}})
+	for my $database_compact_mock (@{$self->{'database_compact_mock_list'}})
 	{
-		$database_compactor_mock->mock(
+		$database_compact_mock->mock(
 			'-is_processed',
 			sub {
 				shift->set_true('-is_processed');
@@ -178,23 +178,23 @@ sub test_get_size_delta : Test {
 			});
 	}
 
-	$cluster_compactor->process();
+	$cluster_compact->process();
 
 	my $result = 0;
 	map($result += $_->get_size_delta(),
-		@{$self->{'database_compactor_mock_list'}});
+		@{$self->{'database_compact_mock_list'}});
 
-	is($cluster_compactor->get_size_delta(), $result);
+	is($cluster_compact->get_size_delta(), $result);
 }
 
 sub test_get_total_size_delta : Test {
 	my $self = shift;
 
-	my $cluster_compactor = $self->{'cluster_compactor_constructor'}->();
+	my $cluster_compact = $self->{'cluster_compact_constructor'}->();
 
-	for my $database_compactor_mock (@{$self->{'database_compactor_mock_list'}})
+	for my $database_compact_mock (@{$self->{'database_compact_mock_list'}})
 	{
-		$database_compactor_mock->mock(
+		$database_compact_mock->mock(
 			'-is_processed',
 			sub {
 				shift->set_true('-is_processed');
@@ -202,13 +202,13 @@ sub test_get_total_size_delta : Test {
 			});
 	}
 
-	$cluster_compactor->process();
+	$cluster_compact->process();
 
 	my $result = 0;
 	map($result += $_->get_total_size_delta(),
-		@{$self->{'database_compactor_mock_list'}});
+		@{$self->{'database_compact_mock_list'}});
 
-	is($cluster_compactor->get_total_size_delta(), $result);
+	is($cluster_compact->get_total_size_delta(), $result);
 }
 
 1;

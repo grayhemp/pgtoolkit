@@ -95,8 +95,8 @@ $fatpacked{"PgToolkit/Class.pm"} = <<'PGTOOLKIT_CLASS';
   1;
 PGTOOLKIT_CLASS
 
-$fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
-  package PgToolkit::Compactor;
+$fatpacked{"PgToolkit/Compact.pm"} = <<'PGTOOLKIT_COMPACTOR';
+  package PgToolkit::Compact;
   
   use base qw(PgToolkit::Class);
   
@@ -105,13 +105,13 @@ $fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
   
   =head1 NAME
   
-  B<PgToolkit::Compactor> - base compactor.
+  B<PgToolkit::Compact> - base compact.
   
   =head1 SYNOPSIS
   
-  	package PgToolkit::CompactorStub;
+  	package PgToolkit::CompactStub;
   
-  	use base qw(PgToolkit::Compactor);
+  	use base qw(PgToolkit::Compact);
   
   	sub _init {
   		my $self = shift;
@@ -128,7 +128,7 @@ $fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
   
   =head1 DESCRIPTION
   
-  B<PgToolkit::Compactor> is a base class for boald reducing mechanisms
+  B<PgToolkit::Compact> is a base class for boald reducing mechanisms
   implementation. You can implement _init() and must _process(). The
   _logger property is defined in this methods. If you want log entries
   to have target define the _log_target property.
@@ -262,10 +262,10 @@ $fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
   1;
 PGTOOLKIT_COMPACTOR
 
-$fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
-  package PgToolkit::Compactor::Cluster;
+$fatpacked{"PgToolkit/Compact/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
+  package PgToolkit::Compact::Cluster;
   
-  use base qw(PgToolkit::Compactor);
+  use base qw(PgToolkit::Compact);
   
   use strict;
   use warnings;
@@ -274,25 +274,25 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   =head1 NAME
   
-  B<PgToolkit::Compactor::Cluster> - cluster level processing for bloat
+  B<PgToolkit::Compact::Cluster> - cluster level processing for bloat
   reducing.
   
   =head1 SYNOPSIS
   
-  	my $cluster_compactor = PgToolkit::Compactor::Cluster->new(
+  	my $cluster_compact = PgToolkit::Compact::Cluster->new(
   		database_constructor => $database_constructor,
   		logger => $logger,
   		dry_run => 0,
-  		database_compactor_constructor => $database_compactor_constructor,
+  		database_compact_constructor => $database_compact_constructor,
   		dbname_list => $dbname_list,
   		excluded_dbname_list => $excluded_dbname_list,
   		max_retry_count => 10);
   
-  	$cluster_compactor->process();
+  	$cluster_compact->process();
   
   =head1 DESCRIPTION
   
-  B<PgToolkit::Compactor::Cluster> class is an implementation of a cluster
+  B<PgToolkit::Compact::Cluster> class is an implementation of a cluster
   level processing logic for bloat reducing mechanism.
   
   =head3 Constructor arguments
@@ -309,9 +309,9 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   =item C<dry_run>
   
-  =item C<database_compactor_constructor>
+  =item C<database_compact_constructor>
   
-  a database compactor constructor code reference
+  a database compact constructor code reference
   
   =item C<dbname_list>
   
@@ -347,13 +347,13 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   		dbname_list => $arg_hash{'dbname_list'},
   		excluded_dbname_list => $arg_hash{'excluded_dbname_list'});
   
-  	$self->{'_database_compactor_list'} = [];
+  	$self->{'_database_compact_list'} = [];
   	for my $dbname (@{$dbname_list}) {
-  		my $database_compactor =
-  			$arg_hash{'database_compactor_constructor'}->(
+  		my $database_compact =
+  			$arg_hash{'database_compact_constructor'}->(
   				database => $self->{'_database_constructor'}->(
   					dbname => $dbname));
-  		push(@{$self->{'_database_compactor_list'}}, $database_compactor);
+  		push(@{$self->{'_database_compact_list'}}, $database_compact);
   	}
   
   	return;
@@ -362,7 +362,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   sub _process {
   	my $self = shift;
   
-  	if (@{$self->{'_database_compactor_list'}}) {
+  	if (@{$self->{'_database_compact_list'}}) {
   		my $attempt = 0;
   		while (not $self->is_processed() and
   			   $attempt <= $self->{'_max_retry_count'})
@@ -375,10 +375,10 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   					level => 'notice');
   			}
   
-  			for my $database_compactor (@{$self->{'_database_compactor_list'}})
+  			for my $database_compact (@{$self->{'_database_compact_list'}})
   			{
-  				if (not $database_compactor->is_processed()) {
-  					$database_compactor->process(attempt => $attempt);
+  				if (not $database_compact->is_processed()) {
+  					$database_compact->process(attempt => $attempt);
   				}
   			}
   
@@ -392,7 +392,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   				' ('.PgToolkit::Utils->get_size_pretty(
   					size => $_->get_total_size_delta()).') '.
   				$_->get_log_target(),
-  				@{$self->{'_database_compactor_list'}}));
+  				@{$self->{'_database_compact_list'}}));
   
   		if (not $self->{'_dry_run'}) {
   			if ($self->is_processed()) {
@@ -447,7 +447,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   	my $result = 1;
   	map(($result &&= $_->is_processed()),
-  		@{$self->{'_database_compactor_list'}});
+  		@{$self->{'_database_compact_list'}});
   
   	return $result;
   }
@@ -467,7 +467,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   	my $result = 0;
   	map($result += $_->get_size_delta(),
-  		@{$self->{'_database_compactor_list'}});
+  		@{$self->{'_database_compact_list'}});
   
   	return $result;
   }
@@ -487,7 +487,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   	my $result = 0;
   	map($result += $_->get_total_size_delta(),
-  		@{$self->{'_database_compactor_list'}});
+  		@{$self->{'_database_compact_list'}});
   
   	return $result;
   }
@@ -497,7 +497,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   
   	my $result = 0;
   	map(($result += not $_->is_processed()),
-  		@{$self->{'_database_compactor_list'}});
+  		@{$self->{'_database_compact_list'}});
   
   	return $result;
   }
@@ -564,10 +564,10 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   1;
 PGTOOLKIT_COMPACTOR_CLUSTER
 
-$fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE';
-  package PgToolkit::Compactor::Database;
+$fatpacked{"PgToolkit/Compact/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE';
+  package PgToolkit::Compact::Database;
   
-  use base qw(PgToolkit::Compactor);
+  use base qw(PgToolkit::Compact);
   
   use strict;
   use warnings;
@@ -576,27 +576,27 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   =head1 NAME
   
-  B<PgToolkit::Compactor::Database> - database level processing for bloat
+  B<PgToolkit::Compact::Database> - database level processing for bloat
   reducing.
   
   =head1 SYNOPSIS
   
-  	my $database_compactor = PgToolkit::Compactor::Database->new(
+  	my $database_compact = PgToolkit::Compact::Database->new(
   		database => $database,
   		logger => $logger,
   		dry_run => 0,
-  		table_compactor_constructor => $table_compactor_constructor,
+  		table_compact_constructor => $table_compact_constructor,
   		schema_name_list => ['schema1', 'schema2'],
   		excluded_schema_name_list => [],
   		table_name_list => ['table1', 'table2'],
   		excluded_table_name_list => [],
   		no_pgstatuple => 0);
   
-  	$database_compactor->process();
+  	$database_compact->process();
   
   =head1 DESCRIPTION
   
-  B<PgToolkit::Compactor::Database> class is an implementation of a database
+  B<PgToolkit::Compact::Database> class is an implementation of a database
   level processing logic for bloat reducing mechanism.
   
   =head3 Constructor arguments
@@ -613,9 +613,9 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   =item C<dry_run>
   
-  =item C<table_compactor_constructor>
+  =item C<table_compact_constructor>
   
-  a table compactor constructor code reference
+  a table compact constructor code reference
   
   =item C<schema_name_list>
   
@@ -689,14 +689,14 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   		excluded_table_name_list => $arg_hash{'excluded_table_name_list'},
   		system_catalog => $arg_hash{'system_catalog'});
   
-  	$self->{'_table_compactor_list'} = [];
+  	$self->{'_table_compact_list'} = [];
   	for my $table_data (@{$table_data_list}) {
-  		my $table_compactor = $arg_hash{'table_compactor_constructor'}->(
+  		my $table_compact = $arg_hash{'table_compact_constructor'}->(
   			database => $self->{'_database'},
   			schema_name => $table_data->{'schema_name'},
   			table_name => $table_data->{'table_name'},
   			pgstattuple_schema_name => $pgstattuple_schema_name);
-  		push(@{$self->{'_table_compactor_list'}}, $table_compactor);
+  		push(@{$self->{'_table_compact_list'}}, $table_compact);
   	}
   
   	return;
@@ -705,9 +705,9 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   sub _process {
   	my ($self, %arg_hash) = @_;
   
-  	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
-  		if (not $table_compactor->is_processed()) {
-  			$table_compactor->process(attempt => $arg_hash{'attempt'});
+  	for my $table_compact (@{$self->{'_table_compact_list'}}) {
+  		if (not $table_compact->is_processed()) {
+  			$table_compact->process(attempt => $arg_hash{'attempt'});
   		}
   	}
   
@@ -756,7 +756,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   	my $self = shift;
   
   	my $result = 1;
-  	map(($result &&= $_->is_processed()), @{$self->{'_table_compactor_list'}});
+  	map(($result &&= $_->is_processed()), @{$self->{'_table_compact_list'}});
   
   	return $result;
   }
@@ -776,7 +776,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   	my $result = 0;
   	map($result += $_->get_size_delta(),
-  		@{$self->{'_table_compactor_list'}});
+  		@{$self->{'_table_compact_list'}});
   
   	return $result;
   }
@@ -796,7 +796,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   	my $result = 0;
   	map($result += $_->get_total_size_delta(),
-  		@{$self->{'_table_compactor_list'}});
+  		@{$self->{'_table_compact_list'}});
   
   	return $result;
   }
@@ -834,7 +834,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   
   	my $result = 0;
   	map(($result += not $_->is_processed()),
-  		@{$self->{'_table_compactor_list'}});
+  		@{$self->{'_table_compact_list'}});
   
   	return $result;
   }
@@ -1053,10 +1053,10 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   1;
 PGTOOLKIT_COMPACTOR_DATABASE
 
-$fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
-  package PgToolkit::Compactor::Table;
+$fatpacked{"PgToolkit/Compact/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
+  package PgToolkit::Compact::Table;
   
-  use base qw(PgToolkit::Compactor);
+  use base qw(PgToolkit::Compact);
   
   use strict;
   use warnings;
@@ -1067,11 +1067,11 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   =head1 NAME
   
-  B<PgToolkit::Compactor::Table> - table level processing for bloat reducing.
+  B<PgToolkit::Compact::Table> - table level processing for bloat reducing.
   
   =head1 SYNOPSIS
   
-  	my $table_compactor = PgToolkit::Compactor::Table->new(
+  	my $table_compact = PgToolkit::Compact::Table->new(
   		database => $database,
   		logger => $logger,
   		dry_run => 0,
@@ -1098,11 +1098,11 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		locked_alter_timeout => 1000,
   		locked_alter_count => 100);
   
-  	$table_compactor->process();
+  	$table_compact->process();
   
   =head1 DESCRIPTION
   
-  B<PgToolkit::Compactor::Table> class is an implementation of a table level
+  B<PgToolkit::Compact::Table> class is an implementation of a table level
   processing logic for bloat reducing mechanism.
   
   =head3 Constructor arguments
@@ -4197,7 +4197,7 @@ $fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
   
   =over 4
   
-  =item C<CompactorOptionsError>
+  =item C<CompactOptionsError>
   
   when wrong name supplied in get.
   
@@ -4248,17 +4248,17 @@ $fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
   1;
 PGTOOLKIT_OPTIONS
 
-$fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR';
-  package PgToolkit::Registry::Compactor;
+$fatpacked{"PgToolkit/Registry/Compact.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR';
+  package PgToolkit::Registry::Compact;
   
   use base qw(PgToolkit::Class);
   
   use strict;
   use warnings;
   
-  use PgToolkit::Compactor::Cluster;
-  use PgToolkit::Compactor::Database;
-  use PgToolkit::Compactor::Table;
+  use PgToolkit::Compact::Cluster;
+  use PgToolkit::Compact::Database;
+  use PgToolkit::Compact::Table;
   use PgToolkit::Database::Dbi;
   use PgToolkit::Database::Psql;
   use PgToolkit::DatabaseChooser;
@@ -4268,35 +4268,35 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   
   =head1 NAME
   
-  B<PgToolkit::Registry::Compactor> - registry of the compactor components.
+  B<PgToolkit::Registry::Compact> - registry of the compact components.
   
   =head1 SYNOPSIS
   
-  	my $registry = PgToolkit::Registry::Compactor->new();
+  	my $registry = PgToolkit::Registry::Compact->new();
   
-  	$registry->get_cluster_compactor()->process();
+  	$registry->get_cluster_compact()->process();
   
   =head1 DESCRIPTION
   
-  B<PgToolkit::Registry::Compactor> is a registry class that implements all the
-  services and their relationships that compactor tool uses.
+  B<PgToolkit::Registry::Compact> is a registry class that implements all the
+  services and their relationships that compact tool uses.
   
   =cut
   
   =head1 METHODS
   
-  =head2 B<get_cluster_compactor()>
+  =head2 B<get_cluster_compact()>
   
-  A cluster compactor prototype service.
+  A cluster compact prototype service.
   
   =cut
   
-  sub get_cluster_compactor {
+  sub get_cluster_compact {
   	my $self = shift;
   
   	my $options = $self->get_options();
   
-  	return PgToolkit::Compactor::Cluster->new(
+  	return PgToolkit::Compact::Cluster->new(
   		database_constructor => sub {
   			my %arg_hash = @_;
   			return $self->get_database_adapter(
@@ -4304,9 +4304,9 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		},
   		logger => $self->get_logger(),
   		dry_run => $options->get(name => 'dry-run'),
-  		database_compactor_constructor => sub {
+  		database_compact_constructor => sub {
   			my %arg_hash = @_;
-  			return $self->get_database_compactor(
+  			return $self->get_database_compact(
   				database => $arg_hash{'database'});
   		},
   		dbname_list => $options->get(name => 'dbname'),
@@ -4314,24 +4314,24 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		max_retry_count => $options->get(name => 'max-retry-count'));
   }
   
-  =head2 B<get_database_compactor()>
+  =head2 B<get_database_compact()>
   
-  A database compactor prototype service.
+  A database compact prototype service.
   
   =cut
   
-  sub get_database_compactor {
+  sub get_database_compact {
   	my ($self, %arg_hash) = @_;
   
   	my $options = $self->get_options();
   
-  	return PgToolkit::Compactor::Database->new(
+  	return PgToolkit::Compact::Database->new(
   		database => $arg_hash{'database'},
   		logger => $self->get_logger(),
   		dry_run => $options->get(name => 'dry-run'),
-  		table_compactor_constructor => sub {
+  		table_compact_constructor => sub {
   			my %arg_hash = @_;
-  			return $self->get_table_compactor(
+  			return $self->get_table_compact(
   				database => $arg_hash{'database'},
   				schema_name => $arg_hash{'schema_name'},
   				table_name => $arg_hash{'table_name'},
@@ -4346,18 +4346,18 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		system_catalog => $options->get(name => 'system-catalog'));
   }
   
-  =head2 B<get_table_compactor()>
+  =head2 B<get_table_compact()>
   
-  A table compactor prototype service.
+  A table compact prototype service.
   
   =cut
   
-  sub get_table_compactor {
+  sub get_table_compact {
   	my ($self, %arg_hash) = @_;
   
   	my $options = $self->get_options();
   
-  	return PgToolkit::Compactor::Table->new(
+  	return PgToolkit::Compact::Table->new(
   		database => $arg_hash{'database'},
   		logger => $self->get_logger(),
   		dry_run => $options->get(name => 'dry-run'),
@@ -4545,13 +4545,13 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   
   =item L<PgToolkit::Class>
   
-  =item L<PgToolkit::Compactor::Cluster>
+  =item L<PgToolkit::Compact::Cluster>
   
-  =item L<PgToolkit::Compactor::Database>
+  =item L<PgToolkit::Compact::Database>
   
-  =item L<PgToolkit::Compactor::Schema>
+  =item L<PgToolkit::Compact::Schema>
   
-  =item L<PgToolkit::Compactor::Table>
+  =item L<PgToolkit::Compact::Table>
   
   =item L<PgToolkit::Database::Dbi>
   
@@ -4826,7 +4826,7 @@ use Cwd;
 use FindBin;
 use lib Cwd::abs_path($FindBin::Bin.'/../lib' );
 
-use PgToolkit::Registry::Compactor;
+use PgToolkit::Registry::Compact;
 
 =head1 NAME
 
@@ -5153,7 +5153,7 @@ An interval in seconds to report the progress. Default is 60 seconds.
 =cut
 
 sub main {
-	PgToolkit::Registry::Compactor->new()->get_cluster_compactor()->process();
+	PgToolkit::Registry::Compact->new()->get_cluster_compact()->process();
 }
 
 if (__PACKAGE__ eq 'main') {
@@ -5172,7 +5172,7 @@ if (__PACKAGE__ eq 'main') {
 
 =item L<lib>
 
-=item L<PgToolkit::Registry::Compactor>
+=item L<PgToolkit::Registry::Compact>
 
 =back
 

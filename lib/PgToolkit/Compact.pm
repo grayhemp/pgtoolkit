@@ -1,4 +1,4 @@
-package PgToolkit::Compactor;
+package PgToolkit::Compact;
 
 use base qw(PgToolkit::Class);
 
@@ -7,13 +7,13 @@ use warnings;
 
 =head1 NAME
 
-B<PgToolkit::Compactor> - base compactor.
+B<PgToolkit::Compact> - base compact.
 
 =head1 SYNOPSIS
 
-	package PgToolkit::CompactorStub;
+	package PgToolkit::CompactStub;
 
-	use base qw(PgToolkit::Compactor);
+	use base qw(PgToolkit::Compact);
 
 	sub _init {
 		my $self = shift;
@@ -30,7 +30,7 @@ B<PgToolkit::Compactor> - base compactor.
 
 =head1 DESCRIPTION
 
-B<PgToolkit::Compactor> is a base class for boald reducing mechanisms
+B<PgToolkit::Compact> is a base class for boald reducing mechanisms
 implementation. You can implement _init() and must _process(). The
 _logger property is defined in this methods. If you want log entries
 to have target define the _log_target property.

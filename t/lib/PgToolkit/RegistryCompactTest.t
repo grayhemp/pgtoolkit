@@ -1,5 +1,5 @@
 # -*- mode: Perl; -*-
-package PgToolkit::RegistryCompactorTest;
+package PgToolkit::RegistryCompactTest;
 
 use base qw(PgToolkit::RegistryTest);
 
@@ -9,13 +9,13 @@ use warnings;
 use PgToolkit::DbiStub;
 use PgToolkit::DatabaseStub;
 
-use PgToolkit::Registry::Compactor;
+use PgToolkit::Registry::Compact;
 
 sub setup : Test(setup) {
 	my $self = shift;
 
 	push(@ARGV, '-a');
-	$self->{'registry'} = PgToolkit::Registry::Compactor->new();
+	$self->{'registry'} = PgToolkit::Registry::Compact->new();
 	$self->{'database'} = PgToolkit::DatabaseStub->new(dbname => 'dbname');
 }
 
@@ -48,39 +48,39 @@ sub test_get_database_adapter : Test(2) {
 		class_name => 'PgToolkit::Database');
 }
 
-sub test_get_table_compactor : Test(2) {
+sub test_get_table_compact : Test(2) {
 	my $self = shift;
 
 	$self->is_normal(
 		code_reference => sub {
-			return $self->{'registry'}->get_table_compactor(
+			return $self->{'registry'}->get_table_compact(
 				database => $self->{'database'},
 				schema_name => 'schema',
 				table_name => 'table',
 				use_pgstattuple => 0);
 		},
-		class_name => 'PgToolkit::Compactor::Table');
+		class_name => 'PgToolkit::Compact::Table');
 }
 
-sub test_get_database_compactor : Test(2) {
+sub test_get_database_compact : Test(2) {
 	my $self = shift;
 
 	$self->is_normal(
 		code_reference => sub {
-			return $self->{'registry'}->get_database_compactor(
+			return $self->{'registry'}->get_database_compact(
 				database => $self->{'database'});
 		},
-		class_name => 'PgToolkit::Compactor::Database');
+		class_name => 'PgToolkit::Compact::Database');
 }
 
-sub test_get_cluster_compactor : Test(2) {
+sub test_get_cluster_compact : Test(2) {
 	my $self = shift;
 
 	$self->is_normal(
 		code_reference => sub {
-			return $self->{'registry'}->get_cluster_compactor();
+			return $self->{'registry'}->get_cluster_compact();
 		},
-		class_name => 'PgToolkit::Compactor::Cluster');
+		class_name => 'PgToolkit::Compact::Cluster');
 }
 
 1;

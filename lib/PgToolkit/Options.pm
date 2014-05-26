@@ -204,7 +204,7 @@ The value for the name.
 
 =over 4
 
-=item C<CompactorOptionsError>
+=item C<CompactOptionsError>
 
 when wrong name supplied in get.
 

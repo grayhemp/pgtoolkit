@@ -7,7 +7,7 @@ use Cwd;
 use FindBin;
 use lib Cwd::abs_path($FindBin::Bin.'/../lib' );
 
-use PgToolkit::Registry::Compactor;
+use PgToolkit::Registry::Compact;
 
 =head1 NAME
 
@@ -334,7 +334,7 @@ An interval in seconds to report the progress. Default is 60 seconds.
 =cut
 
 sub main {
-	PgToolkit::Registry::Compactor->new()->get_cluster_compactor()->process();
+	PgToolkit::Registry::Compact->new()->get_cluster_compact()->process();
 }
 
 if (__PACKAGE__ eq 'main') {
@@ -353,7 +353,7 @@ if (__PACKAGE__ eq 'main') {
 
 =item L<lib>
 
-=item L<PgToolkit::Registry::Compactor>
+=item L<PgToolkit::Registry::Compact>
 
 =back
 

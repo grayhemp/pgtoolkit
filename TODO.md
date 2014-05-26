@@ -20,7 +20,7 @@
 - Create a `pgrestore` prototype
 - Create a `pgpitr` prototype
 - Think of a way to compact `TOAST` tables
-- Refactor the `Compactor` classes and tests
+- Refactor the `Compact` classes and tests
 - Implement a normal exceptions mechanism
 - Re-index cases with complex foreign key dependencies
 - Create a full-update mode for post- column manipulation cleaning

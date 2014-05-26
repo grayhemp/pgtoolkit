@@ -1,13 +1,13 @@
-package PgToolkit::Registry::Compactor;
+package PgToolkit::Registry::Compact;
 
 use base qw(PgToolkit::Class);
 
 use strict;
 use warnings;
 
-use PgToolkit::Compactor::Cluster;
-use PgToolkit::Compactor::Database;
-use PgToolkit::Compactor::Table;
+use PgToolkit::Compact::Cluster;
+use PgToolkit::Compact::Database;
+use PgToolkit::Compact::Table;
 use PgToolkit::Database::Dbi;
 use PgToolkit::Database::Psql;
 use PgToolkit::DatabaseChooser;
@@ -17,35 +17,35 @@ use PgToolkit::Utils;
 
 =head1 NAME
 
-B<PgToolkit::Registry::Compactor> - registry of the compactor components.
+B<PgToolkit::Registry::Compact> - registry of the compact components.
 
 =head1 SYNOPSIS
 
-	my $registry = PgToolkit::Registry::Compactor->new();
+	my $registry = PgToolkit::Registry::Compact->new();
 
-	$registry->get_cluster_compactor()->process();
+	$registry->get_cluster_compact()->process();
 
 =head1 DESCRIPTION
 
-B<PgToolkit::Registry::Compactor> is a registry class that implements all the
-services and their relationships that compactor tool uses.
+B<PgToolkit::Registry::Compact> is a registry class that implements all the
+services and their relationships that compact tool uses.
 
 =cut
 
 =head1 METHODS
 
-=head2 B<get_cluster_compactor()>
+=head2 B<get_cluster_compact()>
 
-A cluster compactor prototype service.
+A cluster compact prototype service.
 
 =cut
 
-sub get_cluster_compactor {
+sub get_cluster_compact {
 	my $self = shift;
 
 	my $options = $self->get_options();
 
-	return PgToolkit::Compactor::Cluster->new(
+	return PgToolkit::Compact::Cluster->new(
 		database_constructor => sub {
 			my %arg_hash = @_;
 			return $self->get_database_adapter(
@@ -53,9 +53,9 @@ sub get_cluster_compactor {
 		},
 		logger => $self->get_logger(),
 		dry_run => $options->get(name => 'dry-run'),
-		database_compactor_constructor => sub {
+		database_compact_constructor => sub {
 			my %arg_hash = @_;
-			return $self->get_database_compactor(
+			return $self->get_database_compact(
 				database => $arg_hash{'database'});
 		},
 		dbname_list => $options->get(name => 'dbname'),
@@ -63,24 +63,24 @@ sub get_cluster_compactor {
 		max_retry_count => $options->get(name => 'max-retry-count'));
 }
 
-=head2 B<get_database_compactor()>
+=head2 B<get_database_compact()>
 
-A database compactor prototype service.
+A database compact prototype service.
 
 =cut
 
-sub get_database_compactor {
+sub get_database_compact {
 	my ($self, %arg_hash) = @_;
 
 	my $options = $self->get_options();
 
-	return PgToolkit::Compactor::Database->new(
+	return PgToolkit::Compact::Database->new(
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
 		dry_run => $options->get(name => 'dry-run'),
-		table_compactor_constructor => sub {
+		table_compact_constructor => sub {
 			my %arg_hash = @_;
-			return $self->get_table_compactor(
+			return $self->get_table_compact(
 				database => $arg_hash{'database'},
 				schema_name => $arg_hash{'schema_name'},
 				table_name => $arg_hash{'table_name'},
@@ -95,18 +95,18 @@ sub get_database_compactor {
 		system_catalog => $options->get(name => 'system-catalog'));
 }
 
-=head2 B<get_table_compactor()>
+=head2 B<get_table_compact()>
 
-A table compactor prototype service.
+A table compact prototype service.
 
 =cut
 
-sub get_table_compactor {
+sub get_table_compact {
 	my ($self, %arg_hash) = @_;
 
 	my $options = $self->get_options();
 
-	return PgToolkit::Compactor::Table->new(
+	return PgToolkit::Compact::Table->new(
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
 		dry_run => $options->get(name => 'dry-run'),
@@ -294,13 +294,13 @@ sub get_options {
 
 =item L<PgToolkit::Class>
 
-=item L<PgToolkit::Compactor::Cluster>
+=item L<PgToolkit::Compact::Cluster>
 
-=item L<PgToolkit::Compactor::Database>
+=item L<PgToolkit::Compact::Database>
 
-=item L<PgToolkit::Compactor::Schema>
+=item L<PgToolkit::Compact::Schema>
 
-=item L<PgToolkit::Compactor::Table>
+=item L<PgToolkit::Compact::Table>
 
 =item L<PgToolkit::Database::Dbi>
 

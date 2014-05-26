@@ -1,6 +1,6 @@
-package PgToolkit::Compactor::Cluster;
+package PgToolkit::Compact::Cluster;
 
-use base qw(PgToolkit::Compactor);
+use base qw(PgToolkit::Compact);
 
 use strict;
 use warnings;
@@ -9,25 +9,25 @@ use PgToolkit::Utils;
 
 =head1 NAME
 
-B<PgToolkit::Compactor::Cluster> - cluster level processing for bloat
+B<PgToolkit::Compact::Cluster> - cluster level processing for bloat
 reducing.
 
 =head1 SYNOPSIS
 
-	my $cluster_compactor = PgToolkit::Compactor::Cluster->new(
+	my $cluster_compact = PgToolkit::Compact::Cluster->new(
 		database_constructor => $database_constructor,
 		logger => $logger,
 		dry_run => 0,
-		database_compactor_constructor => $database_compactor_constructor,
+		database_compact_constructor => $database_compact_constructor,
 		dbname_list => $dbname_list,
 		excluded_dbname_list => $excluded_dbname_list,
 		max_retry_count => 10);
 
-	$cluster_compactor->process();
+	$cluster_compact->process();
 
 =head1 DESCRIPTION
 
-B<PgToolkit::Compactor::Cluster> class is an implementation of a cluster
+B<PgToolkit::Compact::Cluster> class is an implementation of a cluster
 level processing logic for bloat reducing mechanism.
 
 =head3 Constructor arguments
@@ -44,9 +44,9 @@ a logger object
 
 =item C<dry_run>
 
-=item C<database_compactor_constructor>
+=item C<database_compact_constructor>
 
-a database compactor constructor code reference
+a database compact constructor code reference
 
 =item C<dbname_list>
 
@@ -82,13 +82,13 @@ sub _init {
 		dbname_list => $arg_hash{'dbname_list'},
 		excluded_dbname_list => $arg_hash{'excluded_dbname_list'});
 
-	$self->{'_database_compactor_list'} = [];
+	$self->{'_database_compact_list'} = [];
 	for my $dbname (@{$dbname_list}) {
-		my $database_compactor =
-			$arg_hash{'database_compactor_constructor'}->(
+		my $database_compact =
+			$arg_hash{'database_compact_constructor'}->(
 				database => $self->{'_database_constructor'}->(
 					dbname => $dbname));
-		push(@{$self->{'_database_compactor_list'}}, $database_compactor);
+		push(@{$self->{'_database_compact_list'}}, $database_compact);
 	}
 
 	return;
@@ -97,7 +97,7 @@ sub _init {
 sub _process {
 	my $self = shift;
 
-	if (@{$self->{'_database_compactor_list'}}) {
+	if (@{$self->{'_database_compact_list'}}) {
 		my $attempt = 0;
 		while (not $self->is_processed() and
 			   $attempt <= $self->{'_max_retry_count'})
@@ -110,10 +110,10 @@ sub _process {
 					level => 'notice');
 			}
 
-			for my $database_compactor (@{$self->{'_database_compactor_list'}})
+			for my $database_compact (@{$self->{'_database_compact_list'}})
 			{
-				if (not $database_compactor->is_processed()) {
-					$database_compactor->process(attempt => $attempt);
+				if (not $database_compact->is_processed()) {
+					$database_compact->process(attempt => $attempt);
 				}
 			}
 
@@ -127,7 +127,7 @@ sub _process {
 				' ('.PgToolkit::Utils->get_size_pretty(
 					size => $_->get_total_size_delta()).') '.
 				$_->get_log_target(),
-				@{$self->{'_database_compactor_list'}}));
+				@{$self->{'_database_compact_list'}}));
 
 		if (not $self->{'_dry_run'}) {
 			if ($self->is_processed()) {
@@ -182,7 +182,7 @@ sub is_processed {
 
 	my $result = 1;
 	map(($result &&= $_->is_processed()),
-		@{$self->{'_database_compactor_list'}});
+		@{$self->{'_database_compact_list'}});
 
 	return $result;
 }
@@ -202,7 +202,7 @@ sub get_size_delta {
 
 	my $result = 0;
 	map($result += $_->get_size_delta(),
-		@{$self->{'_database_compactor_list'}});
+		@{$self->{'_database_compact_list'}});
 
 	return $result;
 }
@@ -222,7 +222,7 @@ sub get_total_size_delta {
 
 	my $result = 0;
 	map($result += $_->get_total_size_delta(),
-		@{$self->{'_database_compactor_list'}});
+		@{$self->{'_database_compact_list'}});
 
 	return $result;
 }
@@ -232,7 +232,7 @@ sub _incomplete_count {
 
 	my $result = 0;
 	map(($result += not $_->is_processed()),
-		@{$self->{'_database_compactor_list'}});
+		@{$self->{'_database_compact_list'}});
 
 	return $result;
 }

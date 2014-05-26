@@ -23,10 +23,10 @@
 
 ### 2013-10-01 - PgToolkit v1.0.0
 
-Note that `pgcompactor` was renamed to `pgcompact`.
+Note that `pgcompact` was renamed to `pgcompact`.
 
 - Set `lc_messages` to `C` to simplify message processing
-- Renamed `pgcompactor` to pgcompact
+- Renamed `pgcompact` to pgcompact
 - Fixed the `lc_messages` invalid value issue
 - Reviewed documentation and licensing info
 - Added a short list of `pgcompact`'s abilities
@@ -103,7 +103,7 @@ Note that `pgcompactor` was renamed to `pgcompact`.
 
 Take into consideration the new name of the tool.
 
-- Renamed `pg_compactor` tool to `pgcompactor`
+- Renamed `pg_compact` tool to `pgcompact`
 - Added `--dry-run`
 - Added fillfactor to all the statistics calculations
 - Fixed the reindex duration bug

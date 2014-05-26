@@ -1,6 +1,6 @@
-package PgToolkit::Compactor::Database;
+package PgToolkit::Compact::Database;
 
-use base qw(PgToolkit::Compactor);
+use base qw(PgToolkit::Compact);
 
 use strict;
 use warnings;
@@ -9,27 +9,27 @@ use PgToolkit::Utils;
 
 =head1 NAME
 
-B<PgToolkit::Compactor::Database> - database level processing for bloat
+B<PgToolkit::Compact::Database> - database level processing for bloat
 reducing.
 
 =head1 SYNOPSIS
 
-	my $database_compactor = PgToolkit::Compactor::Database->new(
+	my $database_compact = PgToolkit::Compact::Database->new(
 		database => $database,
 		logger => $logger,
 		dry_run => 0,
-		table_compactor_constructor => $table_compactor_constructor,
+		table_compact_constructor => $table_compact_constructor,
 		schema_name_list => ['schema1', 'schema2'],
 		excluded_schema_name_list => [],
 		table_name_list => ['table1', 'table2'],
 		excluded_table_name_list => [],
 		no_pgstatuple => 0);
 
-	$database_compactor->process();
+	$database_compact->process();
 
 =head1 DESCRIPTION
 
-B<PgToolkit::Compactor::Database> class is an implementation of a database
+B<PgToolkit::Compact::Database> class is an implementation of a database
 level processing logic for bloat reducing mechanism.
 
 =head3 Constructor arguments
@@ -46,9 +46,9 @@ a logger object
 
 =item C<dry_run>
 
-=item C<table_compactor_constructor>
+=item C<table_compact_constructor>
 
-a table compactor constructor code reference
+a table compact constructor code reference
 
 =item C<schema_name_list>
 
@@ -122,14 +122,14 @@ sub _init {
 		excluded_table_name_list => $arg_hash{'excluded_table_name_list'},
 		system_catalog => $arg_hash{'system_catalog'});
 
-	$self->{'_table_compactor_list'} = [];
+	$self->{'_table_compact_list'} = [];
 	for my $table_data (@{$table_data_list}) {
-		my $table_compactor = $arg_hash{'table_compactor_constructor'}->(
+		my $table_compact = $arg_hash{'table_compact_constructor'}->(
 			database => $self->{'_database'},
 			schema_name => $table_data->{'schema_name'},
 			table_name => $table_data->{'table_name'},
 			pgstattuple_schema_name => $pgstattuple_schema_name);
-		push(@{$self->{'_table_compactor_list'}}, $table_compactor);
+		push(@{$self->{'_table_compact_list'}}, $table_compact);
 	}
 
 	return;
@@ -138,9 +138,9 @@ sub _init {
 sub _process {
 	my ($self, %arg_hash) = @_;
 
-	for my $table_compactor (@{$self->{'_table_compactor_list'}}) {
-		if (not $table_compactor->is_processed()) {
-			$table_compactor->process(attempt => $arg_hash{'attempt'});
+	for my $table_compact (@{$self->{'_table_compact_list'}}) {
+		if (not $table_compact->is_processed()) {
+			$table_compact->process(attempt => $arg_hash{'attempt'});
 		}
 	}
 
@@ -189,7 +189,7 @@ sub is_processed {
 	my $self = shift;
 
 	my $result = 1;
-	map(($result &&= $_->is_processed()), @{$self->{'_table_compactor_list'}});
+	map(($result &&= $_->is_processed()), @{$self->{'_table_compact_list'}});
 
 	return $result;
 }
@@ -209,7 +209,7 @@ sub get_size_delta {
 
 	my $result = 0;
 	map($result += $_->get_size_delta(),
-		@{$self->{'_table_compactor_list'}});
+		@{$self->{'_table_compact_list'}});
 
 	return $result;
 }
@@ -229,7 +229,7 @@ sub get_total_size_delta {
 
 	my $result = 0;
 	map($result += $_->get_total_size_delta(),
-		@{$self->{'_table_compactor_list'}});
+		@{$self->{'_table_compact_list'}});
 
 	return $result;
 }
@@ -267,7 +267,7 @@ sub _incomplete_count {
 
 	my $result = 0;
 	map(($result += not $_->is_processed()),
-		@{$self->{'_table_compactor_list'}});
+		@{$self->{'_table_compact_list'}});
 
 	return $result;
 }

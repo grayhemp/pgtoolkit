@@ -1,6 +1,6 @@
-package PgToolkit::Compactor::Table;
+package PgToolkit::Compact::Table;
 
-use base qw(PgToolkit::Compactor);
+use base qw(PgToolkit::Compact);
 
 use strict;
 use warnings;
@@ -11,11 +11,11 @@ use PgToolkit::Utils;
 
 =head1 NAME
 
-B<PgToolkit::Compactor::Table> - table level processing for bloat reducing.
+B<PgToolkit::Compact::Table> - table level processing for bloat reducing.
 
 =head1 SYNOPSIS
 
-	my $table_compactor = PgToolkit::Compactor::Table->new(
+	my $table_compact = PgToolkit::Compact::Table->new(
 		database => $database,
 		logger => $logger,
 		dry_run => 0,
@@ -42,11 +42,11 @@ B<PgToolkit::Compactor::Table> - table level processing for bloat reducing.
 		locked_alter_timeout => 1000,
 		locked_alter_count => 100);
 
-	$table_compactor->process();
+	$table_compact->process();
 
 =head1 DESCRIPTION
 
-B<PgToolkit::Compactor::Table> class is an implementation of a table level
+B<PgToolkit::Compact::Table> class is an implementation of a table level
 processing logic for bloat reducing mechanism.
 
 =head3 Constructor arguments
