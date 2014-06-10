@@ -24,9 +24,9 @@ derivatives' unit tests. It automates mommon functionality testing.
 
 =head1 METHODS
 
-=head2 B<is_normal()>
+=head2 B<is_prototype()>
 
-Tests if the service is a normal one.
+Tests if the service is a prototype one.
 
 =head3 Arguments
 
@@ -40,7 +40,7 @@ Tests if the service is a normal one.
 
 =cut
 
-sub is_normal {
+sub is_prototype {
 	my ($self, %arg_hash) = @_;
 
 	isa_ok($arg_hash{'code_reference'}->(), $arg_hash{'class_name'});

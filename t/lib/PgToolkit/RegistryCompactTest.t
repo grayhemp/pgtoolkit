@@ -40,7 +40,7 @@ sub test_get_logger : Test(2) {
 sub test_get_database_adapter : Test(2) {
 	my $self = shift;
 
-	$self->is_normal(
+	$self->is_prototype(
 		code_reference => sub {
 			return $self->{'registry'}->get_database_adapter(
 				dbname => 'postgres');
@@ -51,7 +51,7 @@ sub test_get_database_adapter : Test(2) {
 sub test_get_table_compact : Test(2) {
 	my $self = shift;
 
-	$self->is_normal(
+	$self->is_prototype(
 		code_reference => sub {
 			return $self->{'registry'}->get_table_compact(
 				database => $self->{'database'},
@@ -65,7 +65,7 @@ sub test_get_table_compact : Test(2) {
 sub test_get_database_compact : Test(2) {
 	my $self = shift;
 
-	$self->is_normal(
+	$self->is_prototype(
 		code_reference => sub {
 			return $self->{'registry'}->get_database_compact(
 				database => $self->{'database'});
@@ -76,7 +76,7 @@ sub test_get_database_compact : Test(2) {
 sub test_get_cluster_compact : Test(2) {
 	my $self = shift;
 
-	$self->is_normal(
+	$self->is_prototype(
 		code_reference => sub {
 			return $self->{'registry'}->get_cluster_compact();
 		},
