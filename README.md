@@ -19,7 +19,7 @@ If you need a specific version or branch of the tools, replace the
 
 Another way is to `git clone` the repository
 
-    git clone git@github.com:grayhemp/pgtoolkit.git
+    git clone https://github.com/grayhemp/pgtoolkit.git
 
 or to `svn checkout` it
 
