@@ -696,7 +696,7 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex : Test(35) {
+sub test_reindex : Test(59) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -719,7 +719,15 @@ sub test_reindex : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -727,7 +735,15 @@ sub test_reindex : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -735,7 +751,15 @@ sub test_reindex : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -744,12 +768,12 @@ sub test_reindex : Test(35) {
 		$i++, undef);
 }
 
-sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
+sub test_reindex_acquired_lock_after_several_attempts : Test(76) {
 	my $self = shift;
 
 	unshift(
 		$self->{'database'}->{'mock'}->{'data_hash'}
-		->{'alter_index2'}->{'row_list_sequence'},
+		->{'drop_index2'}->{'row_list_sequence'},
 		'canceling statement due to statement timeout',
 		'canceling statement due to statement timeout');
 
@@ -773,7 +797,15 @@ sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -782,8 +814,20 @@ sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
 		$i++, 'reindex2');
 	for (my $j = 0; $j < 3; $j++) {
 		$self->{'database'}->{'mock'}->is_called(
-			$i++, 'alter_index2');
+			$i++, 'begin');
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'set_local_statement_timeout');
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'drop_index2');
+		if ($j < 2) {
+			$self->{'database'}->{'mock'}->is_called(
+				$i++, 'end');
+		}
 	}
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -791,7 +835,15 @@ sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -802,7 +854,7 @@ sub test_reindex_acquired_lock_after_several_attempts : Test(40) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_didnt_acquire_lock : Test(40) {
+sub test_reindex_didnt_acquire_lock : Test(74) {
 	my $self = shift;
 
 	splice(
@@ -812,7 +864,7 @@ sub test_reindex_didnt_acquire_lock : Test(40) {
 
 	unshift(
 		$self->{'database'}->{'mock'}->{'data_hash'}
-		->{'alter_index2'}->{'row_list_sequence'},
+		->{'drop_index2'}->{'row_list_sequence'},
 		'canceling statement due to statement timeout',
 		'canceling statement due to statement timeout',
 		'canceling statement due to statement timeout');
@@ -837,7 +889,15 @@ sub test_reindex_didnt_acquire_lock : Test(40) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -846,7 +906,13 @@ sub test_reindex_didnt_acquire_lock : Test(40) {
 		$i++, 'reindex2');
 	for (my $j = 0; $j < 3; $j++) {
 		$self->{'database'}->{'mock'}->is_called(
-			$i++, 'alter_index2');
+			$i++, 'begin');
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'set_local_statement_timeout');
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'drop_index2');
+		$self->{'database'}->{'mock'}->is_called(
+			$i++, 'end');
 	}
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'drop_temp_index2');
@@ -855,7 +921,15 @@ sub test_reindex_didnt_acquire_lock : Test(40) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -866,7 +940,7 @@ sub test_reindex_didnt_acquire_lock : Test(40) {
 	ok(not $table_compactor->is_processed());
 }
 
-sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
+sub test_reindex_if_last_attempt_and_not_processed : Test(59) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -903,7 +977,15 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -911,7 +993,15 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -919,7 +1009,15 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -928,7 +1026,7 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(35) {
 		$i++, undef);
 }
 
-sub test_reindex_if_not_last_attempt_and_processed : Test(35) {
+sub test_reindex_if_not_last_attempt_and_processed : Test(59) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -951,7 +1049,15 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -959,7 +1065,15 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -967,7 +1081,15 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1108,7 +1230,7 @@ sub test_no_reindex_queries_if_not_last_attempt_and_not_processed : Test(7) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_in_min_free_percent : Test(35) {
+sub test_no_reindex_if_in_min_free_percent : Test(51) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1137,7 +1259,15 @@ sub test_no_reindex_if_in_min_free_percent : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1147,7 +1277,15 @@ sub test_no_reindex_if_in_min_free_percent : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1160,7 +1298,7 @@ sub test_no_reindex_if_in_min_free_percent : Test(35) {
 		$i++, undef);
 }
 
-sub test_reindex_if_in_min_free_percent_and_forced : Test(35) {
+sub test_reindex_if_in_min_free_percent_and_forced : Test(59) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1188,7 +1326,15 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1196,7 +1342,15 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1204,7 +1358,15 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1285,7 +1447,7 @@ sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(15) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_in_min_page_count : Test(29) {
+sub test_no_reindex_if_in_min_page_count : Test(45) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1311,7 +1473,15 @@ sub test_no_reindex_if_in_min_page_count : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1319,7 +1489,15 @@ sub test_no_reindex_if_in_min_page_count : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1330,7 +1508,7 @@ sub test_no_reindex_if_in_min_page_count : Test(29) {
 		$i++, undef);
 }
 
-sub test_reindex_if_in_min_page_count_and_forced : Test(35) {
+sub test_reindex_if_in_min_page_count_and_forced : Test(59) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1357,7 +1535,15 @@ sub test_reindex_if_in_min_page_count_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1365,7 +1551,15 @@ sub test_reindex_if_in_min_page_count_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1373,7 +1567,15 @@ sub test_reindex_if_in_min_page_count_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1457,7 +1659,7 @@ sub test_reindex_queries_if_in_min_page_count_and_forced : Test(15) {
 		$i++, undef);
 }
 
-sub test_reindex_if_table_skipped_and_pgstatuple : Test(48) {
+sub test_reindex_if_table_skipped_and_pgstatuple : Test(72) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1493,7 +1695,15 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(48) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1503,7 +1713,15 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(48) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1513,7 +1731,15 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(48) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1569,7 +1795,7 @@ sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(28) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_if_not_processed_and_will_be_skipped : Test(36) {
+sub test_reindex_if_not_processed_and_will_be_skipped : Test(60) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1606,7 +1832,15 @@ sub test_reindex_if_not_processed_and_will_be_skipped : Test(36) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1614,7 +1848,15 @@ sub test_reindex_if_not_processed_and_will_be_skipped : Test(36) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1622,7 +1864,15 @@ sub test_reindex_if_not_processed_and_will_be_skipped : Test(36) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1675,7 +1925,7 @@ sub test_reindex_queries_if_not_processed_and_will_be_skipped : Test(16) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_no_reindex_if_index_is_empty_and_forced : Test(29) {
+sub test_no_reindex_if_index_is_empty_and_forced : Test(45) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1702,7 +1952,15 @@ sub test_no_reindex_if_index_is_empty_and_forced : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1710,7 +1968,15 @@ sub test_no_reindex_if_index_is_empty_and_forced : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1755,7 +2021,7 @@ sub test_no_reindex_queries_if_index_is_empty_and_forced : Test(15) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_not_btree : Test(29) {
+sub test_no_reindex_if_not_btree : Test(45) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1781,7 +2047,15 @@ sub test_no_reindex_if_not_btree : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1789,7 +2063,15 @@ sub test_no_reindex_if_not_btree : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1831,7 +2113,7 @@ sub test_no_reindex_queries_if_not_btree : Test(15) {
 		$i++, undef);
 }
 
-sub test_reindex_if_not_btree_and_forced : Test(35) {
+sub test_reindex_if_not_btree_and_forced : Test(59) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1858,7 +2140,15 @@ sub test_reindex_if_not_btree_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1866,7 +2156,15 @@ sub test_reindex_if_not_btree_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1874,7 +2172,15 @@ sub test_reindex_if_not_btree_and_forced : Test(35) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index3');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1915,7 +2221,7 @@ sub test_reindex_queries_if_not_btree_and_force : Test(15) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_not_allowed : Test(29) {
+sub test_no_reindex_if_not_allowed : Test(45) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1941,7 +2247,15 @@ sub test_no_reindex_if_not_allowed : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1949,7 +2263,15 @@ sub test_no_reindex_if_not_allowed : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -1991,7 +2313,7 @@ sub test_no_reindex_queries_if_not_allowed : Test(15) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_not_allowed_and_forced : Test(29) {
+sub test_no_reindex_if_not_allowed_and_forced : Test(45) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2018,7 +2340,15 @@ sub test_no_reindex_if_not_allowed_and_forced : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex1');
 	$self->{'database'}->{'mock'}->is_called(
-		$i++, 'alter_index1');
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'add_constraint1');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_pkey');
 	$self->{'database'}->{'mock'}->is_called(
@@ -2026,7 +2356,15 @@ sub test_no_reindex_if_not_allowed_and_forced : Test(29) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'reindex2');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'begin');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'set_local_statement_timeout');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'drop_index2');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'alter_index2');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'end');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
@@ -2165,8 +2503,6 @@ sub test_not_processed_and_last_attempt : Test {
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
 		min_free_percent => 10);
-		#pgstattuple_schema_name => 'public',
-		#reindex => 1);
 
 	$table_compactor->process(attempt => 2);
 

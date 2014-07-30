@@ -643,10 +643,20 @@ sub _process {
 				my $locked_alter_attempt = 0;
 				while ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
 					eval {
-						$self->_alter_index(data => $index_data);
+						$self->_begin();
+						$self->_set_local_statement_timeout();
+						if ($index_data->{'conname'}) {
+							$self->_drop_constraint(data => $index_data);
+							$self->_add_constraint(data => $index_data);
+						} else {
+							$self->_drop_index(data => $index_data);
+							$self->_alter_index(data => $index_data);
+						}
+						$self->_end();
 						$duration += $self->{'_database'}->get_duration();
 					};
 					if ($@) {
+						$self->_end();
 						if ($@ =~ ('canceling statement due '.
 								   'to statement timeout'))
 						{
@@ -1151,23 +1161,39 @@ sub _log_reindex {
 sub _log_reindex_queries {
 	my ($self, %arg_hash) = @_;
 
+	my $dbname_comment = '-- '.$self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname());
+
 	$self->{'_logger'}->write(
 		message => (
 			'Reindex queries'.($self->{'_force'} ? ' forced' : '').': '.
 			$arg_hash{'ident'}.
-			($arg_hash{'initial_size_statistics'} ? ', initial size '.
+			($arg_hash{'initial_size_statistics'} ?
+			 ', initial size '.
 			 $arg_hash{'initial_size_statistics'}->{'page_count'}.' pages ('.
 			 PgToolkit::Utils->get_size_pretty(
 				 size => $arg_hash{'initial_size_statistics'}->{'size'}).')'.
-			 ($arg_hash{'bloat_statistics'} ? ', will be reduced by '.
+			 ($arg_hash{'bloat_statistics'} ?
+			  ', will be reduced by '.
 			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
 			  PgToolkit::Utils->get_size_pretty(
 				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
 			  ')' : '') : '').".\n".
 			($arg_hash{'data'}->{'allowed'} ?
-			 $self->_get_reindex_query(data => $arg_hash{'data'})."\n".
-			 $self->_get_alter_index_query(data => $arg_hash{'data'}) :
-			 $self->_get_straight_reindex_query(data => $arg_hash{'data'}))),
+			 join(
+				 $dbname_comment."\n",
+				 ($self->_get_create_index_concurrently_query(%arg_hash),
+				  $self->_get_begin_query(),
+				  $self->_get_set_local_statement_timeout_query(),
+				  $arg_hash{'data'}->{'conname'} ? (
+					  $self->_get_drop_constraint_query(%arg_hash),
+					  $self->_get_add_constraint_query(%arg_hash)
+				  ) : (
+					  $self->_get_drop_index_query(%arg_hash),
+					  $self->_get_alter_index_query(%arg_hash)
+				  ),
+				  $self->_get_end_query())).' '.$dbname_comment :
+			 $self->_get_reindex_query(%arg_hash))),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1728,7 +1754,7 @@ SQL
 	return $result;
 }
 
-sub _get_reindex_query {
+sub _get_create_index_concurrently_query {
 	my ($self, %arg_hash) = @_;
 
 	my $sql = $arg_hash{'data'}->{'definition'};
@@ -1737,44 +1763,13 @@ sub _get_reindex_query {
 		$sql =~
 			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
 	}
-	$sql .= '; -- '.$self->{'_database'}->quote_ident(
-		string => $self->{'_database'}->get_dbname());
+	$sql .= ';';
 
 	return $sql;
 
 }
 
-sub _get_alter_index_query {
-	my ($self, %arg_hash) = @_;
-
-	my $schema_ident = $self->{'_database'}->quote_ident(
-		string => $self->{'_schema_name'});
-	my $index_ident = $self->{'_database'}->quote_ident(
-		string => $arg_hash{'data'}->{'name'});
-	my $constraint_ident;
-	if ($arg_hash{'data'}->{'conname'}) {
-		$constraint_ident = $self->{'_database'}->quote_ident(
-			string => $arg_hash{'data'}->{'conname'});
-	}
-
-	return
-		'BEGIN; SET LOCAL statement_timeout TO '.
-		$self->{'_locked_alter_timeout'}.'; '.
-		($constraint_ident ?
-		 ('ALTER TABLE '.$self->{'_ident'}.
-		  ' DROP CONSTRAINT '.$constraint_ident.'; '.
-		  'ALTER TABLE '.$self->{'_ident'}.
-		  ' ADD CONSTRAINT '.$constraint_ident.' '.
-		  $arg_hash{'data'}->{'contypedef'}.
-		  ' USING INDEX pgcompact_index_'.$$.'; ') :
-		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-		  'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
-		  ' RENAME TO '.$index_ident.'; ')
-		).'END; -- '.$self->{'_database'}->quote_ident(
-			string => $self->{'_database'}->get_dbname());
-}
-
-sub _get_straight_reindex_query {
+sub _get_reindex_query {
 	my ($self, %arg_hash) = @_;
 
 	my $schema_ident = $self->{'_database'}->quote_ident(
@@ -1792,7 +1787,8 @@ sub _reindex {
 	my ($self, %arg_hash) = @_;
 
 	$self->_execute_and_log(
-		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+		sql => $self->_get_create_index_concurrently_query(
+			data => $arg_hash{'data'}));
 
 	return;
 }
@@ -1809,12 +1805,34 @@ sub _drop_temp_index {
 	return;
 }
 
+sub _get_begin_query {
+	my $self = shift;
+
+	return 'BEGIN;';
+}
+
 sub _begin {
 	my $self = shift;
 
 	$self->_execute_and_log(
 		level => 'debug1',
-		sql => 'BEGIN;');
+		sql => $self->_get_begin_query());
+
+	return;
+}
+
+sub _get_end_query {
+	my $self = shift;
+
+	return 'END;';
+}
+
+sub _end {
+	my $self = shift;
+
+	$self->_execute_and_log(
+		level => 'debug1',
+		sql => $self->_get_end_query());
 
 	return;
 }
@@ -1835,15 +1853,6 @@ sub _rollback {
 	$self->_execute_and_log(
 		level => 'debug1',
 		sql => 'ROLLBACK;');
-
-	return;
-}
-
-sub _alter_index {
-	my ($self, %arg_hash) = @_;
-
-	$self->_execute_and_log(
-		sql => $self->_get_alter_index_query(data => $arg_hash{'data'}));
 
 	return;
 }
@@ -1876,6 +1885,102 @@ sub _get_pages_before_vacuum {
 		 $arg_hash{'expected_page_count'} /
 		 $self->{'_pages_before_vacuum_upper_divisor'},
 		 1)[0]);
+}
+
+sub _get_set_local_statement_timeout_query {
+	my ($self, %arg_hash) = @_;
+
+	return
+		'SET LOCAL statement_timeout TO '.$self->{'_locked_alter_timeout'}.';';
+}
+
+sub _set_local_statement_timeout {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(
+		sql => $self->_get_set_local_statement_timeout_query());
+
+	return;
+}
+
+sub _get_drop_constraint_query {
+	my ($self, %arg_hash) = @_;
+
+	my $constraint_name = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'conname'});
+
+	return
+		'ALTER TABLE '.$self->{'_ident'}.' DROP CONSTRAINT '.$constraint_name.
+		';';
+}
+
+sub _drop_constraint {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(
+		sql => $self->_get_drop_constraint_query(%arg_hash));
+
+	return;
+}
+
+sub _get_add_constraint_query {
+	my ($self, %arg_hash) = @_;
+
+	my $constraint_name = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'conname'});
+
+	return
+		'ALTER TABLE '.$self->{'_ident'}.' ADD CONSTRAINT '.$constraint_name.
+		' '.$arg_hash{'data'}->{'contypedef'}.' USING INDEX pgcompact_index_'.
+		$$.'; ';
+}
+
+sub _add_constraint {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(sql => $self->_get_add_constraint_query(%arg_hash));
+
+	return;
+}
+
+sub _get_drop_index_query {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	return 'DROP INDEX '.$schema_ident.'.'.$index_ident.';';
+}
+
+sub _drop_index {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(sql => $self->_get_drop_index_query(%arg_hash));
+
+	return;
+}
+
+sub _get_alter_index_query {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	return
+		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.' RENAME TO '.
+		$index_ident.'; ';
+}
+
+sub _alter_index {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(sql => $self->_get_alter_index_query(%arg_hash));
+
+	return;
 }
 
 =head1 SEE ALSO

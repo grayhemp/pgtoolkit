@@ -104,6 +104,9 @@ sub init {
 		'begin' => {
 			'sql_pattern' => qr/BEGIN;/,
 			'row_list' => []},
+		'end' => {
+			'sql_pattern' => qr/END;/,
+			'row_list' => []},
 		'commit' => {
 			'sql_pattern' => qr/COMMIT;/,
 			'row_list' => []},
@@ -194,17 +197,23 @@ sub init {
 				 'CREATE INDEX table_idx3 ON schema.table '.
 				 'USING btree (column3)',
 				 'btree', undef, undef, 1, 3000]]},
+		'set_local_statement_timeout' => {
+			'sql_pattern' =>
+				qr/SET LOCAL statement_timeout TO 500;/,
+			'row_list' => []},
 		'reindex1' => {
 			'sql_pattern' =>
 				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompact_index_$$ /.
 				qr/ON schema\.table USING btree \(column1\);/,
 			'row_list' => []},
-		'alter_index1' => {
+		'drop_constraint1' => {
 			'sql_pattern' =>
-				qr/BEGIN; SET LOCAL statement_timeout TO 500; /.
-				qr/ALTER TABLE schema\.table DROP CONSTRAINT /.
-				qr/table_pkey; ALTER TABLE schema\.table ADD CONSTRAINT /.
-				qr/table_pkey PRIMARY KEY USING INDEX pgcompact_index_$$; END;/,
+				qr/ALTER TABLE schema\.table DROP CONSTRAINT table_pkey;/,
+			'row_list' => []},
+		'add_constraint1' => {
+			'sql_pattern' =>
+				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pkey /.
+				qr/PRIMARY KEY USING INDEX pgcompact_index_$$;/,
 			'row_list' => []},
 		'reindex2' => {
 			'sql_pattern' =>
@@ -212,16 +221,14 @@ sub init {
 				qr/schema\.table USING btree \(column2\) /.
 				qr/TABLESPACE tablespace WHERE column2 = 1;/,
 			'row_list' => []},
+		'drop_index2' => {
+			'sql_pattern' =>
+				qr/DROP INDEX schema\.table_idx2;/,
+			'row_list_sequence' => [[[]]]},
 		'alter_index2' => {
 			'sql_pattern' =>
-				qr/BEGIN; SET LOCAL statement_timeout TO 500; /.
-				qr/DROP INDEX schema\.table_idx2; /.
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
-				qr/RENAME TO table_idx2; END;/,
-			'row_list_sequence' => [[[]]]},
-		'drop_temp_index2' => {
-			'sql_pattern' =>
-				qr/DROP INDEX schema\.pgcompact_index_$$;/,
+				qr/RENAME TO table_idx2;/,
 			'row_list' => []},
 		'reindex3' => {
 			'sql_pattern' =>
@@ -229,13 +236,19 @@ sub init {
 				qr/schema\.table USING btree \(column3\) /.
 				qr/TABLESPACE tablespace;/,
 			'row_list' => []},
+		'drop_index3' => {
+			'sql_pattern' =>
+				qr/DROP INDEX schema\.table_idx3;/,
+			'row_list' => []},
 		'alter_index3' => {
 			'sql_pattern' =>
-				qr/BEGIN; SET LOCAL statement_timeout TO 500; /.
-				qr/DROP INDEX schema\.table_idx3; /.
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
-				qr/RENAME TO table_idx3; END;/,
+				qr/RENAME TO table_idx3;/,
 			'row_list' => []},
+		'drop_temp_index2' => {
+			'sql_pattern' =>
+				qr/DROP INDEX schema\.pgcompact_index_$$;/,
+			'row_list_sequence' => [[[]]]},
 		'get_table_data_list1' => {
 			'sql_pattern' =>
 				qr/SELECT schemaname, tablename /.
