@@ -178,6 +178,36 @@ sub time {
 	return Time::HiRes::time();
 }
 
+=head2 B<cmp_versions()>
+
+Compares two version strings.
+
+=head3 Arguments
+
+=over 4
+
+=item C<v1>
+
+=item C<v2>
+
+=back
+
+=head3 Returns
+
+0 if versions are equal, 1 if the first one is greater than the second
+one, and -1 if less.
+
+=cut
+
+sub cmp_versions {
+	my ($self, %arg_hash) = @_;
+
+	my $p1 = pack('C*', split(/\./, $arg_hash{'v1'}));
+	my $p2 = pack('C*', split(/\./, $arg_hash{'v2'}));
+
+	return $p1 gt $p2 ? 1 : $p1 lt $p2 ? -1 : 0;
+}
+
 =head1 SEE ALSO
 
 =over 4

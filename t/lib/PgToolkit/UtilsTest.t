@@ -120,4 +120,26 @@ EOF
 		'pgpassdbmepassword');
 }
 
+sub test_cmp_versions : Test(3) {
+	my $self = shift;
+
+	is(
+		$self->{'utils'}->cmp_versions(
+			v1 => '1.0.0',
+			v2 => '1.0.0'),
+		0);
+
+	is(
+		$self->{'utils'}->cmp_versions(
+			v1 => '1.1.0',
+			v2 => '1.0.0'),
+		1);
+
+	is(
+		$self->{'utils'}->cmp_versions(
+			v1 => '1.0.0',
+			v2 => '1.1.0'),
+		-1);
+}
+
 1;
