@@ -220,6 +220,33 @@ sub _time {
 	return time();
 }
 
+=head2 B<get_major_version()>
+
+Returns a major version of the database.
+
+=head3 Returns
+
+A database version string like "9.0".
+
+=cut
+
+sub get_major_version {
+	my $self = shift;
+
+	if (not defined $self->{'_major_version'}) {
+		$self->{'_major_version'} = $self->execute(
+			sql => <<SQL
+SELECT regexp_replace(
+	version(),
+	E'.*PostgreSQL (\\\\d+\\\\.\\\\d+).*',
+	E'\\\\1');
+SQL
+			)->[0]->[0];
+	}
+
+	return $self->{'_major_version'};
+}
+
 =head1 SEE ALSO
 
 =over 4

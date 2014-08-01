@@ -473,4 +473,9 @@ SELECT pg_advisory_unlock(
     'pg_catalog.pg_class'::regclass::integer,
     'public.table1'::regclass::integer)::integer;
 
+-- Get major version
+
+SELECT regexp_replace(
+    version(), E'.*PostgreSQL (\\d+\\.\\d+).*', E'\\1');
+
 --

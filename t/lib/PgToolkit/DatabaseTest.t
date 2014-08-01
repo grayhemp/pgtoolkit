@@ -62,14 +62,32 @@ sub test_execute_calculates_duration : Test(2) {
 
 	my $database = $self->{'database_constructor'}->();
 
-	$database->execute(sql => 'SELECT something');
+	$database->execute(sql => 'SELECT 1');
 
 	is($database->get_duration(), 1);
 
-	$database->execute(sql => 'SELECT something');
+	$database->execute(sql => 'SELECT 1');
 
 	is($database->get_duration(), 2);
 
+}
+
+sub test_get_major_version : Test(5) {
+	my $self = shift;
+
+	my $database = $self->{'database_constructor'}->();
+
+	is($database->get_major_version(), '9.0');
+
+	my $i = 1;
+
+	$database->{'mock'}->is_called(
+		$i++, 'get_major_version');
+
+	is($database->get_major_version(), '9.0');
+
+	$database->{'mock'}->is_called(
+		$i++, undef);
 }
 
 1;
@@ -83,7 +101,6 @@ sub init {
 
 	$self->SUPER::init(@_);
 
-	$self->{'mock'} = Test::MockObject->new();
 	$self->{'mock'}->set_series('-time', 0, 1, 0, 2, 1 .. 1000);
 
 	return;
@@ -91,10 +108,6 @@ sub init {
 
 sub get_escaped_dbname {
 	return shift->_get_escaped_dbname();
-}
-
-sub _execute {
-	return [];
 }
 
 sub _time {

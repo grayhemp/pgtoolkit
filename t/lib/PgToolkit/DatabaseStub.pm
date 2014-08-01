@@ -343,6 +343,14 @@ sub init {
 				qr/SELECT nspname FROM pg_catalog\.pg_proc.+/s.
 				qr/WHERE proname = 'pgstattuple' LIMIT 1/,
 			'row_list' => []},
+		'get_major_version' => {
+			'sql_pattern' =>
+				qr/SELECT regexp_replace\(\s+version\(\),\s+/s,
+			'row_list' => [['9.0']]},
+		'select_1' => {
+			'sql_pattern' =>
+				qr/SELECT 1/s,
+			'row_list' => []},
 		'try_advisory_lock_table' => {
 			'sql_pattern' =>
 				qr/SELECT pg_try_advisory_lock\(/s.
