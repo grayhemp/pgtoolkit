@@ -201,7 +201,7 @@ sub init {
 			'sql_pattern' =>
 				qr/SET LOCAL statement_timeout TO 500;/,
 			'row_list' => []},
-		'reindex1' => {
+		'create_index_concurrently1' => {
 			'sql_pattern' =>
 				qr/CREATE UNIQUE INDEX CONCURRENTLY pgcompact_index_$$ /.
 				qr/ON schema\.table USING btree \(column1\);/,
@@ -215,7 +215,7 @@ sub init {
 				qr/ALTER TABLE schema\.table ADD CONSTRAINT table_pkey /.
 				qr/PRIMARY KEY USING INDEX pgcompact_index_$$;/,
 			'row_list' => []},
-		'reindex2' => {
+		'create_index_concurrently2' => {
 			'sql_pattern' =>
 				qr/CREATE INDEX CONCURRENTLY pgcompact_index_$$ ON /.
 				qr/schema\.table USING btree \(column2\) /.
@@ -225,12 +225,33 @@ sub init {
 			'sql_pattern' =>
 				qr/DROP INDEX schema\.table_idx2;/,
 			'row_list_sequence' => [[[]]]},
-		'alter_index2' => {
+		'drop_index_concurrently2' => {
+			'sql_pattern' =>
+				qr/DROP INDEX CONCURRENTLY schema\.table_idx2;/,
+			'row_list' => []},
+		'rename_temp_index2' => {
 			'sql_pattern' =>
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
 				qr/RENAME TO table_idx2;/,
 			'row_list' => []},
-		'reindex3' => {
+		'swap_index_names2' => {
+			'sql_pattern' =>
+				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
+				qr/RENAME TO pgcompact_swap_index_$$; /.
+				qr/ALTER INDEX schema\.table_idx2 /.
+				qr/RENAME TO pgcompact_index_$$; /.
+				qr/ALTER INDEX schema\.pgcompact_swap_index_$$ /.
+				qr/RENAME TO table_idx2;/,
+			'row_list_sequence' => [[[]]]},
+		'drop_temp_index2' => {
+			'sql_pattern' =>
+				qr/DROP INDEX schema\.pgcompact_index_$$;/,
+			'row_list' => []},
+		'drop_temp_index_concurrently2' => {
+			'sql_pattern' =>
+				qr/DROP INDEX CONCURRENTLY schema\.pgcompact_index_$$;/,
+			'row_list' => []},
+		'create_index_concurrently3' => {
 			'sql_pattern' =>
 				qr/CREATE INDEX CONCURRENTLY pgcompact_index_$$ ON /.
 				qr/schema\.table USING btree \(column3\) /.
@@ -240,15 +261,28 @@ sub init {
 			'sql_pattern' =>
 				qr/DROP INDEX schema\.table_idx3;/,
 			'row_list' => []},
-		'alter_index3' => {
+		'drop_index_concurrently3' => {
+			'sql_pattern' =>
+				qr/DROP INDEX CONCURRENTLY schema\.table_idx3;/,
+			'row_list_sequence' => [[[]]]},
+		'rename_temp_index3' => {
 			'sql_pattern' =>
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
 				qr/RENAME TO table_idx3;/,
 			'row_list' => []},
-		'drop_temp_index2' => {
+		'swap_index_names3' => {
 			'sql_pattern' =>
-				qr/DROP INDEX schema\.pgcompact_index_$$;/,
-			'row_list_sequence' => [[[]]]},
+				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
+				qr/RENAME TO pgcompact_swap_index_$$; /.
+				qr/ALTER INDEX schema\.table_idx3 /.
+				qr/RENAME TO pgcompact_index_$$; /.
+				qr/ALTER INDEX schema\.pgcompact_swap_index_$$ /.
+				qr/RENAME TO table_idx3;/,
+			'row_list' => []},
+		'drop_temp_index_concurrently3' => {
+			'sql_pattern' =>
+				qr/DROP INDEX CONCURRENTLY schema\.pgcompact_index_$$;/,
+			'row_list' => []},
 		'get_table_data_list1' => {
 			'sql_pattern' =>
 				qr/SELECT schemaname, tablename /.

@@ -212,6 +212,10 @@ sub _init {
 	$self->{'_pages_before_vacuum_upper_divisor'} =
 		$arg_hash{'pages_before_vacuum_upper_divisor'};
 
+	$self->{'_can_drop_index_concurrently'} = PgToolkit::Utils->cmp_versions(
+		v1 => $self->{'_database'}->get_major_version(),
+		v2 => '9.2') >= 0;
+
 	$self->{'_is_dropped'} = 0;
 	$self->{'_is_processed'} = 0;
 
@@ -637,20 +641,34 @@ sub _process {
 			}
 
 			if (not $self->{'_dry_run'} and $self->{'_reindex'}) {
-				$self->_reindex(data => $index_data);
+				$self->_create_index_concurrently(data => $index_data);
 				$duration = $self->{'_database'}->get_duration();
 
 				my $locked_alter_attempt = 0;
 				while ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
 					eval {
 						$self->_begin();
+						$duration += $self->{'_database'}->get_duration();
 						$self->_set_local_statement_timeout();
+						$duration += $self->{'_database'}->get_duration();
 						if ($index_data->{'conname'}) {
 							$self->_drop_constraint(data => $index_data);
+							$duration += $self->{'_database'}->get_duration();
 							$self->_add_constraint(data => $index_data);
+							$duration += $self->{'_database'}->get_duration();
 						} else {
-							$self->_drop_index(data => $index_data);
-							$self->_alter_index(data => $index_data);
+							if ($self->{'_can_drop_index_concurrently'}) {
+								$self->_swap_index_names(data => $index_data);
+								$duration +=
+									$self->{'_database'}->get_duration();
+							} else {
+								$self->_drop_index(data => $index_data);
+								$duration +=
+									$self->{'_database'}->get_duration();
+								$self->_rename_temp_index(data => $index_data);
+								$duration +=
+									$self->{'_database'}->get_duration();
+							}
 						}
 						$self->_end();
 						$duration += $self->{'_database'}->get_duration();
@@ -671,6 +689,13 @@ sub _process {
 				}
 
 				if ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
+					if ($self->{'_can_drop_index_concurrently'} and
+						not defined $index_data->{'conname'})
+					{
+						$self->_drop_temp_index_concurrently(
+							data => $index_data);
+						$duration += $self->{'_database'}->get_duration();
+					}
 					$self->_log_reindex(
 						ident => $index_ident,
 						initial_size_statistics => (
@@ -683,8 +708,14 @@ sub _process {
 					$is_reindexed =
 						(defined $is_reindexed) ? ($is_reindexed and 1) : 1;
 				} else {
-					$self->_drop_temp_index(data => $index_data);
-					$duration += $self->{'_database'}->get_duration();
+					if ($self->{'_can_drop_index_concurrently'}) {
+						$self->_drop_temp_index_concurrently(
+							data => $index_data);
+						$duration += $self->{'_database'}->get_duration();
+					} else {
+						$self->_drop_temp_index(data => $index_data);
+						$duration += $self->{'_database'}->get_duration();
+					}
 
 					$self->_log_reindex_locked_alter_didnt_acquire_lock(
 						ident => $index_ident,
@@ -1181,18 +1212,28 @@ sub _log_reindex_queries {
 			  ')' : '') : '').".\n".
 			($arg_hash{'data'}->{'allowed'} ?
 			 join(
-				 $dbname_comment."\n",
-				 ($self->_get_create_index_concurrently_query(%arg_hash),
-				  $self->_get_begin_query(),
-				  $self->_get_set_local_statement_timeout_query(),
-				  $arg_hash{'data'}->{'conname'} ? (
-					  $self->_get_drop_constraint_query(%arg_hash),
-					  $self->_get_add_constraint_query(%arg_hash)
-				  ) : (
-					  $self->_get_drop_index_query(%arg_hash),
-					  $self->_get_alter_index_query(%arg_hash)
-				  ),
-				  $self->_get_end_query())).' '.$dbname_comment :
+				 ' '.$dbname_comment."\n",
+				 grep(
+					 defined,
+					 ($self->_get_create_index_concurrently_query(%arg_hash),
+					  $self->_get_begin_query(),
+					  $self->_get_set_local_statement_timeout_query(),
+					  $arg_hash{'data'}->{'conname'} ? (
+						  $self->_get_drop_constraint_query(%arg_hash),
+						  $self->_get_add_constraint_query(%arg_hash)
+					  ) : (
+						  $self->{'_can_drop_index_concurrently'} ?
+						  $self->_get_swap_index_names_query(%arg_hash) : (
+							  $self->_get_drop_index_query(%arg_hash),
+							  $self->_get_rename_temp_index_query(%arg_hash)
+						  )
+					  ),
+					  $self->_get_end_query(),
+					  ($self->{'_can_drop_index_concurrently'} and
+					   not defined $arg_hash{'data'}->{'conname'}) ?
+					  $self->_get_drop_temp_index_concurrently_query(
+						  %arg_hash) :
+					  undef))).' '.$dbname_comment :
 			 $self->_get_reindex_query(%arg_hash))),
 		level => 'notice',
 		target => $self->{'_log_target'});
@@ -1754,6 +1795,20 @@ SQL
 	return $result;
 }
 
+sub _get_reindex_query {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	return
+		'REINDEX INDEX '.$schema_ident.'.'.$index_ident.'; -- '.
+		$self->{'_database'}->quote_ident(
+			string => $self->{'_database'}->get_dbname());
+}
+
 sub _get_create_index_concurrently_query {
 	my ($self, %arg_hash) = @_;
 
@@ -1769,38 +1824,47 @@ sub _get_create_index_concurrently_query {
 
 }
 
-sub _get_reindex_query {
+sub _create_index_concurrently {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(
+		sql => $self->_get_create_index_concurrently_query(%arg_hash));
+
+	return;
+}
+
+sub _get_drop_temp_index_query {
 	my ($self, %arg_hash) = @_;
 
 	my $schema_ident = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
-	my $index_ident = $self->{'_database'}->quote_ident(
-		string => $arg_hash{'data'}->{'name'});
 
-	return
-		'REINDEX INDEX '.$schema_ident.'.'.$index_ident.'; -- '.
-		$self->{'_database'}->quote_ident(
-			string => $self->{'_database'}->get_dbname());
-}
-
-sub _reindex {
-	my ($self, %arg_hash) = @_;
-
-	$self->_execute_and_log(
-		sql => $self->_get_create_index_concurrently_query(
-			data => $arg_hash{'data'}));
-
-	return;
+	return 'DROP INDEX '.$schema_ident.'.pgcompact_index_'.$$.';';
 }
 
 sub _drop_temp_index {
 	my ($self, %arg_hash) = @_;
 
+	$self->_execute_and_log(
+		sql => $self->_get_drop_temp_index_query(%arg_hash));
+
+	return;
+}
+
+sub _get_drop_temp_index_concurrently_query {
+	my ($self, %arg_hash) = @_;
+
 	my $schema_ident = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
 
+	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.pgcompact_index_'.$$.';';
+}
+
+sub _drop_temp_index_concurrently {
+	my ($self, %arg_hash) = @_;
+
 	$self->_execute_and_log(
-		sql => 'DROP INDEX '.$schema_ident.'.pgcompact_index_'.$$.';');
+		sql => $self->_get_drop_temp_index_concurrently_query(%arg_hash));
 
 	return;
 }
@@ -1962,7 +2026,27 @@ sub _drop_index {
 	return;
 }
 
-sub _get_alter_index_query {
+sub _get_drop_index_concurrently_query {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.'.$index_ident.';';
+}
+
+sub _drop_index_concurrently {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(
+		sql => $self->_get_drop_index_concurrently_query(%arg_hash));
+
+	return;
+}
+
+sub _get_rename_temp_index_query {
 	my ($self, %arg_hash) = @_;
 
 	my $schema_ident = $self->{'_database'}->quote_ident(
@@ -1972,13 +2056,40 @@ sub _get_alter_index_query {
 
 	return
 		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.' RENAME TO '.
-		$index_ident.'; ';
+		$index_ident.';';
 }
 
-sub _alter_index {
+sub _rename_temp_index {
 	my ($self, %arg_hash) = @_;
 
-	$self->_execute_and_log(sql => $self->_get_alter_index_query(%arg_hash));
+	$self->_execute_and_log(
+		sql => $self->_get_rename_temp_index_query(%arg_hash));
+
+	return;
+}
+
+sub _get_swap_index_names_query {
+	my ($self, %arg_hash) = @_;
+
+	my $schema_ident = $self->{'_database'}->quote_ident(
+		string => $self->{'_schema_name'});
+	my $index_ident = $self->{'_database'}->quote_ident(
+		string => $arg_hash{'data'}->{'name'});
+
+	return
+		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
+		' RENAME TO pgcompact_swap_index_'.$$.'; '.
+		'ALTER INDEX '.$schema_ident.'.'.$index_ident.
+		' RENAME TO pgcompact_index_'.$$.'; '.
+		'ALTER INDEX '.$schema_ident.'.pgcompact_swap_index_'.$$.
+		' RENAME TO '.$index_ident.';';
+}
+
+sub _swap_index_names {
+	my ($self, %arg_hash) = @_;
+
+	$self->_execute_and_log(
+		sql => $self->_get_swap_index_names_query(%arg_hash));
 
 	return;
 }
