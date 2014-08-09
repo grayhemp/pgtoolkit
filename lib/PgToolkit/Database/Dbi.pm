@@ -102,9 +102,10 @@ sub init {
 		$self->execute(
 			sql => join(
 				' ',
-				map(
-					'SET '.$_.' TO '.$arg_hash{'set_hash'}->{$_}.';',
-					keys %{$arg_hash{'set_hash'}})));
+				sort(
+					map(
+						'SET '.$_.' TO '.$arg_hash{'set_hash'}->{$_}.';',
+						keys %{$arg_hash{'set_hash'}}))));
 	}
 
 	return;

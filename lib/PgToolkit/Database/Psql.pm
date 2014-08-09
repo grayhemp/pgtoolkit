@@ -104,9 +104,10 @@ sub init {
 	$self->execute(
 		sql => join(
 			' ',
-			map(
-				'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
-				keys %{$self->{'_set_hash'}}),
+			sort(
+				map(
+					'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
+					keys %{$self->{'_set_hash'}})),
 			'SELECT 1;'));
 
 	return;
