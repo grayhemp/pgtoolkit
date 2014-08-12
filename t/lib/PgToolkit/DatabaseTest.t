@@ -30,6 +30,17 @@ sub test_init : Test(2) {
 		'anotherdb');
 }
 
+sub test_quote_ident_with_single_quote : Test(2) {
+	my $self = shift;
+
+	is(
+		$self->{'database_constructor'}->()->quote_ident(string => " ' "),
+		" '' ");
+	is(
+		$self->{'database_constructor'}->()->quote_ident(string => " '' "),
+		" '''' ");
+}
+
 sub test_quote_ident_nothing_to_ident : Test(2) {
 	my $self = shift;
 

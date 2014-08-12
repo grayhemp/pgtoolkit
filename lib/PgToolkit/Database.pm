@@ -204,14 +204,17 @@ sub quote_ident {
 		die('DatabaseError Nothing to ident.');
 	}
 
-	return $self->_quote_ident(%arg_hash);
+	my $string = $arg_hash{'string'};
+	$string =~ s/'/''/g;
+
+	return $self->_quote_ident(string => $string);
 }
 
 sub _quote_ident {
 	my ($self, %arg_hash) = @_;
 
 	my $result = $self->execute(
-		sql => 'SELECT quote_ident(\''.$arg_hash{'string'}.'\')');
+		sql => "SELECT quote_ident('".$arg_hash{'string'}."')");
 
 	return $result->[0]->[0];
 }
