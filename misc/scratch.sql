@@ -1,3 +1,5 @@
+-- -*- eval: (sql-highlight-postgres-keywords) -*-
+
 -- Test cluster script
 
 \c postgres
@@ -462,6 +464,22 @@ ORDER BY
     pg_catalog.pg_relation_size(
         quote_ident(schemaname) || '.' || quote_ident(tablename)),
     schemaname, tablename;
+
+SELECT n.nspname, c.relname FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE
+    --n.nspname IN ('public') AND
+    --n.nspname NOT IN ('public') AND
+    --c.relname IN ('table1') AND
+    --c.relname NOT IN ('table1') AND
+    --n.nspname NOT IN ('pg_catalog', 'information_schema') AND
+    c.relkind IN ('r') AND
+    NOT (n.nspname = 'pg_catalog' AND c.relname = 'pg_index') AND
+    n.nspname !~ 'pg_temp.*'
+ORDER BY
+    pg_catalog.pg_relation_size(
+        quote_ident(n.nspname) || '.' || quote_ident(c.relname)),
+    n.nspname, c.relname;
 
 -- Get an advisory lock
 

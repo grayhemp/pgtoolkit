@@ -292,7 +292,7 @@ sub _get_table_data_list {
 	my $table_in = '';
 	if (@{$arg_hash{'table_name_list'}}) {
 		$table_in =
-			'tablename IN ('.
+			'c.relname IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'table_name_list'}})).
 			') AND';
 	}
@@ -300,7 +300,7 @@ sub _get_table_data_list {
 	my $table_not_in = '';
 	if (@{$arg_hash{'excluded_table_name_list'}}) {
 		$table_not_in =
-			'tablename NOT IN ('.
+			'c.relname NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_table_name_list'}})).
 			') AND';
 	}
@@ -308,7 +308,7 @@ sub _get_table_data_list {
 	my $schema_in = '';
 	if (@{$arg_hash{'schema_name_list'}}) {
 		$schema_in =
-			'schemaname IN ('.
+			'n.nspname IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'schema_name_list'}})).
 			') AND';
 	}
@@ -316,7 +316,7 @@ sub _get_table_data_list {
 	my $schema_not_in = '';
 	if (@{$arg_hash{'excluded_schema_name_list'}}) {
 		$schema_not_in =
-			'schemaname NOT IN ('.
+			'n.nspname NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_schema_name_list'}})).
 			') AND';
 	}
@@ -324,24 +324,26 @@ sub _get_table_data_list {
 	my $not_in_system_catalog = '';
 	if (not $arg_hash{'system_catalog'}) {
 		$not_in_system_catalog =
-			"schemaname NOT IN ('pg_catalog', 'information_schema') AND";
+			"n.nspname NOT IN ('pg_catalog', 'information_schema') AND";
 	}
 
 	my $result = $self->_execute_and_log(
 			sql => <<SQL
-SELECT schemaname, tablename FROM pg_catalog.pg_tables
+SELECT n.nspname, c.relname FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
 WHERE
     $schema_in
     $schema_not_in
     $table_in
     $table_not_in
     $not_in_system_catalog
-    NOT (schemaname = 'pg_catalog' AND tablename = 'pg_index') AND
-    schemaname !~ 'pg_(temp|toast).*'
+    c.relkind IN ('r') AND
+    NOT (n.nspname = 'pg_catalog' AND c.relname = 'pg_index') AND
+    n.nspname !~ 'pg_temp.*'
 ORDER BY
     pg_catalog.pg_relation_size(
-        quote_ident(schemaname) || '.' || quote_ident(tablename)),
-    schemaname, tablename
+        quote_ident(n.nspname) || '.' || quote_ident(c.relname)),
+    n.nspname, c.relname
 SQL
 		);
 
