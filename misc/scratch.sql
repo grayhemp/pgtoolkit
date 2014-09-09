@@ -16,7 +16,9 @@ CREATE EXTENSION pgstattuple;
 CREATE TABLE table1 AS
 SELECT
     i AS id,
-    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column,
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 5000)::integer) AS text_column,
     now() - '1 year'::interval * random() AS timestamp_column,
     random() < 0.5 AS boolean_column,
     random() + i * 2 AS float_column,
@@ -57,6 +59,16 @@ ALTER TABLE table3 ADD CONSTRAINT table3_fkey
 INSERT INTO table3 SELECT id FROM table1;
 --
 CREATE TABLE "таблица2" (id bigserial PRIMARY KEY, text_column text);
+--
+CREATE TABLE table4 AS
+SELECT
+    i AS id,
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 50000)::integer) AS text_column
+FROM generate_series(1, 10000) i;
+DELETE FROM table4
+WHERE random() < 0.9;
 --
 CREATE SCHEMA dummy;
 --
@@ -124,7 +136,9 @@ CREATE TABLE public.table5 AS
 SELECT
     i AS id,
     random() * 10000 AS float_column,
-    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 5000)::integer) AS text_column
 FROM generate_series(1, 10000) i;
 UPDATE public.table5 SET float_column = random() * 10000;
 --
@@ -132,7 +146,9 @@ CREATE TABLE public.table7 AS
 SELECT
     i AS id,
     random() * 10000 AS float_column,
-    repeat('blabla'||i::text, (random() * 500)::integer) AS text_column
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 5000)::integer) AS text_column
 FROM generate_series(1, 10000) AS i;
 DELETE FROM public.table7 WHERE id BETWEEN 10 AND 100000 - 10;
 --
@@ -298,13 +314,13 @@ FROM (
                             reloptions::text, E'.*fillfactor=(\\d+).*'))[1]),
                 '100')::real AS fillfactor
         FROM pg_catalog.pg_class
-        WHERE pg_catalog.pg_class.oid = 'public.table5'::regclass
+        WHERE pg_catalog.pg_class.oid = 'pg_toast.pg_toast_96602'::regclass
     ) AS const
     LEFT JOIN pg_catalog.pg_statistic ON starelid = class_oid
     GROUP BY bs, class_oid, fillfactor, ma, size, reltuples, header_width
 ) AS sq;
 
-EXPLAIN (ANALYZE, VERBOSE)
+--EXPLAIN (ANALYZE, VERBOSE)
 SELECT
     ceil((size - free_space) * 100 / fillfactor / bs) AS effective_page_count,
     round(
@@ -323,8 +339,8 @@ FROM (
             '100')::real AS fillfactor,
         pgst.*
     FROM pg_catalog.pg_class
-    CROSS JOIN public.pgstattuple('public.table2') AS pgst
-    WHERE pg_catalog.pg_class.oid = 'public.table2'::regclass
+    CROSS JOIN public.pgstattuple('pg_toast.pg_toast_96602') AS pgst
+    WHERE pg_catalog.pg_class.oid = 'pg_toast.pg_toast_96602'::regclass
 ) AS sq;
 
 CREATE TABLE public.table1 AS
@@ -459,27 +475,18 @@ WHERE
     --tablename NOT IN ('table1') AND
     --schemaname NOT IN ('pg_catalog', 'information_schema') AND
     NOT (schemaname = 'pg_catalog' AND tablename = 'pg_index') AND
-    schemaname !~ 'pg_(temp|toast).*'
+    schemaname !~ 'pg_temp.*'
 ORDER BY
     pg_catalog.pg_relation_size(
         quote_ident(schemaname) || '.' || quote_ident(tablename)),
     schemaname, tablename;
 
-SELECT n.nspname, c.relname FROM pg_catalog.pg_class AS c
-JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
-WHERE
-    --n.nspname IN ('public') AND
-    --n.nspname NOT IN ('public') AND
-    --c.relname IN ('table1') AND
-    --c.relname NOT IN ('table1') AND
-    --n.nspname NOT IN ('pg_catalog', 'information_schema') AND
-    c.relkind IN ('r') AND
-    NOT (n.nspname = 'pg_catalog' AND c.relname = 'pg_index') AND
-    n.nspname !~ 'pg_temp.*'
-ORDER BY
-    pg_catalog.pg_relation_size(
-        quote_ident(n.nspname) || '.' || quote_ident(c.relname)),
-    n.nspname, c.relname;
+-- Get TOAST table name
+
+SELECT t.relname
+FROM pg_catalog.pg_class AS c
+LEFT JOIN pg_catalog.pg_class AS t ON t.oid = c.reltoastrelid
+WHERE c.oid = 'public.table4'::regclass;
 
 -- Get an advisory lock
 

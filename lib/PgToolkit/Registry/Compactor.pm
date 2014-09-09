@@ -110,6 +110,9 @@ sub get_table_compactor {
 		database => $arg_hash{'database'},
 		logger => $self->get_logger(),
 		dry_run => $options->get(name => 'dry-run'),
+		toast_compactor_constructor => sub {
+			return $self->get_table_compactor(%arg_hash, @_);
+		},
 		schema_name => $arg_hash{'schema_name'},
 		table_name => $arg_hash{'table_name'},
 		min_page_count => $options->get(name => 'min-page-count'),

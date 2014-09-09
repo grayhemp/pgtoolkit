@@ -154,7 +154,8 @@ sub test_process_system_catalog_if_specified : Test(2) {
 	is($mock->call_pos(1), 'init');
 	is_deeply(
 		[$mock->call_args(1)],
-		[$mock, 'database' => $self->{'database'},
+		[$mock,
+		 'database' => $self->{'database'},
 		 'schema_name' => 'pg_catalog',
 		 'table_name' => 'pg_class',
 		 'pgstattuple_schema_name' => undef]);

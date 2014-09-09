@@ -19,12 +19,19 @@ sub setup : Test(setup) {
 
 	$self->{'database'} = PgToolkit::DatabaseStub->new(dbname => 'dbname');
 
+	$self->{'logger'} = PgToolkit::Logger->new(
+		level => 'info', err_handle => \*STDOUT),
+
 	$self->{'table_compactor_constructor'} = sub {
+		$self->{'toast_compactor_mock'} = undef;
+
 		PgToolkit::Compactor::TableStub->new(
 			database => $self->{'database'},
-			logger => PgToolkit::Logger->new(
-				level => 'info', err_handle => \*STDOUT),
+			logger => $self->{'logger'},
 			dry_run => 0,
+			toast_compactor_constructor => sub {
+				return $self->create_toast_compactor_mock(@_);
+			},
 			schema_name => 'schema',
 			table_name => 'table',
 			min_page_count => 100,
@@ -51,7 +58,47 @@ sub setup : Test(setup) {
 	};
 }
 
-sub test_dry_run : Test(18) {
+sub create_toast_compactor_mock {
+	my ($self, @arg_list) = @_;
+	my %arg_hash = @arg_list;
+
+	my $mock = Test::MockObject->new();
+
+	$mock->set_true('process');
+
+	$mock->mock(
+		'-is_called',
+		sub {
+			my (undef, $pos, $name, @arg_list) = @_;
+
+			is($mock->call_pos($pos), $name);
+			is_deeply([$mock->call_args($pos)], [$mock, @arg_list]);
+
+			return;
+		});
+
+	$mock->mock(
+		'init',
+		sub {
+			my (undef, %arg_hash) = @_;
+
+			$self->{'logger'}->write(
+				message => 'Toast processing mock.',
+				level => 'notice',
+				target => (
+					$arg_hash{'schema_name'}.'.'.
+					$arg_hash{'table_name'}));
+
+			return $mock;
+		});
+
+	$mock->init(@arg_list);
+	$self->{'toast_compactor_mock'} = $mock;
+
+	return $mock;
+}
+
+sub test_dry_run : Test(20) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -79,11 +126,13 @@ sub test_dry_run : Test(18) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_check_special_triggers : Test(14) {
+sub test_check_special_triggers : Test(16) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}->{'has_special_triggers'}->
@@ -107,6 +156,8 @@ sub test_check_special_triggers : Test(14) {
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'has_special_triggers');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
@@ -192,7 +243,7 @@ sub test_skip_processing_if_cant_try_advisory_lock_table : Test(6) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_skip_processing_if_table_is_empty : Test(10) {
+sub test_skip_processing_if_table_is_empty : Test(12) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -214,11 +265,13 @@ sub test_skip_processing_if_table_is_empty : Test(10) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_min_page_count : Test(14) {
+sub test_min_page_count : Test(16) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -244,11 +297,13 @@ sub test_min_page_count : Test(14) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'has_special_triggers');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_min_free_percent : Test(14) {
+sub test_min_free_percent : Test(16) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -273,6 +328,112 @@ sub test_min_free_percent : Test(14) {
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'has_special_triggers');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_after_size_stats_if_toast_and_approximate : Test(10) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table');
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 2;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'try_advisory_lock_table');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_after_bloat_stats_if_toast_and_pgstattuple : Test(12) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table',
+		pgstattuple_schema_name => 'public');
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 2;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'try_advisory_lock_table');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_pgstattuple_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_after_size_stats_if_toast_and_approximate_forced : Test(10) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table',
+		force => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 2;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'try_advisory_lock_table');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_after_bloat_stats_if_toast_and_pgstattuple_forced : Test(12) {
+	my $self = shift;
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table',
+		pgstattuple_schema_name => 'public',
+		force => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 2;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'try_advisory_lock_table');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_pgstattuple_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
@@ -314,7 +475,7 @@ sub test_force_processing : Test(14) {
 		$i++, 'get_column');
 }
 
-sub test_can_not_get_bloat_statistics : Test(16) {
+sub test_can_not_get_bloat_statistics : Test(18) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -342,6 +503,8 @@ sub test_can_not_get_bloat_statistics : Test(16) {
 		$i++, 'analyze');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
@@ -696,7 +859,7 @@ sub test_can_not_get_index_bloat_statistics : Test(14) {
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex : Test(59) {
+sub test_reindex : Test(61) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -765,10 +928,12 @@ sub test_reindex : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_acquired_lock_after_several_attempts : Test(76) {
+sub test_reindex_acquired_lock_after_several_attempts : Test(78) {
 	my $self = shift;
 
 	unshift(
@@ -848,6 +1013,8 @@ sub test_reindex_acquired_lock_after_several_attempts : Test(76) {
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 
@@ -1032,7 +1199,7 @@ sub test_reindex_didnt_acquire_lock_when_92 : Test(74) {
 	ok(not $table_compactor->is_processed());
 }
 
-sub test_reindex_if_last_attempt_and_not_processed : Test(59) {
+sub test_reindex_if_last_attempt_and_not_processed : Test(61) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1115,10 +1282,12 @@ sub test_reindex_if_last_attempt_and_not_processed : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_not_last_attempt_and_processed : Test(59) {
+sub test_reindex_if_not_last_attempt_and_processed : Test(61) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -1187,6 +1356,8 @@ sub test_reindex_if_not_last_attempt_and_processed : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
@@ -1221,7 +1392,7 @@ sub test_no_reindex_if_not_last_attempt_and_not_processed : Test(7) {
 		$i++, undef);
 }
 
-sub test_reindex_queries_if_last_attempt_and_not_processed : Test(15) {
+sub test_reindex_queries_if_last_attempt_and_not_processed : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1260,10 +1431,12 @@ sub test_reindex_queries_if_last_attempt_and_not_processed : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_queries_if_not_last_attempt_and_processed : Test(15) {
+sub test_reindex_queries_if_not_last_attempt_and_processed : Test(17) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -1287,6 +1460,8 @@ sub test_reindex_queries_if_not_last_attempt_and_processed : Test(15) {
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
@@ -1322,7 +1497,7 @@ sub test_no_reindex_queries_if_not_last_attempt_and_not_processed : Test(7) {
 		$i++, undef);
 }
 
-sub test_no_reindex_if_in_min_free_percent : Test(51) {
+sub test_no_reindex_if_in_min_free_percent : Test(53) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1387,10 +1562,12 @@ sub test_no_reindex_if_in_min_free_percent : Test(51) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_in_min_free_percent_and_forced : Test(59) {
+sub test_reindex_if_in_min_free_percent_and_forced : Test(61) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1464,10 +1641,12 @@ sub test_reindex_if_in_min_free_percent_and_forced : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_queries_if_in_min_free_percent : Test(21) {
+sub test_no_reindex_queries_if_in_min_free_percent : Test(23) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1503,10 +1682,12 @@ sub test_no_reindex_queries_if_in_min_free_percent : Test(21) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_bloat_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(15) {
+sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1536,10 +1717,12 @@ sub test_reindex_queries_if_in_min_free_percent_and_forced : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_if_in_min_page_count : Test(45) {
+sub test_no_reindex_if_in_min_page_count : Test(47) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1597,10 +1780,12 @@ sub test_no_reindex_if_in_min_page_count : Test(45) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_in_min_page_count_and_forced : Test(59) {
+sub test_reindex_if_in_min_page_count_and_forced : Test(61) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1673,10 +1858,12 @@ sub test_reindex_if_in_min_page_count_and_forced : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_queries_if_in_min_page_count : Test(21) {
+sub test_no_reindex_queries_if_in_min_page_count : Test(23) {
 	my $self = shift;
 
 	splice(
@@ -1713,10 +1900,12 @@ sub test_no_reindex_queries_if_in_min_page_count : Test(21) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_bloat_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_queries_if_in_min_page_count_and_forced : Test(15) {
+sub test_reindex_queries_if_in_min_page_count_and_forced : Test(17) {
 	my $self = shift;
 
 	splice(
@@ -1748,10 +1937,12 @@ sub test_reindex_queries_if_in_min_page_count_and_forced : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_table_skipped_and_pgstatuple : Test(72) {
+sub test_reindex_if_table_skipped_and_pgstatuple : Test(74) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1837,11 +2028,13 @@ sub test_reindex_if_table_skipped_and_pgstatuple : Test(72) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(28) {
+sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(30) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1883,11 +2076,13 @@ sub test_reindex_queries_if_table_skipped_and_pgstatuple : Test(28) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_bloat_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_if_not_processed_and_will_be_skipped : Test(60) {
+sub test_reindex_if_not_processed_and_will_be_skipped : Test(62) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -1970,11 +2165,13 @@ sub test_reindex_if_not_processed_and_will_be_skipped : Test(60) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_reindex_queries_if_not_processed_and_will_be_skipped : Test(16) {
+sub test_reindex_queries_if_not_processed_and_will_be_skipped : Test(18) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2013,11 +2210,13 @@ sub test_reindex_queries_if_not_processed_and_will_be_skipped : Test(16) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());
 }
 
-sub test_no_reindex_if_index_is_empty_and_forced : Test(45) {
+sub test_no_reindex_if_index_is_empty_and_forced : Test(47) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2076,10 +2275,12 @@ sub test_no_reindex_if_index_is_empty_and_forced : Test(45) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_queries_if_index_is_empty_and_forced : Test(15) {
+sub test_no_reindex_queries_if_index_is_empty_and_forced : Test(17) {
 	my $self = shift;
 
 	splice(
@@ -2110,10 +2311,12 @@ sub test_no_reindex_queries_if_index_is_empty_and_forced : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_if_not_btree : Test(45) {
+sub test_no_reindex_if_not_btree : Test(47) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2171,10 +2374,12 @@ sub test_no_reindex_if_not_btree : Test(45) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_queries_if_not_btree : Test(15) {
+sub test_no_reindex_queries_if_not_btree : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2202,10 +2407,12 @@ sub test_no_reindex_queries_if_not_btree : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_if_not_btree_and_forced : Test(59) {
+sub test_reindex_if_not_btree_and_forced : Test(61) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2278,10 +2485,12 @@ sub test_reindex_if_not_btree_and_forced : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_queries_if_not_btree_and_force : Test(15) {
+sub test_reindex_queries_if_not_btree_and_forced : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2310,10 +2519,12 @@ sub test_reindex_queries_if_not_btree_and_force : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_if_not_allowed : Test(45) {
+sub test_no_reindex_if_not_allowed : Test(47) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2371,10 +2582,12 @@ sub test_no_reindex_if_not_allowed : Test(45) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_queries_if_not_allowed : Test(15) {
+sub test_no_reindex_queries_if_not_allowed : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2402,10 +2615,12 @@ sub test_no_reindex_queries_if_not_allowed : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_if_not_allowed_and_forced : Test(45) {
+sub test_no_reindex_if_not_allowed_and_forced : Test(47) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2464,10 +2679,12 @@ sub test_no_reindex_if_not_allowed_and_forced : Test(45) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_no_reindex_queries_if_not_allowed_and_forced : Test(15) {
+sub test_no_reindex_queries_if_not_allowed_and_forced : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2496,10 +2713,12 @@ sub test_no_reindex_queries_if_not_allowed_and_forced : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_drop_index_concurrently_when_92 : Test(59) {
+sub test_reindex_drop_index_concurrently_when_92 : Test(61) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2571,10 +2790,12 @@ sub test_reindex_drop_index_concurrently_when_92 : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_queries_drop_index_concurrently_when_92 : Test(15) {
+sub test_reindex_queries_drop_index_concurrently_when_92 : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2602,10 +2823,12 @@ sub test_reindex_queries_drop_index_concurrently_when_92 : Test(15) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_drop_index_not_concurrently_when_91 : Test(59) {
+sub test_reindex_drop_index_not_concurrently_when_91 : Test(61) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2677,10 +2900,12 @@ sub test_reindex_drop_index_not_concurrently_when_91 : Test(59) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
 
-sub test_reindex_queries_drop_index_not_concurrently_when_91 : Test(15) {
+sub test_reindex_queries_drop_index_not_concurrently_when_91 : Test(17) {
 	my $self = shift;
 
 	$self->{'database'}->{'mock'}->{'data_hash'}
@@ -2707,6 +2932,8 @@ sub test_reindex_queries_drop_index_not_concurrently_when_91 : Test(15) {
 		$i++, 'get_index_size_statistics', name => 'table_idx2');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_index_size_statistics', name => 'table_idx3');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 }
@@ -2900,7 +3127,7 @@ sub test_get_pgstattuple_bloat_statistics : Test(2) {
 		$i++, 'get_pgstattuple_bloat_statistics');
 }
 
-sub test_no_final_analyze : Test(5) {
+sub test_no_final_analyze : Test(7) {
 	my $self = shift;
 
 	my $table_compactor = $self->{'table_compactor_constructor'}->(
@@ -2915,7 +3142,150 @@ sub test_no_final_analyze : Test(5) {
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_approximate_bloat_statistics');
 	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
+}
+
+sub test_process_toast_if_not_last_attempt_and_processed : Test(10) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_toast_table_name'}->{'row_list'} = [['pg_toast_12345']];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 27;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+
+	$i = 1;
+
+	$self->{'toast_compactor_mock'}->is_called(
+		$i++, 'init',
+		'schema_name' => 'pg_toast', 'table_name' => 'pg_toast_12345',
+		'toast_parent_ident' => 'schema.table');
+	$self->{'toast_compactor_mock'}->is_called(
+		$i++, 'process', 'attempt' => 1);
+
+	ok($table_compactor->is_processed());
+}
+
+sub test_dont_process_toast_if_not_last_attempt_and_not_processed : Test(5) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[35000, 42000, 92, 110]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 42000, 92, 110]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
+		[[85, 7, 1500]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_toast_table_name'}->{'row_list'} = [['pg_toast_12345']];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		min_page_count => 92,
+		min_free_percent => 7);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 27;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+
+	is($self->{'toast_compactor_mock'}, undef);
+
+	ok(not $table_compactor->is_processed());
+}
+
+sub test_process_toast_if_last_attempt_and_not_processed : Test(10) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[2] =
+		[[35000, 42000, 92, 110]];
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_size_statistics'}->{'row_list_sequence'}->[3] =
+		[[35000, 42000, 92, 110]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_approximate_bloat_statistics'}->{'row_list_sequence'}->[1] =
+		[[85, 7, 1500]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_toast_table_name'}->{'row_list'} = [['pg_toast_12345']];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		min_page_count => 92,
+		min_free_percent => 7);
+
+	$table_compactor->process(attempt => 2);
+
+	my $i = 27;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+
+	$i = 1;
+
+	$self->{'toast_compactor_mock'}->is_called(
+		$i++, 'init',
+		'schema_name' => 'pg_toast', 'table_name' => 'pg_toast_12345',
+		'toast_parent_ident' => 'schema.table');
+	$self->{'toast_compactor_mock'}->is_called(
+		$i++, 'process', 'attempt' => 1);
+
+	ok(not $table_compactor->is_processed());
+}
+
+sub test_process_toast_if_last_attempt_and_processed : Test(10) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_toast_table_name'}->{'row_list'} = [['pg_toast_12345']];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->();
+
+	$table_compactor->process(attempt => 2);
+
+	my $i = 27;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_approximate_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_table_name');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+
+	$i = 1;
+
+	$self->{'toast_compactor_mock'}->is_called(
+		$i++, 'init',
+		'schema_name' => 'pg_toast', 'table_name' => 'pg_toast_12345',
+		'toast_parent_ident' => 'schema.table');
+	$self->{'toast_compactor_mock'}->is_called(
+		$i++, 'process', 'attempt' => 1);
+
+	ok($table_compactor->is_processed());
 }
 
 sub test_continue_processing_on_deadlock_detected : Test(12) {

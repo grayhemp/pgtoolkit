@@ -19,6 +19,8 @@ B<PgToolkit::Compactor::Table> - table level processing for bloat reducing.
 		database => $database,
 		logger => $logger,
 		dry_run => 0,
+		toast_compactor_constructor => $toast_compactor_constructor,
+		toast_parent_ident => $ident,
 		schema_name => $schema_name,
 		table_name => $table_name,
 		min_page_count => 100,
@@ -62,6 +64,14 @@ a database object
 a logger object
 
 =item C<dry_run>
+
+=item C<toast_compactor_constructor>
+
+a TOAST table compactor constructor code reference
+
+=item C<toast_parent_ident>
+
+an ident name of a parent table of the TOAST
 
 =item C<schema_name>
 
@@ -174,6 +184,9 @@ sub _init {
 	$self->{'_schema_name'} = $arg_hash{'schema_name'};
 	$self->{'_table_name'} = $arg_hash{'table_name'};
 
+	$self->{'_toast_compactor_constructor'} =
+		$arg_hash{'toast_compactor_constructor'};
+
 	$self->{'_ident'} =
 		$self->{'_database'}->quote_ident(
 			string => $self->{'_schema_name'}).'.'.
@@ -181,7 +194,10 @@ sub _init {
 			string => $self->{'_table_name'});
 
 	$self->{'_log_target'} = $self->{'_database'}->quote_ident(
-		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
+		string => $self->{'_database'}->get_dbname()).', '.
+		$self->{'_ident'}.
+		(defined $arg_hash{'toast_parent_ident'} ?
+		 ' ['.$arg_hash{'toast_parent_ident'}.']' : '');
 
 	$self->{'_min_page_count'} = $arg_hash{'min_page_count'};
 	$self->{'_min_free_percent'} = $arg_hash{'min_free_percent'};
@@ -250,6 +266,7 @@ sub _process {
 	my $duration;
 	my $is_skipped;
 	my $is_locked;
+	my $is_last_attempt = ($arg_hash{'attempt'} == $self->{'_max_retry_count'});
 
 	if (not $self->_try_advisory_lock()) {
 		$self->_log_skipping_can_not_try_advisory_lock();
@@ -280,8 +297,19 @@ sub _process {
 
 		if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
 			$self->_log_skipping_empty_table();
-			$is_skipped = 1;;
+			$is_skipped = 1;
 		}
+	}
+
+	if (not $is_locked and not $is_skipped and
+		not $self->{'_pgstattuple_schema_ident'} and
+		$self->{'_schema_name'} eq 'pg_toast')
+	{
+		$self->_log_skipping_toast_no_pgstattuple();
+		if ($self->{'_force'}) {
+			$self->_log_vacuum_full_analyze_query();
+		}
+		$is_skipped = 1;
 	}
 
 	if (not $is_locked and not $is_skipped) {
@@ -311,7 +339,7 @@ sub _process {
 				if ($@) {
 					if ($@ =~ 'DataError') {
 						$self->_log_skipping_can_not_get_bloat_statistics();
-						$is_skipped = 1;;
+						$is_skipped = 1;
 					} else {
 						die($@);
 					}
@@ -326,29 +354,41 @@ sub _process {
 		$self->_log_statistics(
 			size_statistics => $self->{'_size_statistics'},
 			bloat_statistics => $self->{'_bloat_statistics'});
+	}
 
-		if ($self->_has_special_triggers()) {
-			$self->_log_can_not_process_ar_triggers();
-			$is_skipped = 1;;
+	if (not $is_locked and not $is_skipped and
+		$self->{'_schema_name'} eq 'pg_toast')
+	{
+		$self->_log_skipping_toast_pgstattuple();
+		$self->_log_vacuum_full_analyze_query();
+		$is_skipped = 1;
+	}
+
+	if (not $is_locked and not $is_skipped and
+		$self->_has_special_triggers())
+	{
+		$self->_log_can_not_process_ar_triggers();
+		$is_skipped = 1;
+	}
+
+	if (not $self->{'_force'}) {
+		if (not $is_locked and not $is_skipped and
+			$self->{'_size_statistics'}->{'page_count'} <
+			$self->{'_min_page_count'})
+		{
+			$self->_log_skipping_min_page_count(
+				page_count => $self->{'_size_statistics'}->{'page_count'});
+			$is_skipped = 1;
 		}
 
-		if (not $self->{'_force'}) {
-			if ($self->{'_size_statistics'}->{'page_count'} <
-				$self->{'_min_page_count'})
-			{
-				$self->_log_skipping_min_page_count(
-					page_count => $self->{'_size_statistics'}->{'page_count'});
-				$is_skipped = 1;;
-			}
-
-			if ($self->{'_bloat_statistics'}->{'free_percent'} <
-				$self->{'_min_free_percent'})
-			{
-				$self->_log_skipping_min_free_percent(
-					free_percent => (
-						$self->{'_bloat_statistics'}->{'free_percent'}));
-				$is_skipped = 1;;
-			}
+		if (not $is_locked and not $is_skipped and
+			$self->{'_bloat_statistics'}->{'free_percent'} <
+			$self->{'_min_free_percent'})
+		{
+			$self->_log_skipping_min_free_percent(
+				free_percent => (
+					$self->{'_bloat_statistics'}->{'free_percent'}));
+			$is_skipped = 1;
 		}
 	}
 
@@ -566,11 +606,14 @@ sub _process {
 
 	my $is_reindexed;
 	if (not $is_locked and
-		($self->{'_dry_run'} or $is_compacted or
-		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
+		($self->{'_dry_run'} or
+		 $is_compacted or
+		 $is_last_attempt or
 		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
-		 not $is_skipped and $will_be_skipped) and
-		($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
+		 not $is_skipped and $will_be_skipped
+		) and
+		($self->{'_reindex'} or
+		 $self->{'_print_reindex_queries'}))
 	{
 		for my $index_data (@{$self->_get_index_data_list()}) {
 			my $index_ident =
@@ -743,14 +786,19 @@ sub _process {
 		}
 	}
 
-	if (not $is_locked and not $self->{'_dry_run'} and
-		not ($is_skipped and not defined $is_reindexed))
-	{
-		my $complete = (
-			($is_compacted or $will_be_skipped or $is_skipped) and
-			(defined $is_reindexed ? $is_reindexed : 1));
+	my $is_complete = (
+		($is_compacted or
+		 $will_be_skipped or
+		 $is_skipped
+		) and
+		(defined $is_reindexed ? $is_reindexed : 1));
 
-		if ($complete) {
+	if (not $is_locked and
+		not $self->{'_dry_run'} and
+		(not $is_skipped or
+		 defined $is_reindexed))
+	{
+		if ($is_complete) {
 			$self->_log_complete_processing();
 		} else {
 			$self->_log_incomplete_processing();
@@ -760,13 +808,26 @@ sub _process {
 			size_statistics => $self->{'_size_statistics'},
 			bloat_statistics => $self->{'_bloat_statistics'},
 			base_size_statistics => $self->{'_base_size_statistics'},
-			complete => $complete);
+			complete => $is_complete);
+	}
+
+	if (not $is_locked and
+		not $self->{'_schema_name'} eq 'pg_toast' and
+		($self->{'_dry_run'} or
+		 $is_complete or
+		 $is_last_attempt))
+	{
+		if (my $toast_tabe_name = $self->_get_toast_table_name()) {
+			$self->{'_toast_compactor_constructor'}->(
+				schema_name => 'pg_toast',
+				table_name => $toast_tabe_name,
+				toast_parent_ident => $self->{'_ident'},
+				)->process(attempt => 1);
+		}
 	}
 
 	$self->{'_is_processed'} = (
-		$is_locked or
-		($self->{'_dry_run'} or $is_compacted or $is_skipped or
-		 $will_be_skipped) and (defined $is_reindexed ? $is_reindexed : 1));
+		$is_locked or $self->{'_dry_run'} or $is_complete);
 
 	return;
 }
@@ -920,6 +981,49 @@ sub _log_vacuum_complete {
 			level => 'info',
 			target => $self->{'_log_target'});
 	}
+
+	return;
+}
+
+sub _log_skipping_toast_no_pgstattuple {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping processing: approximated bloat statistics '.
+			'does not work with TOAST tables, pgstattuple required.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_skipping_toast_pgstattuple {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping processing: can not compact TOAST tables without '.
+			'heavy locks, it can be done with vacuum full, but it '.
+			'is up to you.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
+sub _log_vacuum_full_analyze_query {
+	my ($self, %arg_hash) = @_;
+
+	my $dbname_comment = '-- '.$self->{'_database'}->quote_ident(
+		string => $self->{'_database'}->get_dbname());
+
+	$self->{'_logger'}->write(
+		message => (
+			'Vacuum query'.($self->{'_force'} ? ' forced' : '').":\n".
+			$self->_get_vacuum_full_analyze_query().' '.$dbname_comment),
+		level => 'notice',
+		target => $self->{'_log_target'});
 
 	return;
 }
@@ -1655,6 +1759,21 @@ SQL
 	return $result->[0]->[0];
 }
 
+sub _get_toast_table_name {
+	my $self = shift;
+
+	my $result = $self->_execute_and_log(
+		sql => <<SQL
+SELECT t.relname
+FROM pg_catalog.pg_class AS c
+LEFT JOIN pg_catalog.pg_class AS t ON t.oid = c.reltoastrelid
+WHERE c.oid = '$self->{'_ident'}'::regclass
+SQL
+		);
+
+	return $result->[0]->[0];
+}
+
 sub _get_index_data_list {
 	my $self = shift;
 
@@ -2083,6 +2202,12 @@ sub _get_swap_index_names_query {
 		' RENAME TO pgcompact_index_'.$$.'; '.
 		'ALTER INDEX '.$schema_ident.'.pgcompact_swap_index_'.$$.
 		' RENAME TO '.$index_ident.';';
+}
+
+sub _get_vacuum_full_analyze_query {
+	my ($self, %arg_hash) = @_;
+
+	return 'VACUUM FULL ANALYZE '.$self->{'_ident'}.';';
 }
 
 sub _swap_index_names {

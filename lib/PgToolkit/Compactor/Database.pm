@@ -292,7 +292,7 @@ sub _get_table_data_list {
 	my $table_in = '';
 	if (@{$arg_hash{'table_name_list'}}) {
 		$table_in =
-			'c.relname IN ('.
+			'tablename IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'table_name_list'}})).
 			') AND';
 	}
@@ -300,7 +300,7 @@ sub _get_table_data_list {
 	my $table_not_in = '';
 	if (@{$arg_hash{'excluded_table_name_list'}}) {
 		$table_not_in =
-			'c.relname NOT IN ('.
+			'tablename NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_table_name_list'}})).
 			') AND';
 	}
@@ -308,7 +308,7 @@ sub _get_table_data_list {
 	my $schema_in = '';
 	if (@{$arg_hash{'schema_name_list'}}) {
 		$schema_in =
-			'n.nspname IN ('.
+			'schemaname IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'schema_name_list'}})).
 			') AND';
 	}
@@ -316,7 +316,7 @@ sub _get_table_data_list {
 	my $schema_not_in = '';
 	if (@{$arg_hash{'excluded_schema_name_list'}}) {
 		$schema_not_in =
-			'n.nspname NOT IN ('.
+			'schemaname NOT IN ('.
 			join(', ', map("'$_'", @{$arg_hash{'excluded_schema_name_list'}})).
 			') AND';
 	}
@@ -324,31 +324,32 @@ sub _get_table_data_list {
 	my $not_in_system_catalog = '';
 	if (not $arg_hash{'system_catalog'}) {
 		$not_in_system_catalog =
-			"n.nspname NOT IN ('pg_catalog', 'information_schema') AND";
+			"schemaname NOT IN ('pg_catalog', 'information_schema') AND";
 	}
 
 	my $result = $self->_execute_and_log(
 			sql => <<SQL
-SELECT n.nspname, c.relname FROM pg_catalog.pg_class AS c
-JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+SELECT schemaname, tablename FROM pg_catalog.pg_tables
 WHERE
     $schema_in
     $schema_not_in
     $table_in
     $table_not_in
     $not_in_system_catalog
-    c.relkind IN ('r') AND
-    NOT (n.nspname = 'pg_catalog' AND c.relname = 'pg_index') AND
-    n.nspname !~ 'pg_temp.*'
+    NOT (schemaname = 'pg_catalog' AND tablename = 'pg_index') AND
+    schemaname !~ 'pg_temp.*'
 ORDER BY
     pg_catalog.pg_relation_size(
-        quote_ident(n.nspname) || '.' || quote_ident(c.relname)),
-    n.nspname, c.relname
+        quote_ident(schemaname) || '.' || quote_ident(tablename)),
+    schemaname, tablename;
 SQL
 		);
 
-	return [map({'schema_name' => $_->[0], 'table_name' => $_->[1]},
-				@{$result})];
+	return [
+		map(
+			{'schema_name' => $_->[0], 'table_name' => $_->[1]},
+			@{$result}
+		)];
 }
 
 sub _create_clean_pages_function {
