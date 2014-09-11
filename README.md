@@ -57,7 +57,7 @@ Shows user manual.
 Compacts all the bloated tables in all the databases in the cluster
 plus their bloated indexes. Prints additional progress information.
 
-    pgcompact --all --reindex --verbose info
+    pgcompact --all --reindex --verbosity info
 
 Compacts all the bloated tables in the billing database and their
 bloated indexes excepts ones that are in the `pgq` schema.
