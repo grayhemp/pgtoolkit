@@ -86,6 +86,8 @@ sub create_toast_compactor_mock {
 				message => 'Toast processing mock.',
 				level => 'notice',
 				target => (
+					$self->{'database'}->get_dbname().', '.
+					$arg_hash{'toast_parent_ident'}.', '.
 					$arg_hash{'schema_name'}.'.'.
 					$arg_hash{'table_name'}));
 
@@ -434,6 +436,93 @@ sub test_skip_after_bloat_stats_if_toast_and_pgstattuple_forced : Test(12) {
 		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, 'get_pgstattuple_bloat_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_reindex_if_toast_and_approximate : Test(6) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'} = [
+		['pg_toast_12345_index', undef, 'PRIMARY KEY', 1, 1000]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table',
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 4;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'vacuum');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_reindex_if_toast_and_pgstattuple : Test(10) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'} = [
+		['pg_toast_12345_index', undef, 'PRIMARY KEY', 1, 1000]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table',
+		pgstattuple_schema_name => 'public',
+		reindex => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 7;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'pg_toast_12345_index');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_bloat_statistics', name => 'pg_toast_12345_index');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, undef);
+	ok($table_compactor->is_processed());
+}
+
+sub test_skip_reindex_if_toast_and_pgstattuple_forced : Test(8) {
+	my $self = shift;
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_data_list'}->{'row_list'} = [
+		['pg_toast_12345_index', undef, 'PRIMARY KEY', 1, 1000]];
+
+	$self->{'database'}->{'mock'}->{'data_hash'}
+	->{'get_index_bloat_statistics'}->{'row_list_sequence'}->[0] = [[14, 75]];
+
+	my $table_compactor = $self->{'table_compactor_constructor'}->(
+		schema_name => 'pg_toast',
+		toast_parent_ident => 'schema.table',
+		pgstattuple_schema_name => 'public',
+		reindex => 1,
+		force => 1);
+
+	$table_compactor->process(attempt => 1);
+
+	my $i = 7;
+
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_toast_index_data_list');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_index_size_statistics', name => 'pg_toast_12345_index');
+	$self->{'database'}->{'mock'}->is_called(
+		$i++, 'get_size_statistics');
 	$self->{'database'}->{'mock'}->is_called(
 		$i++, undef);
 	ok($table_compactor->is_processed());

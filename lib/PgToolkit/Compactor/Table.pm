@@ -195,9 +195,9 @@ sub _init {
 
 	$self->{'_log_target'} = $self->{'_database'}->quote_ident(
 		string => $self->{'_database'}->get_dbname()).', '.
-		$self->{'_ident'}.
 		(defined $arg_hash{'toast_parent_ident'} ?
-		 ' ['.$arg_hash{'toast_parent_ident'}.']' : '');
+		 $arg_hash{'toast_parent_ident'}.', ' : '').
+		 $self->{'_ident'};
 
 	$self->{'_min_page_count'} = $arg_hash{'min_page_count'};
 	$self->{'_min_free_percent'} = $arg_hash{'min_free_percent'};
@@ -307,7 +307,7 @@ sub _process {
 	{
 		$self->_log_skipping_toast_no_pgstattuple();
 		if ($self->{'_force'}) {
-			$self->_log_vacuum_full_analyze_query();
+			$self->_log_vacuum_full_query();
 		}
 		$is_skipped = 1;
 	}
@@ -360,7 +360,7 @@ sub _process {
 		$self->{'_schema_name'} eq 'pg_toast')
 	{
 		$self->_log_skipping_toast_pgstattuple();
-		$self->_log_vacuum_full_analyze_query();
+		$self->_log_vacuum_full_query();
 		$is_skipped = 1;
 	}
 
@@ -609,7 +609,8 @@ sub _process {
 		($self->{'_dry_run'} or
 		 $is_compacted or
 		 $is_last_attempt or
-		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
+		 ($self->{'_schema_name'} eq 'pg_toast' or
+		  $is_skipped) and $self->{'_pgstattuple_schema_ident'} or
 		 not $is_skipped and $will_be_skipped
 		) and
 		($self->{'_reindex'} or
@@ -674,6 +675,17 @@ sub _process {
 
 			if (not $index_data->{'allowed'}) {
 				$self->_log_skipping_reindex_not_allowed(
+					ident => $index_ident);
+				$self->_log_reindex_queries(
+					ident => $index_ident,
+					initial_size_statistics => $initial_index_size_statistics,
+					bloat_statistics => $index_bloat_statistics,
+					data => $index_data);
+				next;
+			}
+
+			if ($self->{'_schema_name'} eq 'pg_toast') {
+				$self->_log_skipping_reindex_toast(
 					ident => $index_ident);
 				$self->_log_reindex_queries(
 					ident => $index_ident,
@@ -1012,7 +1024,7 @@ sub _log_skipping_toast_pgstattuple {
 	return;
 }
 
-sub _log_vacuum_full_analyze_query {
+sub _log_vacuum_full_query {
 	my ($self, %arg_hash) = @_;
 
 	my $dbname_comment = '-- '.$self->{'_database'}->quote_ident(
@@ -1021,7 +1033,7 @@ sub _log_vacuum_full_analyze_query {
 	$self->{'_logger'}->write(
 		message => (
 			'Vacuum query'.($self->{'_force'} ? ' forced' : '').":\n".
-			$self->_get_vacuum_full_analyze_query().' '.$dbname_comment),
+			$self->_get_vacuum_full_query().' '.$dbname_comment),
 		level => 'notice',
 		target => $self->{'_log_target'});
 
@@ -1207,6 +1219,20 @@ sub _log_skipping_reindex_not_allowed {
 	return;
 }
 
+sub _log_skipping_reindex_toast {
+	my ($self, %arg_hash) = @_;
+
+	$self->{'_logger'}->write(
+		message => (
+			'Skipping reindex: '.$arg_hash{'ident'}.
+			', can not reindex TOAST indexes without heavy locks, '.
+			'reindexing is up to you.'),
+		level => 'notice',
+		target => $self->{'_log_target'});
+
+	return;
+}
+
 sub _log_skipping_reindex_not_btree {
 	my ($self, %arg_hash) = @_;
 
@@ -1314,7 +1340,8 @@ sub _log_reindex_queries {
 			  PgToolkit::Utils->get_size_pretty(
 				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
 			  ')' : '') : '').".\n".
-			($arg_hash{'data'}->{'allowed'} ?
+			(($arg_hash{'data'}->{'allowed'} and
+			  not ($self->{'_schema_name'} eq 'pg_toast')) ?
 			 join(
 				 ' '.$dbname_comment."\n",
 				 grep(
@@ -1780,7 +1807,7 @@ sub _get_index_data_list {
 	my $result = $self->_execute_and_log(
 		sql => <<SQL
 SELECT
-    indexname, tablespace, indexdef,
+    relname, spcname, indexdef,
     regexp_replace(indexdef, E'.* USING (\\\\w+) .*', E'\\\\1') AS indmethod,
     conname,
     CASE
@@ -1791,36 +1818,34 @@ SELECT
         SELECT
             bool_and(
                 deptype IN ('n', 'a', 'i') AND
-                NOT (refobjid = indexoid AND deptype = 'n') AND
+                NOT (refobjid = indexrelid AND deptype = 'n') AND
                 NOT (
-                    objid = indexoid AND deptype = 'i' AND
+                    objid = indexrelid AND deptype = 'i' AND
                     (version < array[9,1] OR contype NOT IN ('p', 'u'))))
         FROM pg_catalog.pg_depend
         LEFT JOIN pg_catalog.pg_constraint ON
             pg_catalog.pg_constraint.oid = refobjid
         WHERE
-            (objid = indexoid AND classid = pgclassid) OR
-            (refobjid = indexoid AND refclassid = pgclassid)
+            (objid = indexrelid AND classid = pgclassid) OR
+            (refobjid = indexrelid AND refclassid = pgclassid)
     )::integer AS allowed,
-    pg_catalog.pg_relation_size(indexoid)
+    pg_catalog.pg_relation_size(indexrelid)
 FROM (
     SELECT
-        indexname, tablespace, indexdef,
-        (
-            quote_ident(schemaname) || '.' ||
-            quote_ident(indexname))::regclass AS indexoid,
-        'pg_catalog.pg_class'::regclass AS pgclassid,
+        relname, spcname, pg_catalog.pg_get_indexdef(indexrelid) AS indexdef,
+        indexrelid, 'pg_catalog.pg_class'::regclass AS pgclassid,
         string_to_array(
             regexp_replace(
                 version(), E'.*PostgreSQL (\\\\d+\\\\.\\\\d+).*', E'\\\\1'),
             '.')::integer[] AS version
-    FROM pg_catalog.pg_indexes
-    WHERE
-        schemaname = '$self->{'_schema_name'}' AND
-        tablename = '$self->{'_table_name'}'
+    FROM pg_catalog.pg_index
+    JOIN pg_catalog.pg_class ON pg_catalog.pg_class.oid = indexrelid
+    LEFT JOIN pg_catalog.pg_tablespace ON
+        pg_catalog.pg_tablespace.oid = reltablespace
+    WHERE indrelid = '$self->{'_ident'}'::regclass
 ) AS sq
 LEFT JOIN pg_catalog.pg_constraint ON
-    conindid = indexoid AND contype IN ('p', 'u')
+    conindid = indexrelid AND contype IN ('p', 'u')
 ORDER BY 8;
 SQL
 		);
@@ -2204,10 +2229,10 @@ sub _get_swap_index_names_query {
 		' RENAME TO '.$index_ident.';';
 }
 
-sub _get_vacuum_full_analyze_query {
+sub _get_vacuum_full_query {
 	my ($self, %arg_hash) = @_;
 
-	return 'VACUUM FULL ANALYZE '.$self->{'_ident'}.';';
+	return 'VACUUM FULL '.$self->{'_ident'}.';';
 }
 
 sub _swap_index_names {

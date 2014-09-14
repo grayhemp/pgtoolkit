@@ -172,23 +172,36 @@ sub init {
 		'get_index_size_statistics' => {
 			'sql_pattern' => (
 				qr/SELECT size, ceil\(size \/ bs\) AS page_count.+/s.
-				qr/SELECT\s+pg_catalog\.pg_relation_size\('schema.<name>'/s),
+				qr/SELECT\s+pg_catalog\.pg_relation_size\(/s.
+				qr/'(schema|pg_toast).<name>'/s),
 			'row_list_sequence' => [[[1000, 200]], [[850, 170]],
 									[[500, 100]], [[425, 85]],
 									[[500, 100]], [[425, 85]]]},
 		'get_index_bloat_statistics' => {
 			'sql_pattern' => (
 				qr/SELECT.+avg_leaf_density.+/s.
-				qr/public.pgstatindex\(\s*'schema\.<name>'\) AS pgsi.+/s.
-				qr/pg_catalog.pg_class.oid = 'schema\.<name>'::regclass/),
+				qr/public.pgstatindex\(\s*'(pg_toast|schema)\.<name>'\).+/s.
+				qr/pg_catalog.pg_class.oid = '(pg_toast|schema)\.<name>'/),
 			'row_list_sequence' => [[[15, 150]], [[15, 75]], [[15, 75]]]},
+		'get_toast_index_data_list' => {
+			'sql_pattern' => (
+				qr/SELECT\s+/s.
+				qr/relname, spcname, indexdef,\s+/s.
+				qr/regexp_replace.+ AS indmethod,\s+/s.
+				qr/conname,.+/s.
+				qr/WHERE indrelid = 'pg_toast.table'::regclass/s),
+			'row_list' => [
+				['pg_toast_12345_index', undef,
+				 'CREATE UNIQUE INDEX pg_toast_12345_index ON pg_toast.table '.
+				 'USING btree (chunk_id, chunk_seq)',
+				 'btree', 'table_pkey', 'PRIMARY KEY', 1, 1000]]},
 		'get_index_data_list' => {
 			'sql_pattern' => (
 				qr/SELECT\s+/s.
-				qr/indexname, tablespace, indexdef,\s+/s.
+				qr/relname, spcname, indexdef,\s+/s.
 				qr/regexp_replace.+ AS indmethod,\s+/s.
 				qr/conname,.+/s.
-				qr/schemaname = 'schema' AND\s+tablename = 'table'/s),
+				qr/WHERE indrelid = 'schema.table'::regclass/s),
 			'row_list' => [
 				['table_pkey', undef,
 				 'CREATE UNIQUE INDEX table_pkey ON schema.table '.

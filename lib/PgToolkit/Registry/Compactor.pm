@@ -113,6 +113,7 @@ sub get_table_compactor {
 		toast_compactor_constructor => sub {
 			return $self->get_table_compactor(%arg_hash, @_);
 		},
+		toast_parent_ident => $arg_hash{'toast_parent_ident'},
 		schema_name => $arg_hash{'schema_name'},
 		table_name => $arg_hash{'table_name'},
 		min_page_count => $options->get(name => 'min-page-count'),

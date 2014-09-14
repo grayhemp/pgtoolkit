@@ -37,10 +37,10 @@ CREATE INDEX table1_gist ON table1
 CREATE INDEX table1_gin ON table1
     USING gin (to_tsvector('english', id::text));
 CREATE INDEX table1_hash ON table1 USING hash (text_column);
-DELETE FROM table1 WHERE random() < 0.5;
 CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
 CREATE INDEX table1_idx3 ON table1 (text_column) WHERE false;
 CREATE INDEX table1_idx4 ON table1 (text_column) WHERE  id < 500;
+DELETE FROM table1 WHERE random() < 0.5;
 --
 CREATE TABLE table2 ("primary" integer, float_column real)
 WITH (fillfactor=50);
@@ -75,8 +75,6 @@ CREATE SCHEMA dummy;
 ALTER DATABASE dbname1 SET search_path TO dummy;
 --
 \c dbname2
---
---CREATE EXTENSION pgstattuple;
 --
 CREATE TABLE table1 ("primary" integer, float_column real)
 WITH (fillfactor=50);
@@ -150,7 +148,16 @@ SELECT
         (random() * 1000000)::text,
         (random() * 5000)::integer) AS text_column
 FROM generate_series(1, 10000) AS i;
-DELETE FROM public.table7 WHERE id BETWEEN 10 AND 100000 - 10;
+CREATE INDEX table7_idx1 ON table7 (text_column, float_column);
+ALTER TABLE table7 ADD CONSTRAINT table7_pkey PRIMARY KEY (id);
+ALTER TABLE table7 ADD CONSTRAINT table7_uidx1 UNIQUE (id, text_column)
+WITH (fillfactor=50);
+CREATE INDEX table7_gist ON table7
+    USING gist (to_tsvector('english', id::text));
+CREATE INDEX table7_gin ON table7
+    USING gin (to_tsvector('english', id::text));
+CREATE INDEX table7_hash ON table7 USING hash (text_column);
+DELETE FROM public.table7 WHERE id BETWEEN 1000 AND 10000 - 1000;
 --
 CREATE SCHEMA dummy;
 --
@@ -366,7 +373,7 @@ WHERE
 -- Get index definitions
 
 SELECT
-    indexname, tablespace, indexdef,
+    relname, spcname, indexdef,
     regexp_replace(indexdef, E'.* USING (\\w+) .*', E'\\1') AS indmethod,
     conname,
     CASE
@@ -377,36 +384,34 @@ SELECT
         SELECT
             bool_and(
                 deptype IN ('n', 'a', 'i') AND
-                NOT (refobjid = indexoid AND deptype = 'n') AND
+                NOT (refobjid = indexrelid AND deptype = 'n') AND
                 NOT (
-                    objid = indexoid AND deptype = 'i' AND
+                    objid = indexrelid AND deptype = 'i' AND
                     (version < array[9,1] OR contype NOT IN ('p', 'u'))))
         FROM pg_catalog.pg_depend
         LEFT JOIN pg_catalog.pg_constraint ON
             pg_catalog.pg_constraint.oid = refobjid
         WHERE
-            (objid = indexoid AND classid = pgclassid) OR
-            (refobjid = indexoid AND refclassid = pgclassid)
+            (objid = indexrelid AND classid = pgclassid) OR
+            (refobjid = indexrelid AND refclassid = pgclassid)
     )::integer AS allowed,
-    pg_catalog.pg_relation_size(indexoid)
+    pg_catalog.pg_relation_size(indexrelid)
 FROM (
     SELECT
-        indexname, tablespace, indexdef,
-        (
-            quote_ident(schemaname) || '.' ||
-            quote_ident(indexname))::regclass AS indexoid,
-        'pg_catalog.pg_class'::regclass AS pgclassid,
+        relname, spcname, pg_catalog.pg_get_indexdef(indexrelid) AS indexdef,
+        indexrelid, 'pg_catalog.pg_class'::regclass AS pgclassid,
         string_to_array(
             regexp_replace(
                 version(), E'.*PostgreSQL (\\d+\\.\\d+).*', E'\\1'),
             '.')::integer[] AS version
-    FROM pg_catalog.pg_indexes
-    WHERE
-        schemaname = 'public' AND
-        tablename = 'table1'
+    FROM pg_catalog.pg_index
+    JOIN pg_catalog.pg_class ON pg_catalog.pg_class.oid = indexrelid
+    LEFT JOIN pg_catalog.pg_tablespace ON
+        pg_catalog.pg_tablespace.oid = reltablespace
+    WHERE indrelid = 'public.table7'::regclass
 ) AS sq
 LEFT JOIN pg_catalog.pg_constraint ON
-    conindid = indexoid AND contype IN ('p', 'u')
+    conindid = indexrelid AND contype IN ('p', 'u')
 ORDER BY 8;
 
 SELECT size, ceil(size / bs) AS page_count
