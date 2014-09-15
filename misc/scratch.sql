@@ -162,6 +162,30 @@ SELECT
 FROM generate_series(1, 10000) i;
 UPDATE public.table5 SET float_column = random() * 10000;
 --
+CREATE TABLE table5_p1 () INHERITS (table5);
+INSERT INTO table5_p1
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 50000)::integer) AS text_column
+FROM generate_series(1, 10000) i;
+DELETE FROM table5_p1
+WHERE random() < 0.3;
+--
+CREATE TABLE table5_p2 () INHERITS (table5);
+INSERT INTO table5_p2
+SELECT
+    i AS id,
+    random() * 10000 AS float_column,
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 50000)::integer) AS text_column
+FROM generate_series(1, 10000) i;
+DELETE FROM table5_p2
+WHERE random() < 0.6;
+--
 CREATE TABLE public.table7 AS
 SELECT
     i AS id,

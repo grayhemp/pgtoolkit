@@ -2,21 +2,17 @@
 
 ## To-Do List
 
-### PgToolkit v1.0.2
+### PgToolkit v1.0.3
 
-- Use `DROP INDEX CONCURRENTLY` when possible
-- Print `TOAST` tables bloat warnings
-- Use the `INSERT/DELETE` technique when possible
-- Use approximation for not `TOAST`'ed tables as an experimental
-  feature
+- Fix the incorrect cleaning result bug
 
 ### PgToolkit v1.1alpha1
 
-- Create a `pganalyze` prototype
 - Create a `pgwatch` prototype
+- Create a `pgaudit` prototype
+- Create a `pgstatement` prototype
 - Create a `pgasync` prototype
 - Create a `pgbackup` prototype
-- Create a `pgcheck` prototype
 - Create a `pgrestore` prototype
 - Create a `pgpitr` prototype
 - Think of a way to compact `TOAST` tables
@@ -30,12 +26,28 @@
 - Add a restricted run time option
 - Fix the `TOAST`'ed tables stats approximation
 - Clean up interruption consequences
+- Use the `INSERT/DELETE` technique when possible
+- Add index bloat approximation
+- Add a `--no-toast` option
+- Make reindex on by default and add a `--no-reindex` option
+- Use approximation for not `TOAST`'ed tables
+- Make routine vacuum off by default and add a `--routine-vacuum`
+  option
+- Find the best value of `--delay-ratio` and set it as default
 
 ### PgToolkit v1.2alpha1
 
 - Create a `pgpool` prototype
 - Create a `pgbalance` prototype
 - Create a `pgha` prototype
+
+### Release v1.3alpha1
+
+- Create a `pgconfig` prototype
+
+### Release v1.4alpha1
+
+- Create a `pgring` prototype
 
 ### PgToolkit v2.0alpha1
 

@@ -2,6 +2,17 @@
 
 ## Changes
 
+### 2014-02-22 - PgToolkit v1.0.2
+
+- Fixed the non working statement timeout in the reindexing process
+- Made it use `DROP INDEX CONCURRENTLY` if version is `>=9.2`
+- Fixed the randomness of the SET statements order in database
+  adapters
+- Made it to process TOAST tables and indexes providing bloat
+  information and rebuilding instructions
+- Set an additional protection against the "incorrect result of
+  cleaning" error
+
 ### 2014-02-07 - PgToolkit v1.0.1
 
 - Fixed the dependency check leading to the inability to re-index some

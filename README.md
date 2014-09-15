@@ -25,7 +25,7 @@ or to `svn checkout` it
 
     svn checkout https://github.com/grayhemp/pgtoolkit
 
-Do not forget to switch to the necessary version branch afterwards.
+**Do not forget to switch to the necessary version branch afterwards.**
 
 You can also use the autonomous scripts in the `fatpack` directory or
 the non-autonomous versions of them in the `bin` directory. For the
@@ -68,23 +68,27 @@ bloated indexes excepts ones that are in the `pgq` schema.
 
 - Requires no dependencies except `Perl >=5.8.8`, so it can just be
   copied to server and run
-- Works with `DBD::Pg`, `DBD::PgPP` or even using `psql` if there are
-  no former ones, detects and chooses the best option automatically
-- Can process specified tables, schemes, databases or the whole
-  cluster
+- Works via `DBD::Pg`, `DBD::PgPP` or even `psql` if there are no
+  former ones, detects and chooses the best option automatically
+- Processes either whole cluster or specified tables, schemes,
+  databases only
 - Has an ability to exclude tables, schemes or databases from
   processing
-- Bloat percentage analysis and processing of those tables that need
-  it only, we recommend to install [pgstattuple] for more precise
-  estimations
-- Indexes bloat analysis and non blocking reindex of those that need
-  it
-- Analysis and rebuilding of bloated unique constraints and primary
-  keys where possible
+- Performs bloat analysis and processes those tables that have it
+  only. We recommend to install [pgstattuple] for more precise
+  estimations.
+- Uses non blocking reindex techniques
+- Performs indexes bloat analysis and processes only the required ones
+- Analyses and rebuilds bloated unique constraints and primary keys
+  where possible
+- Provides TOAST tables and their indexes bloat information and
+  rebuilding instructions
 - Incremental processing, in other words one can stop the process and
   continue it at any time later
-- Dynamic adjustment to current load of database to not affect its
-  performance
+- Dynamically adjusts behavior for current load of database to not
+  affect its performance
+- Can be run in several parallel sessions on the same instance to
+  process the tables faster
 - Instructs administrators, supplying them with ready to use DDL, to
   manually rebuild database objects that can not be rebuilt
   automatically
@@ -110,6 +114,7 @@ PgToolkit is released under the PostgreSQL License, read
 
 Thank you:
 
+- DenisBY for bug reports and testing
 - [PostgreSQL-Consulting.com](http://www.postgresql-consulting.com)
   for a huge amount of ideas and lots of testing
 - Lonni Friedman for your ideas

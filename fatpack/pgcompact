@@ -5,7 +5,7 @@
 BEGIN {
 my %fatpacked;
 
-$fatpacked{"PgToolkit/Class.pm"} = <<'PGTOOLKIT_CLASS';
+$fatpacked{"PgToolkit/Class.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_CLASS';
   package PgToolkit::Class;
   
   use strict;
@@ -95,7 +95,7 @@ $fatpacked{"PgToolkit/Class.pm"} = <<'PGTOOLKIT_CLASS';
   1;
 PGTOOLKIT_CLASS
 
-$fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
+$fatpacked{"PgToolkit/Compactor.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_COMPACTOR';
   package PgToolkit::Compactor;
   
   use base qw(PgToolkit::Class);
@@ -262,7 +262,7 @@ $fatpacked{"PgToolkit/Compactor.pm"} = <<'PGTOOLKIT_COMPACTOR';
   1;
 PGTOOLKIT_COMPACTOR
 
-$fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
+$fatpacked{"PgToolkit/Compactor/Cluster.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_COMPACTOR_CLUSTER';
   package PgToolkit::Compactor::Cluster;
   
   use base qw(PgToolkit::Compactor);
@@ -564,7 +564,7 @@ $fatpacked{"PgToolkit/Compactor/Cluster.pm"} = <<'PGTOOLKIT_COMPACTOR_CLUSTER';
   1;
 PGTOOLKIT_COMPACTOR_CLUSTER
 
-$fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE';
+$fatpacked{"PgToolkit/Compactor/Database.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_COMPACTOR_DATABASE';
   package PgToolkit::Compactor::Database;
   
   use base qw(PgToolkit::Compactor);
@@ -904,16 +904,19 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
       $table_not_in
       $not_in_system_catalog
       NOT (schemaname = 'pg_catalog' AND tablename = 'pg_index') AND
-      schemaname !~ 'pg_(temp|toast).*'
+      schemaname !~ 'pg_temp.*'
   ORDER BY
       pg_catalog.pg_relation_size(
           quote_ident(schemaname) || '.' || quote_ident(tablename)),
-      schemaname, tablename
+      schemaname, tablename;
   SQL
   		);
   
-  	return [map({'schema_name' => $_->[0], 'table_name' => $_->[1]},
-  				@{$result})];
+  	return [
+  		map(
+  			{'schema_name' => $_->[0], 'table_name' => $_->[1]},
+  			@{$result}
+  		)];
   }
   
   sub _create_clean_pages_function {
@@ -1053,7 +1056,7 @@ $fatpacked{"PgToolkit/Compactor/Database.pm"} = <<'PGTOOLKIT_COMPACTOR_DATABASE'
   1;
 PGTOOLKIT_COMPACTOR_DATABASE
 
-$fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
+$fatpacked{"PgToolkit/Compactor/Table.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_COMPACTOR_TABLE';
   package PgToolkit::Compactor::Table;
   
   use base qw(PgToolkit::Compactor);
@@ -1075,6 +1078,8 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		database => $database,
   		logger => $logger,
   		dry_run => 0,
+  		toast_compactor_constructor => $toast_compactor_constructor,
+  		toast_parent_ident => $ident,
   		schema_name => $schema_name,
   		table_name => $table_name,
   		min_page_count => 100,
@@ -1118,6 +1123,14 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   a logger object
   
   =item C<dry_run>
+  
+  =item C<toast_compactor_constructor>
+  
+  a TOAST table compactor constructor code reference
+  
+  =item C<toast_parent_ident>
+  
+  an ident name of a parent table of the TOAST
   
   =item C<schema_name>
   
@@ -1230,6 +1243,9 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	$self->{'_schema_name'} = $arg_hash{'schema_name'};
   	$self->{'_table_name'} = $arg_hash{'table_name'};
   
+  	$self->{'_toast_compactor_constructor'} =
+  		$arg_hash{'toast_compactor_constructor'};
+  
   	$self->{'_ident'} =
   		$self->{'_database'}->quote_ident(
   			string => $self->{'_schema_name'}).'.'.
@@ -1237,7 +1253,10 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			string => $self->{'_table_name'});
   
   	$self->{'_log_target'} = $self->{'_database'}->quote_ident(
-  		string => $self->{'_database'}->get_dbname()).', '.$self->{'_ident'};
+  		string => $self->{'_database'}->get_dbname()).', '.
+  		(defined $arg_hash{'toast_parent_ident'} ?
+  		 $arg_hash{'toast_parent_ident'}.', ' : '').
+  		 $self->{'_ident'};
   
   	$self->{'_min_page_count'} = $arg_hash{'min_page_count'};
   	$self->{'_min_free_percent'} = $arg_hash{'min_free_percent'};
@@ -1267,6 +1286,10 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		$arg_hash{'pages_before_vacuum_lower_threshold'};
   	$self->{'_pages_before_vacuum_upper_divisor'} =
   		$arg_hash{'pages_before_vacuum_upper_divisor'};
+  
+  	$self->{'_can_drop_index_concurrently'} = PgToolkit::Utils->cmp_versions(
+  		v1 => $self->{'_database'}->get_major_version(),
+  		v2 => '9.2') >= 0;
   
   	$self->{'_is_dropped'} = 0;
   	$self->{'_is_processed'} = 0;
@@ -1302,6 +1325,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	my $duration;
   	my $is_skipped;
   	my $is_locked;
+  	my $is_last_attempt = ($arg_hash{'attempt'} == $self->{'_max_retry_count'});
   
   	if (not $self->_try_advisory_lock()) {
   		$self->_log_skipping_can_not_try_advisory_lock();
@@ -1332,8 +1356,19 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   		if ($self->{'_size_statistics'}->{'page_count'} <= 1) {
   			$self->_log_skipping_empty_table();
-  			$is_skipped = 1;;
+  			$is_skipped = 1;
   		}
+  	}
+  
+  	if (not $is_locked and not $is_skipped and
+  		not $self->{'_pgstattuple_schema_ident'} and
+  		$self->{'_schema_name'} eq 'pg_toast')
+  	{
+  		$self->_log_skipping_toast_no_pgstattuple();
+  		if ($self->{'_force'}) {
+  			$self->_log_vacuum_full_query();
+  		}
+  		$is_skipped = 1;
   	}
   
   	if (not $is_locked and not $is_skipped) {
@@ -1363,7 +1398,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   				if ($@) {
   					if ($@ =~ 'DataError') {
   						$self->_log_skipping_can_not_get_bloat_statistics();
-  						$is_skipped = 1;;
+  						$is_skipped = 1;
   					} else {
   						die($@);
   					}
@@ -1378,29 +1413,41 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		$self->_log_statistics(
   			size_statistics => $self->{'_size_statistics'},
   			bloat_statistics => $self->{'_bloat_statistics'});
+  	}
   
-  		if ($self->_has_special_triggers()) {
-  			$self->_log_can_not_process_ar_triggers();
-  			$is_skipped = 1;;
+  	if (not $is_locked and not $is_skipped and
+  		$self->{'_schema_name'} eq 'pg_toast')
+  	{
+  		$self->_log_skipping_toast_pgstattuple();
+  		$self->_log_vacuum_full_query();
+  		$is_skipped = 1;
+  	}
+  
+  	if (not $is_locked and not $is_skipped and
+  		$self->_has_special_triggers())
+  	{
+  		$self->_log_can_not_process_ar_triggers();
+  		$is_skipped = 1;
+  	}
+  
+  	if (not $self->{'_force'}) {
+  		if (not $is_locked and not $is_skipped and
+  			$self->{'_size_statistics'}->{'page_count'} <
+  			$self->{'_min_page_count'})
+  		{
+  			$self->_log_skipping_min_page_count(
+  				page_count => $self->{'_size_statistics'}->{'page_count'});
+  			$is_skipped = 1;
   		}
   
-  		if (not $self->{'_force'}) {
-  			if ($self->{'_size_statistics'}->{'page_count'} <
-  				$self->{'_min_page_count'})
-  			{
-  				$self->_log_skipping_min_page_count(
-  					page_count => $self->{'_size_statistics'}->{'page_count'});
-  				$is_skipped = 1;;
-  			}
-  
-  			if ($self->{'_bloat_statistics'}->{'free_percent'} <
-  				$self->{'_min_free_percent'})
-  			{
-  				$self->_log_skipping_min_free_percent(
-  					free_percent => (
-  						$self->{'_bloat_statistics'}->{'free_percent'}));
-  				$is_skipped = 1;;
-  			}
+  		if (not $is_locked and not $is_skipped and
+  			$self->{'_bloat_statistics'}->{'free_percent'} <
+  			$self->{'_min_free_percent'})
+  		{
+  			$self->_log_skipping_min_free_percent(
+  				free_percent => (
+  					$self->{'_bloat_statistics'}->{'free_percent'}));
+  			$is_skipped = 1;
   		}
   	}
   
@@ -1487,6 +1534,9 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   							$max_tupples_per_page.'.'),
   						level => 'warning',
   						target => $self->{'_log_target'});
+  
+  					$to_page = $last_to_page;
+  					last;
   				}
   
   				$self->_commit();
@@ -1618,11 +1668,15 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   	my $is_reindexed;
   	if (not $is_locked and
-  		($self->{'_dry_run'} or $is_compacted or
-  		 $arg_hash{'attempt'} == $self->{'_max_retry_count'} or
-  		 $is_skipped and $self->{'_pgstattuple_schema_ident'} or
-  		 not $is_skipped and $will_be_skipped) and
-  		($self->{'_reindex'} or $self->{'_print_reindex_queries'}))
+  		($self->{'_dry_run'} or
+  		 $is_compacted or
+  		 $is_last_attempt or
+  		 ($self->{'_schema_name'} eq 'pg_toast' or
+  		  $is_skipped) and $self->{'_pgstattuple_schema_ident'} or
+  		 not $is_skipped and $will_be_skipped
+  		) and
+  		($self->{'_reindex'} or
+  		 $self->{'_print_reindex_queries'}))
   	{
   		for my $index_data (@{$self->_get_index_data_list()}) {
   			my $index_ident =
@@ -1692,17 +1746,52 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   				next;
   			}
   
+  			if ($self->{'_schema_name'} eq 'pg_toast') {
+  				$self->_log_skipping_reindex_toast(
+  					ident => $index_ident);
+  				$self->_log_reindex_queries(
+  					ident => $index_ident,
+  					initial_size_statistics => $initial_index_size_statistics,
+  					bloat_statistics => $index_bloat_statistics,
+  					data => $index_data);
+  				next;
+  			}
+  
   			if (not $self->{'_dry_run'} and $self->{'_reindex'}) {
-  				$self->_reindex(data => $index_data);
+  				$self->_create_index_concurrently(data => $index_data);
   				$duration = $self->{'_database'}->get_duration();
   
   				my $locked_alter_attempt = 0;
   				while ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
   					eval {
-  						$self->_alter_index(data => $index_data);
+  						$self->_begin();
+  						$duration += $self->{'_database'}->get_duration();
+  						$self->_set_local_statement_timeout();
+  						$duration += $self->{'_database'}->get_duration();
+  						if ($index_data->{'conname'}) {
+  							$self->_drop_constraint(data => $index_data);
+  							$duration += $self->{'_database'}->get_duration();
+  							$self->_add_constraint(data => $index_data);
+  							$duration += $self->{'_database'}->get_duration();
+  						} else {
+  							if ($self->{'_can_drop_index_concurrently'}) {
+  								$self->_swap_index_names(data => $index_data);
+  								$duration +=
+  									$self->{'_database'}->get_duration();
+  							} else {
+  								$self->_drop_index(data => $index_data);
+  								$duration +=
+  									$self->{'_database'}->get_duration();
+  								$self->_rename_temp_index(data => $index_data);
+  								$duration +=
+  									$self->{'_database'}->get_duration();
+  							}
+  						}
+  						$self->_end();
   						$duration += $self->{'_database'}->get_duration();
   					};
   					if ($@) {
+  						$self->_end();
   						if ($@ =~ ('canceling statement due '.
   								   'to statement timeout'))
   						{
@@ -1717,6 +1806,13 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   				}
   
   				if ($locked_alter_attempt < $self->{'_locked_alter_count'}) {
+  					if ($self->{'_can_drop_index_concurrently'} and
+  						not defined $index_data->{'conname'})
+  					{
+  						$self->_drop_temp_index_concurrently(
+  							data => $index_data);
+  						$duration += $self->{'_database'}->get_duration();
+  					}
   					$self->_log_reindex(
   						ident => $index_ident,
   						initial_size_statistics => (
@@ -1729,8 +1825,14 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   					$is_reindexed =
   						(defined $is_reindexed) ? ($is_reindexed and 1) : 1;
   				} else {
-  					$self->_drop_temp_index(data => $index_data);
-  					$duration += $self->{'_database'}->get_duration();
+  					if ($self->{'_can_drop_index_concurrently'}) {
+  						$self->_drop_temp_index_concurrently(
+  							data => $index_data);
+  						$duration += $self->{'_database'}->get_duration();
+  					} else {
+  						$self->_drop_temp_index(data => $index_data);
+  						$duration += $self->{'_database'}->get_duration();
+  					}
   
   					$self->_log_reindex_locked_alter_didnt_acquire_lock(
   						ident => $index_ident,
@@ -1758,14 +1860,19 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		}
   	}
   
-  	if (not $is_locked and not $self->{'_dry_run'} and
-  		not ($is_skipped and not defined $is_reindexed))
-  	{
-  		my $complete = (
-  			($is_compacted or $will_be_skipped or $is_skipped) and
-  			(defined $is_reindexed ? $is_reindexed : 1));
+  	my $is_complete = (
+  		($is_compacted or
+  		 $will_be_skipped or
+  		 $is_skipped
+  		) and
+  		(defined $is_reindexed ? $is_reindexed : 1));
   
-  		if ($complete) {
+  	if (not $is_locked and
+  		not $self->{'_dry_run'} and
+  		(not $is_skipped or
+  		 defined $is_reindexed))
+  	{
+  		if ($is_complete) {
   			$self->_log_complete_processing();
   		} else {
   			$self->_log_incomplete_processing();
@@ -1775,13 +1882,26 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			size_statistics => $self->{'_size_statistics'},
   			bloat_statistics => $self->{'_bloat_statistics'},
   			base_size_statistics => $self->{'_base_size_statistics'},
-  			complete => $complete);
+  			complete => $is_complete);
+  	}
+  
+  	if (not $is_locked and
+  		not $self->{'_schema_name'} eq 'pg_toast' and
+  		($self->{'_dry_run'} or
+  		 $is_complete or
+  		 $is_last_attempt))
+  	{
+  		if (my $toast_tabe_name = $self->_get_toast_table_name()) {
+  			$self->{'_toast_compactor_constructor'}->(
+  				schema_name => 'pg_toast',
+  				table_name => $toast_tabe_name,
+  				toast_parent_ident => $self->{'_ident'},
+  				)->process(attempt => 1);
+  		}
   	}
   
   	$self->{'_is_processed'} = (
-  		$is_locked or
-  		($self->{'_dry_run'} or $is_compacted or $is_skipped or
-  		 $will_be_skipped) and (defined $is_reindexed ? $is_reindexed : 1));
+  		$is_locked or $self->{'_dry_run'} or $is_complete);
   
   	return;
   }
@@ -1935,6 +2055,49 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			level => 'info',
   			target => $self->{'_log_target'});
   	}
+  
+  	return;
+  }
+  
+  sub _log_skipping_toast_no_pgstattuple {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'_logger'}->write(
+  		message => (
+  			'Skipping processing: approximated bloat statistics '.
+  			'does not work with TOAST tables, pgstattuple required.'),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
+  
+  	return;
+  }
+  
+  sub _log_skipping_toast_pgstattuple {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'_logger'}->write(
+  		message => (
+  			'Skipping processing: can not compact TOAST tables without '.
+  			'heavy locks, it can be done with vacuum full, but it '.
+  			'is up to you.'),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
+  
+  	return;
+  }
+  
+  sub _log_vacuum_full_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $dbname_comment = '-- '.$self->{'_database'}->quote_ident(
+  		string => $self->{'_database'}->get_dbname());
+  
+  	$self->{'_logger'}->write(
+  		message => (
+  			'Vacuum query'.($self->{'_force'} ? ' forced' : '').":\n".
+  			$self->_get_vacuum_full_query().' '.$dbname_comment),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
   
   	return;
   }
@@ -2118,6 +2281,20 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	return;
   }
   
+  sub _log_skipping_reindex_toast {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->{'_logger'}->write(
+  		message => (
+  			'Skipping reindex: '.$arg_hash{'ident'}.
+  			', can not reindex TOAST indexes without heavy locks, '.
+  			'reindexing is up to you.'),
+  		level => 'notice',
+  		target => $self->{'_log_target'});
+  
+  	return;
+  }
+  
   sub _log_skipping_reindex_not_btree {
   	my ($self, %arg_hash) = @_;
   
@@ -2207,23 +2384,50 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   sub _log_reindex_queries {
   	my ($self, %arg_hash) = @_;
   
+  	my $dbname_comment = '-- '.$self->{'_database'}->quote_ident(
+  		string => $self->{'_database'}->get_dbname());
+  
   	$self->{'_logger'}->write(
   		message => (
   			'Reindex queries'.($self->{'_force'} ? ' forced' : '').': '.
   			$arg_hash{'ident'}.
-  			($arg_hash{'initial_size_statistics'} ? ', initial size '.
+  			($arg_hash{'initial_size_statistics'} ?
+  			 ', initial size '.
   			 $arg_hash{'initial_size_statistics'}->{'page_count'}.' pages ('.
   			 PgToolkit::Utils->get_size_pretty(
   				 size => $arg_hash{'initial_size_statistics'}->{'size'}).')'.
-  			 ($arg_hash{'bloat_statistics'} ? ', will be reduced by '.
+  			 ($arg_hash{'bloat_statistics'} ?
+  			  ', will be reduced by '.
   			  $arg_hash{'bloat_statistics'}->{'free_percent'}.'% ('.
   			  PgToolkit::Utils->get_size_pretty(
   				  size => $arg_hash{'bloat_statistics'}->{'free_space'}).
   			  ')' : '') : '').".\n".
-  			($arg_hash{'data'}->{'allowed'} ?
-  			 $self->_get_reindex_query(data => $arg_hash{'data'})."\n".
-  			 $self->_get_alter_index_query(data => $arg_hash{'data'}) :
-  			 $self->_get_straight_reindex_query(data => $arg_hash{'data'}))),
+  			(($arg_hash{'data'}->{'allowed'} and
+  			  not ($self->{'_schema_name'} eq 'pg_toast')) ?
+  			 join(
+  				 ' '.$dbname_comment."\n",
+  				 grep(
+  					 defined,
+  					 ($self->_get_create_index_concurrently_query(%arg_hash),
+  					  $self->_get_begin_query(),
+  					  $self->_get_set_local_statement_timeout_query(),
+  					  $arg_hash{'data'}->{'conname'} ? (
+  						  $self->_get_drop_constraint_query(%arg_hash),
+  						  $self->_get_add_constraint_query(%arg_hash)
+  					  ) : (
+  						  $self->{'_can_drop_index_concurrently'} ?
+  						  $self->_get_swap_index_names_query(%arg_hash) : (
+  							  $self->_get_drop_index_query(%arg_hash),
+  							  $self->_get_rename_temp_index_query(%arg_hash)
+  						  )
+  					  ),
+  					  $self->_get_end_query(),
+  					  ($self->{'_can_drop_index_concurrently'} and
+  					   not defined $arg_hash{'data'}->{'conname'}) ?
+  					  $self->_get_drop_temp_index_concurrently_query(
+  						  %arg_hash) :
+  					  undef))).' '.$dbname_comment :
+  			 $self->_get_reindex_query(%arg_hash))),
   		level => 'notice',
   		target => $self->{'_log_target'});
   
@@ -2644,13 +2848,28 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	return $result->[0]->[0];
   }
   
+  sub _get_toast_table_name {
+  	my $self = shift;
+  
+  	my $result = $self->_execute_and_log(
+  		sql => <<SQL
+  SELECT t.relname
+  FROM pg_catalog.pg_class AS c
+  LEFT JOIN pg_catalog.pg_class AS t ON t.oid = c.reltoastrelid
+  WHERE c.oid = '$self->{'_ident'}'::regclass
+  SQL
+  		);
+  
+  	return $result->[0]->[0];
+  }
+  
   sub _get_index_data_list {
   	my $self = shift;
   
   	my $result = $self->_execute_and_log(
   		sql => <<SQL
   SELECT
-      indexname, tablespace, indexdef,
+      relname, spcname, indexdef,
       regexp_replace(indexdef, E'.* USING (\\\\w+) .*', E'\\\\1') AS indmethod,
       conname,
       CASE
@@ -2661,36 +2880,34 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
           SELECT
               bool_and(
                   deptype IN ('n', 'a', 'i') AND
-                  NOT (refobjid = indexoid AND deptype = 'n') AND
+                  NOT (refobjid = indexrelid AND deptype = 'n') AND
                   NOT (
-                      objid = indexoid AND deptype = 'i' AND
+                      objid = indexrelid AND deptype = 'i' AND
                       (version < array[9,1] OR contype NOT IN ('p', 'u'))))
           FROM pg_catalog.pg_depend
           LEFT JOIN pg_catalog.pg_constraint ON
               pg_catalog.pg_constraint.oid = refobjid
           WHERE
-              (objid = indexoid AND classid = pgclassid) OR
-              (refobjid = indexoid AND refclassid = pgclassid)
+              (objid = indexrelid AND classid = pgclassid) OR
+              (refobjid = indexrelid AND refclassid = pgclassid)
       )::integer AS allowed,
-      pg_catalog.pg_relation_size(indexoid)
+      pg_catalog.pg_relation_size(indexrelid)
   FROM (
       SELECT
-          indexname, tablespace, indexdef,
-          (
-              quote_ident(schemaname) || '.' ||
-              quote_ident(indexname))::regclass AS indexoid,
-          'pg_catalog.pg_class'::regclass AS pgclassid,
+          relname, spcname, pg_catalog.pg_get_indexdef(indexrelid) AS indexdef,
+          indexrelid, 'pg_catalog.pg_class'::regclass AS pgclassid,
           string_to_array(
               regexp_replace(
                   version(), E'.*PostgreSQL (\\\\d+\\\\.\\\\d+).*', E'\\\\1'),
               '.')::integer[] AS version
-      FROM pg_catalog.pg_indexes
-      WHERE
-          schemaname = '$self->{'_schema_name'}' AND
-          tablename = '$self->{'_table_name'}'
+      FROM pg_catalog.pg_index
+      JOIN pg_catalog.pg_class ON pg_catalog.pg_class.oid = indexrelid
+      LEFT JOIN pg_catalog.pg_tablespace ON
+          pg_catalog.pg_tablespace.oid = reltablespace
+      WHERE indrelid = '$self->{'_ident'}'::regclass
   ) AS sq
   LEFT JOIN pg_catalog.pg_constraint ON
-      conindid = indexoid AND contype IN ('p', 'u')
+      conindid = indexrelid AND contype IN ('p', 'u')
   ORDER BY 8;
   SQL
   		);
@@ -2787,52 +3004,6 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   sub _get_reindex_query {
   	my ($self, %arg_hash) = @_;
   
-  	my $sql = $arg_hash{'data'}->{'definition'};
-  	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_index_$$/;
-  	if (defined $arg_hash{'data'}->{'tablespace'}) {
-  		$sql =~
-  			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
-  	}
-  	$sql .= '; -- '.$self->{'_database'}->quote_ident(
-  		string => $self->{'_database'}->get_dbname());
-  
-  	return $sql;
-  
-  }
-  
-  sub _get_alter_index_query {
-  	my ($self, %arg_hash) = @_;
-  
-  	my $schema_ident = $self->{'_database'}->quote_ident(
-  		string => $self->{'_schema_name'});
-  	my $index_ident = $self->{'_database'}->quote_ident(
-  		string => $arg_hash{'data'}->{'name'});
-  	my $constraint_ident;
-  	if ($arg_hash{'data'}->{'conname'}) {
-  		$constraint_ident = $self->{'_database'}->quote_ident(
-  			string => $arg_hash{'data'}->{'conname'});
-  	}
-  
-  	return
-  		'BEGIN; SET LOCAL statement_timeout TO '.
-  		$self->{'_locked_alter_timeout'}.'; '.
-  		($constraint_ident ?
-  		 ('ALTER TABLE '.$self->{'_ident'}.
-  		  ' DROP CONSTRAINT '.$constraint_ident.'; '.
-  		  'ALTER TABLE '.$self->{'_ident'}.
-  		  ' ADD CONSTRAINT '.$constraint_ident.' '.
-  		  $arg_hash{'data'}->{'contypedef'}.
-  		  ' USING INDEX pgcompact_index_'.$$.'; ') :
-  		 ('DROP INDEX '.$schema_ident.'.'.$index_ident.'; '.
-  		  'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
-  		  ' RENAME TO '.$index_ident.'; ')
-  		).'END; -- '.$self->{'_database'}->quote_ident(
-  			string => $self->{'_database'}->get_dbname());
-  }
-  
-  sub _get_straight_reindex_query {
-  	my ($self, %arg_hash) = @_;
-  
   	my $schema_ident = $self->{'_database'}->quote_ident(
   		string => $self->{'_schema_name'});
   	my $index_ident = $self->{'_database'}->quote_ident(
@@ -2844,25 +3015,70 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   			string => $self->{'_database'}->get_dbname());
   }
   
-  sub _reindex {
+  sub _get_create_index_concurrently_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $sql = $arg_hash{'data'}->{'definition'};
+  	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_index_$$/;
+  	if (defined $arg_hash{'data'}->{'tablespace'}) {
+  		$sql =~
+  			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
+  	}
+  	$sql .= ';';
+  
+  	return $sql;
+  
+  }
+  
+  sub _create_index_concurrently {
   	my ($self, %arg_hash) = @_;
   
   	$self->_execute_and_log(
-  		sql => $self->_get_reindex_query(data => $arg_hash{'data'}));
+  		sql => $self->_get_create_index_concurrently_query(%arg_hash));
   
   	return;
   }
   
-  sub _drop_temp_index {
+  sub _get_drop_temp_index_query {
   	my ($self, %arg_hash) = @_;
   
   	my $schema_ident = $self->{'_database'}->quote_ident(
   		string => $self->{'_schema_name'});
   
+  	return 'DROP INDEX '.$schema_ident.'.pgcompact_index_'.$$.';';
+  }
+  
+  sub _drop_temp_index {
+  	my ($self, %arg_hash) = @_;
+  
   	$self->_execute_and_log(
-  		sql => 'DROP INDEX '.$schema_ident.'.pgcompact_index_'.$$.';');
+  		sql => $self->_get_drop_temp_index_query(%arg_hash));
   
   	return;
+  }
+  
+  sub _get_drop_temp_index_concurrently_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $schema_ident = $self->{'_database'}->quote_ident(
+  		string => $self->{'_schema_name'});
+  
+  	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.pgcompact_index_'.$$.';';
+  }
+  
+  sub _drop_temp_index_concurrently {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(
+  		sql => $self->_get_drop_temp_index_concurrently_query(%arg_hash));
+  
+  	return;
+  }
+  
+  sub _get_begin_query {
+  	my $self = shift;
+  
+  	return 'BEGIN;';
   }
   
   sub _begin {
@@ -2870,7 +3086,23 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   
   	$self->_execute_and_log(
   		level => 'debug1',
-  		sql => 'BEGIN;');
+  		sql => $self->_get_begin_query());
+  
+  	return;
+  }
+  
+  sub _get_end_query {
+  	my $self = shift;
+  
+  	return 'END;';
+  }
+  
+  sub _end {
+  	my $self = shift;
+  
+  	$self->_execute_and_log(
+  		level => 'debug1',
+  		sql => $self->_get_end_query());
   
   	return;
   }
@@ -2891,15 +3123,6 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   	$self->_execute_and_log(
   		level => 'debug1',
   		sql => 'ROLLBACK;');
-  
-  	return;
-  }
-  
-  sub _alter_index {
-  	my ($self, %arg_hash) = @_;
-  
-  	$self->_execute_and_log(
-  		sql => $self->_get_alter_index_query(data => $arg_hash{'data'}));
   
   	return;
   }
@@ -2934,6 +3157,155 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   		 1)[0]);
   }
   
+  sub _get_set_local_statement_timeout_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	return
+  		'SET LOCAL statement_timeout TO '.$self->{'_locked_alter_timeout'}.';';
+  }
+  
+  sub _set_local_statement_timeout {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(
+  		sql => $self->_get_set_local_statement_timeout_query());
+  
+  	return;
+  }
+  
+  sub _get_drop_constraint_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $constraint_name = $self->{'_database'}->quote_ident(
+  		string => $arg_hash{'data'}->{'conname'});
+  
+  	return
+  		'ALTER TABLE '.$self->{'_ident'}.' DROP CONSTRAINT '.$constraint_name.
+  		';';
+  }
+  
+  sub _drop_constraint {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(
+  		sql => $self->_get_drop_constraint_query(%arg_hash));
+  
+  	return;
+  }
+  
+  sub _get_add_constraint_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $constraint_name = $self->{'_database'}->quote_ident(
+  		string => $arg_hash{'data'}->{'conname'});
+  
+  	return
+  		'ALTER TABLE '.$self->{'_ident'}.' ADD CONSTRAINT '.$constraint_name.
+  		' '.$arg_hash{'data'}->{'contypedef'}.' USING INDEX pgcompact_index_'.
+  		$$.'; ';
+  }
+  
+  sub _add_constraint {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(sql => $self->_get_add_constraint_query(%arg_hash));
+  
+  	return;
+  }
+  
+  sub _get_drop_index_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $schema_ident = $self->{'_database'}->quote_ident(
+  		string => $self->{'_schema_name'});
+  	my $index_ident = $self->{'_database'}->quote_ident(
+  		string => $arg_hash{'data'}->{'name'});
+  
+  	return 'DROP INDEX '.$schema_ident.'.'.$index_ident.';';
+  }
+  
+  sub _drop_index {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(sql => $self->_get_drop_index_query(%arg_hash));
+  
+  	return;
+  }
+  
+  sub _get_drop_index_concurrently_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $schema_ident = $self->{'_database'}->quote_ident(
+  		string => $self->{'_schema_name'});
+  	my $index_ident = $self->{'_database'}->quote_ident(
+  		string => $arg_hash{'data'}->{'name'});
+  
+  	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.'.$index_ident.';';
+  }
+  
+  sub _drop_index_concurrently {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(
+  		sql => $self->_get_drop_index_concurrently_query(%arg_hash));
+  
+  	return;
+  }
+  
+  sub _get_rename_temp_index_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $schema_ident = $self->{'_database'}->quote_ident(
+  		string => $self->{'_schema_name'});
+  	my $index_ident = $self->{'_database'}->quote_ident(
+  		string => $arg_hash{'data'}->{'name'});
+  
+  	return
+  		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.' RENAME TO '.
+  		$index_ident.';';
+  }
+  
+  sub _rename_temp_index {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(
+  		sql => $self->_get_rename_temp_index_query(%arg_hash));
+  
+  	return;
+  }
+  
+  sub _get_swap_index_names_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $schema_ident = $self->{'_database'}->quote_ident(
+  		string => $self->{'_schema_name'});
+  	my $index_ident = $self->{'_database'}->quote_ident(
+  		string => $arg_hash{'data'}->{'name'});
+  
+  	return
+  		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
+  		' RENAME TO pgcompact_swap_index_'.$$.'; '.
+  		'ALTER INDEX '.$schema_ident.'.'.$index_ident.
+  		' RENAME TO pgcompact_index_'.$$.'; '.
+  		'ALTER INDEX '.$schema_ident.'.pgcompact_swap_index_'.$$.
+  		' RENAME TO '.$index_ident.';';
+  }
+  
+  sub _get_vacuum_full_query {
+  	my ($self, %arg_hash) = @_;
+  
+  	return 'VACUUM FULL '.$self->{'_ident'}.';';
+  }
+  
+  sub _swap_index_names {
+  	my ($self, %arg_hash) = @_;
+  
+  	$self->_execute_and_log(
+  		sql => $self->_get_swap_index_names_query(%arg_hash));
+  
+  	return;
+  }
+  
   =head1 SEE ALSO
   
   =over 4
@@ -2963,7 +3335,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = <<'PGTOOLKIT_COMPACTOR_TABLE';
   1;
 PGTOOLKIT_COMPACTOR_TABLE
 
-$fatpacked{"PgToolkit/Database.pm"} = <<'PGTOOLKIT_DATABASE';
+$fatpacked{"PgToolkit/Database.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_DATABASE';
   package PgToolkit::Database;
   
   use base qw(PgToolkit::Class);
@@ -3170,20 +3542,50 @@ $fatpacked{"PgToolkit/Database.pm"} = <<'PGTOOLKIT_DATABASE';
   		die('DatabaseError Nothing to ident.');
   	}
   
-  	return $self->_quote_ident(%arg_hash);
+  	my $string = $arg_hash{'string'};
+  	$string =~ s/'/''/g;
+  
+  	return $self->_quote_ident(string => $string);
   }
   
   sub _quote_ident {
   	my ($self, %arg_hash) = @_;
   
   	my $result = $self->execute(
-  		sql => 'SELECT quote_ident(\''.$arg_hash{'string'}.'\')');
+  		sql => "SELECT quote_ident('".$arg_hash{'string'}."')");
   
   	return $result->[0]->[0];
   }
   
   sub _time {
   	return time();
+  }
+  
+  =head2 B<get_major_version()>
+  
+  Returns a major version of the database.
+  
+  =head3 Returns
+  
+  A database version string like "9.0".
+  
+  =cut
+  
+  sub get_major_version {
+  	my $self = shift;
+  
+  	if (not defined $self->{'_major_version'}) {
+  		$self->{'_major_version'} = $self->execute(
+  			sql => <<SQL
+  SELECT regexp_replace(
+  	version(),
+  	E'.*PostgreSQL (\\\\d+\\\\.\\\\d+).*',
+  	E'\\\\1');
+  SQL
+  			)->[0]->[0];
+  	}
+  
+  	return $self->{'_major_version'};
   }
   
   =head1 SEE ALSO
@@ -3214,7 +3616,7 @@ $fatpacked{"PgToolkit/Database.pm"} = <<'PGTOOLKIT_DATABASE';
   1;
 PGTOOLKIT_DATABASE
 
-$fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
+$fatpacked{"PgToolkit/Database/Dbi.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_DATABASE_DBI';
   package PgToolkit::Database::Dbi;
   
   use base qw(PgToolkit::Database);
@@ -3319,9 +3721,10 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   		$self->execute(
   			sql => join(
   				' ',
-  				map(
-  					'SET '.$_.' TO '.$arg_hash{'set_hash'}->{$_}.';',
-  					keys %{$arg_hash{'set_hash'}})));
+  				sort(
+  					map(
+  						'SET '.$_.' TO '.$arg_hash{'set_hash'}->{$_}.';',
+  						keys %{$arg_hash{'set_hash'}}))));
   	}
   
   	return;
@@ -3430,7 +3833,7 @@ $fatpacked{"PgToolkit/Database/Dbi.pm"} = <<'PGTOOLKIT_DATABASE_DBI';
   1;
 PGTOOLKIT_DATABASE_DBI
 
-$fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
+$fatpacked{"PgToolkit/Database/Psql.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_DATABASE_PSQL';
   package PgToolkit::Database::Psql;
   
   use base qw(PgToolkit::Database);
@@ -3537,9 +3940,10 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   	$self->execute(
   		sql => join(
   			' ',
-  			map(
-  				'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
-  				keys %{$self->{'_set_hash'}}),
+  			sort(
+  				map(
+  					'SET '.$_.' TO '.$self->{'_set_hash'}->{$_}.';',
+  					keys %{$self->{'_set_hash'}})),
   			'SELECT 1;'));
   
   	return;
@@ -3720,7 +4124,7 @@ $fatpacked{"PgToolkit/Database/Psql.pm"} = <<'PGTOOLKIT_DATABASE_PSQL';
   1;
 PGTOOLKIT_DATABASE_PSQL
 
-$fatpacked{"PgToolkit/DatabaseChooser.pm"} = <<'PGTOOLKIT_DATABASECHOOSER';
+$fatpacked{"PgToolkit/DatabaseChooser.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_DATABASECHOOSER';
   package PgToolkit::DatabaseChooser;
   
   use strict;
@@ -3813,7 +4217,7 @@ $fatpacked{"PgToolkit/DatabaseChooser.pm"} = <<'PGTOOLKIT_DATABASECHOOSER';
   1;
 PGTOOLKIT_DATABASECHOOSER
 
-$fatpacked{"PgToolkit/Logger.pm"} = <<'PGTOOLKIT_LOGGER';
+$fatpacked{"PgToolkit/Logger.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_LOGGER';
   package PgToolkit::Logger;
   
   use base qw(PgToolkit::Class);
@@ -3990,7 +4394,7 @@ $fatpacked{"PgToolkit/Logger.pm"} = <<'PGTOOLKIT_LOGGER';
   1;
 PGTOOLKIT_LOGGER
 
-$fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
+$fatpacked{"PgToolkit/Options.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_OPTIONS';
   package PgToolkit::Options;
   
   use base qw(PgToolkit::Class);
@@ -4248,7 +4652,7 @@ $fatpacked{"PgToolkit/Options.pm"} = <<'PGTOOLKIT_OPTIONS';
   1;
 PGTOOLKIT_OPTIONS
 
-$fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR';
+$fatpacked{"PgToolkit/Registry/Compactor.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_REGISTRY_COMPACTOR';
   package PgToolkit::Registry::Compactor;
   
   use base qw(PgToolkit::Class);
@@ -4361,6 +4765,10 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   		database => $arg_hash{'database'},
   		logger => $self->get_logger(),
   		dry_run => $options->get(name => 'dry-run'),
+  		toast_compactor_constructor => sub {
+  			return $self->get_table_compactor(%arg_hash, @_);
+  		},
+  		toast_parent_ident => $arg_hash{'toast_parent_ident'},
   		schema_name => $arg_hash{'schema_name'},
   		table_name => $arg_hash{'table_name'},
   		min_page_count => $options->get(name => 'min-page-count'),
@@ -4533,7 +4941,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   				}
   			},
   			kit => 'PgToolkit',
-  			version => 'v1.0.1');
+  			version => 'v1.0.2');
   	}
   
   	return $self->{'_options'};
@@ -4587,7 +4995,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = <<'PGTOOLKIT_REGISTRY_COMPACTOR'
   1;
 PGTOOLKIT_REGISTRY_COMPACTOR
 
-$fatpacked{"PgToolkit/Utils.pm"} = <<'PGTOOLKIT_UTILS';
+$fatpacked{"PgToolkit/Utils.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PGTOOLKIT_UTILS';
   package PgToolkit::Utils;
   
   use base qw(PgToolkit::Class);
@@ -4768,6 +5176,36 @@ $fatpacked{"PgToolkit/Utils.pm"} = <<'PGTOOLKIT_UTILS';
   	return Time::HiRes::time();
   }
   
+  =head2 B<cmp_versions()>
+  
+  Compares two version strings.
+  
+  =head3 Arguments
+  
+  =over 4
+  
+  =item C<v1>
+  
+  =item C<v2>
+  
+  =back
+  
+  =head3 Returns
+  
+  0 if versions are equal, 1 if the first one is greater than the second
+  one, and -1 if less.
+  
+  =cut
+  
+  sub cmp_versions {
+  	my ($self, %arg_hash) = @_;
+  
+  	my $p1 = pack('C*', split(/\./, $arg_hash{'v1'}));
+  	my $p2 = pack('C*', split(/\./, $arg_hash{'v2'}));
+  
+  	return $p1 gt $p2 ? 1 : $p1 lt $p2 ? -1 : 0;
+  }
+  
   =head1 SEE ALSO
   
   =over 4
@@ -4798,24 +5236,37 @@ PGTOOLKIT_UTILS
 
 s/^  //mg for values %fatpacked;
 
-unshift @INC, sub {
-  if (my $fat = $fatpacked{$_[1]}) {
-    if ($] < 5.008) {
-      return sub {
-        return 0 unless length $fat;
-        $fat =~ s/^([^\n]*\n?)//;
-        $_ = $1;
-        return 1;
-      };
-    }
-    open my $fh, '<', \$fat
-      or die "FatPacker error loading $_[1] (could be a perl installation issue?)";
-    return $fh;
-  }
-  return
-};
+my $class = 'FatPacked::'.(0+\%fatpacked);
+no strict 'refs';
+*{"${class}::files"} = sub { keys %{$_[0]} };
 
-} # END OF FATPACK CODE
+if ($] < 5.008) {
+  *{"${class}::INC"} = sub {
+     if (my $fat = $_[0]{$_[1]}) {
+       return sub {
+         return 0 unless length $fat;
+         $fat =~ s/^([^\n]*\n?)//;
+         $_ = $1;
+         return 1;
+       };
+     }
+     return;
+  };
+}
+
+else {
+  *{"${class}::INC"} = sub {
+    if (my $fat = $_[0]{$_[1]}) {
+      open my $fh, '<', \$fat
+        or die "FatPacker error loading $_[1] (could be a perl installation issue?)";
+      return $fh;
+    }
+    return;
+  };
+}
+
+unshift @INC, bless \%fatpacked, $class;
+  } # END OF FATPACK CODE
 
 #!/usr/bin/perl
 
@@ -4891,7 +5342,7 @@ Shows usage manual.
 Compacts all the bloated tables in all the database in the cluster
 plus their bloated indexes. Prints additional progress information.
 
-	pgcompact --all --reindex --verbose info
+	pgcompact --all --reindex --verbosity info
 
 Compacts all the bloated tables in the billing database and their
 bloated indexes excepts ones that are in the pgq schema.
