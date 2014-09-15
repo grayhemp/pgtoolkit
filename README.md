@@ -108,7 +108,6 @@ PgToolkit is released under the PostgreSQL License, read
 ## Authors
 
 - [Sergey Konoplev](mailto:gray.ru@gmail.com)
-- [Maxim Boguk](mailto:maxim.boguk@gmail.com)
 
 ## Contributors
 
