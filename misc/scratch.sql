@@ -70,6 +70,28 @@ FROM generate_series(1, 10000) i;
 DELETE FROM table4
 WHERE random() < 0.9;
 --
+CREATE TABLE table4_p1 () INHERITS (table4);
+INSERT INTO table4_p1
+SELECT
+    i AS id,
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 50000)::integer) AS text_column
+FROM generate_series(1, 10000) i;
+DELETE FROM table4_p1
+WHERE random() < 0.3;
+--
+CREATE TABLE table4_p2 () INHERITS (table4);
+INSERT INTO table4_p2
+SELECT
+    i AS id,
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 50000)::integer) AS text_column
+FROM generate_series(1, 10000) i;
+DELETE FROM table4_p2
+WHERE random() < 0.6;
+--
 CREATE SCHEMA dummy;
 --
 ALTER DATABASE dbname1 SET search_path TO dummy;

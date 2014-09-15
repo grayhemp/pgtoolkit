@@ -475,6 +475,9 @@ sub _process {
 							$max_tupples_per_page.'.'),
 						level => 'warning',
 						target => $self->{'_log_target'});
+
+					$to_page = $last_to_page;
+					last;
 				}
 
 				$self->_commit();
