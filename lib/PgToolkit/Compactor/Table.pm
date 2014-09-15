@@ -476,6 +476,7 @@ sub _process {
 						level => 'warning',
 						target => $self->{'_log_target'});
 
+					$self->_rollback();
 					$to_page = $last_to_page;
 					last;
 				}
