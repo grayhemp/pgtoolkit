@@ -1535,6 +1535,7 @@ $fatpacked{"PgToolkit/Compactor/Table.pm"} = '#line '.(1+__LINE__).' "'.__FILE__
   						level => 'warning',
   						target => $self->{'_log_target'});
   
+  					$self->_rollback();
   					$to_page = $last_to_page;
   					last;
   				}
@@ -5639,8 +5640,6 @@ for additional information.
 =over 4
 
 =item L<Sergey Konoplev|mailto:gray.ru@gmail.com>
-
-=item L<Maxim Boguk|mailto:maxim.boguk@gmail.com>
 
 =back
 
