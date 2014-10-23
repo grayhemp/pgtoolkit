@@ -116,6 +116,8 @@ Thank you:
 - DenisBY for bug reports and testing
 - [PostgreSQL-Consulting.com](http://www.postgresql-consulting.com)
   for a huge amount of ideas and lots of testing
+- [Maxim Boguk](mailto:maxim.boguk@gmail.com) for ideas, testing and
+  useful hints
 - Lonni Friedman for your ideas
 - Rural Hunter for ideas and testing
 - Hubert "depesz" Lubaczewski for testing, useful hints and code
