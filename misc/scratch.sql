@@ -40,6 +40,7 @@ CREATE INDEX table1_hash ON table1 USING hash (text_column);
 CREATE INDEX table1_idx2 ON table1 (text_column, float_column);
 CREATE INDEX table1_idx3 ON table1 (text_column) WHERE false;
 CREATE INDEX table1_idx4 ON table1 (text_column) WHERE  id < 500;
+CREATE INDEX "something -> table1_idx5" ON table1 (text_column);
 DELETE FROM table1 WHERE random() < 0.5;
 --
 CREATE TABLE table2 ("primary" integer, float_column real)
@@ -204,6 +205,22 @@ CREATE INDEX table7_gin ON table7
     USING gin (to_tsvector('english', id::text));
 CREATE INDEX table7_hash ON table7 USING hash (text_column);
 DELETE FROM public.table7 WHERE id BETWEEN 1000 AND 10000 - 1000;
+--
+CREATE SCHEMA "схема один";
+--
+CREATE TABLE "схема один"."таблица - восемь" AS
+SELECT
+    i AS "идентификатор",
+    repeat(
+        (random() * 1000000)::text,
+        (random() * 5000)::integer) AS "текстовая колонка"
+FROM generate_series(1, 10000) AS i;
+CREATE INDEX "таблица - восемь idx1" ON "таблица - восемь" (
+    "текстовая колонка", "идентификатор");
+ALTER TABLE "таблица - восемь" ADD CONSTRAINT "таблица - восемь pkey"
+    PRIMARY KEY ("идентификатор");
+DELETE FROM "схема один"."таблица - восемь"
+    WHERE "идентификатор" BETWEEN 1000 AND 10000 - 1000;
 --
 CREATE SCHEMA dummy;
 --

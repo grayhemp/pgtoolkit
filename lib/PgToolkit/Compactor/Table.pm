@@ -1961,7 +1961,7 @@ sub _get_create_index_concurrently_query {
 	my ($self, %arg_hash) = @_;
 
 	my $sql = $arg_hash{'data'}->{'definition'};
-	$sql =~ s/INDEX (\S+)/INDEX CONCURRENTLY pgcompact_index_$$/;
+	$sql =~ s/INDEX .+? ON/INDEX CONCURRENTLY pgcompact_index_$$ ON/;
 	if (defined $arg_hash{'data'}->{'tablespace'}) {
 		$sql =~
 			s/( WHERE .*|$)/ TABLESPACE $arg_hash{'data'}->{'tablespace'}$1/;
@@ -1969,7 +1969,6 @@ sub _get_create_index_concurrently_query {
 	$sql .= ';';
 
 	return $sql;
-
 }
 
 sub _create_index_concurrently {

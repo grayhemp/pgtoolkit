@@ -2,6 +2,11 @@
 
 ## Changes
 
+### - PgToolkit v1.0.3
+
+- Fixed the quotation bug for indexes with names containing
+  whitespaces (thanks to Rafał Fitt)
+
 ### 2014-02-22 - PgToolkit v1.0.2
 
 - Fixed the non working statement timeout in the reindexing process
