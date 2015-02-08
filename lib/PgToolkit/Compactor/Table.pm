@@ -716,18 +716,10 @@ sub _process {
 							$self->_add_constraint(data => $index_data);
 							$duration += $self->{'_database'}->get_duration();
 						} else {
-							if ($self->{'_can_drop_index_concurrently'}) {
-								$self->_swap_index_names(data => $index_data);
-								$duration +=
-									$self->{'_database'}->get_duration();
-							} else {
-								$self->_drop_index(data => $index_data);
-								$duration +=
-									$self->{'_database'}->get_duration();
-								$self->_rename_temp_index(data => $index_data);
-								$duration +=
-									$self->{'_database'}->get_duration();
-							}
+							$self->_drop_index(data => $index_data);
+							$duration += $self->{'_database'}->get_duration();
+							$self->_rename_temp_index(data => $index_data);
+							$duration += $self->{'_database'}->get_duration();
 						}
 						$self->_end();
 						$duration += $self->{'_database'}->get_duration();
@@ -1357,11 +1349,8 @@ sub _log_reindex_queries {
 						  $self->_get_drop_constraint_query(%arg_hash),
 						  $self->_get_add_constraint_query(%arg_hash)
 					  ) : (
-						  $self->{'_can_drop_index_concurrently'} ?
-						  $self->_get_swap_index_names_query(%arg_hash) : (
-							  $self->_get_drop_index_query(%arg_hash),
-							  $self->_get_rename_temp_index_query(%arg_hash)
-						  )
+						  $self->_get_drop_index_query(%arg_hash),
+						  $self->_get_rename_temp_index_query(%arg_hash)
 					  ),
 					  $self->_get_end_query(),
 					  ($self->{'_can_drop_index_concurrently'} and
@@ -2215,36 +2204,10 @@ sub _rename_temp_index {
 	return;
 }
 
-sub _get_swap_index_names_query {
-	my ($self, %arg_hash) = @_;
-
-	my $schema_ident = $self->{'_database'}->quote_ident(
-		string => $self->{'_schema_name'});
-	my $index_ident = $self->{'_database'}->quote_ident(
-		string => $arg_hash{'data'}->{'name'});
-
-	return
-		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
-		' RENAME TO pgcompact_swap_index_'.$$.'; '.
-		'ALTER INDEX '.$schema_ident.'.'.$index_ident.
-		' RENAME TO pgcompact_index_'.$$.'; '.
-		'ALTER INDEX '.$schema_ident.'.pgcompact_swap_index_'.$$.
-		' RENAME TO '.$index_ident.';';
-}
-
 sub _get_vacuum_full_query {
 	my ($self, %arg_hash) = @_;
 
 	return 'VACUUM FULL '.$self->{'_ident'}.';';
-}
-
-sub _swap_index_names {
-	my ($self, %arg_hash) = @_;
-
-	$self->_execute_and_log(
-		sql => $self->_get_swap_index_names_query(%arg_hash));
-
-	return;
 }
 
 =head1 SEE ALSO
