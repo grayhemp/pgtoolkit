@@ -215,9 +215,10 @@ SELECT
         (random() * 1000000)::text,
         (random() * 5000)::integer) AS "текстовая колонка"
 FROM generate_series(1, 10000) AS i;
-CREATE INDEX "таблица - восемь idx1" ON "таблица - восемь" (
+CREATE INDEX "таблица - восемь idx1" ON "схема один"."таблица - восемь" (
     "текстовая колонка", "идентификатор");
-ALTER TABLE "таблица - восемь" ADD CONSTRAINT "таблица - восемь pkey"
+ALTER TABLE "схема один"."таблица - восемь"
+    ADD CONSTRAINT "таблица - восемь pkey"
     PRIMARY KEY ("идентификатор");
 DELETE FROM "схема один"."таблица - восемь"
     WHERE "идентификатор" BETWEEN 1000 AND 10000 - 1000;

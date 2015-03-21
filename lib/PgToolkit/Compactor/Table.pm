@@ -2224,12 +2224,12 @@ sub _get_swap_index_names_query {
 		string => $arg_hash{'data'}->{'name'});
 
 	return
-		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
-		' RENAME TO pgcompact_swap_index_'.$$.'; '.
 		'ALTER INDEX '.$schema_ident.'.'.$index_ident.
-		' RENAME TO pgcompact_index_'.$$.'; '.
+		' RENAME TO pgcompact_swap_index_'.$$.'; '.
+		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
+		' RENAME TO '.$index_ident.';'.
 		'ALTER INDEX '.$schema_ident.'.pgcompact_swap_index_'.$$.
-		' RENAME TO '.$index_ident.';';
+		' RENAME TO pgcompact_index_'.$$.'; ';
 }
 
 sub _get_vacuum_full_query {
