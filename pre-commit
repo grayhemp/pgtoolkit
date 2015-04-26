@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo 'Making fatpacked versions of the scripts:'
+bash make_fatpack
+git add fatpack/*
