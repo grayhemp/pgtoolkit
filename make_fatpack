@@ -1,41 +1,25 @@
 #!/bin/bash
-#
-# A script to make packed with dependencies versions of tools.
-#
-# Makes autonomous Perl scripts with the fatpack utility
-# (App::FatPacker) and archive them in pgtoolkit-vX-fatpack.tar.gz.
-#
-# The TAG argument is required. The script is assumed to be run in the
-# repository root.
-#
-# Copyright (c) 2011-2014 Sergey Konoplev
 
-BIN_DIR='./bin'
-FATPACK_DIR='./fatpack'
+# make_fatpack - packs tools with dependencies.
+#
+# Makes autonomous (packed with dependencies) Perl scripts for the
+# tools from ./bin with the fatpack utility (App::FatPacker) and
+# puts them under ./fatpack.
+#
+# Copyright (c) 2011-2015 Sergey Konoplev
+
+set -e
+
+BIN_DIR="$(dirname $0)/bin"
+FATPACK_DIR="$(dirname $0)/fatpack"
 PERL='/usr/bin/perl'
-
-if [ $# -ne 1 ]; then
-    echo "Usage: make_files TAG" >&2
-    exit 1
-fi
-
-script_list=$(ls -1 $BIN_DIR)
 
 # Fatpack the scripts
 find $FATPACK_DIR -type f -delete
-mkdir fatlib
-for script in $script_list; do
-    (echo "#!$PERL"; fatpack file; cat $BIN_DIR/$script) \
-        > $FATPACK_DIR/$script 2> /dev/null
+mkdir -p /tmp/pgtoolkit_fatlib
+for script in $(ls -1 $BIN_DIR); do
+    (echo "#!$PERL"; fatpack file; cat $BIN_DIR/$script) >$FATPACK_DIR/$script
     chmod 755 $FATPACK_DIR/$script
     echo $FATPACK_DIR/$script
 done
-rm -rf fatlib
-
-# Archive the fatpacked scripts and remove them
-fatpack_targz=pgtoolkit-$1-fatpack.tar.gz
-(
-    cd $FATPACK_DIR/
-    tar -czf $fatpack_targz *
-    echo $FATPACK_DIR/$fatpack_targz
-)
+rm -rf /tmp/pgtoolkit_fatlib
