@@ -2004,7 +2004,9 @@ sub _get_drop_temp_index_concurrently_query {
 	my $schema_ident = $self->{'_database'}->quote_ident(
 		string => $self->{'_schema_name'});
 
-	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.pgcompact_index_'.$$.';';
+	return
+		'DROP INDEX CONCURRENTLY '.$schema_ident.
+		'.pgcompact_temp_index_'.$$.';';
 }
 
 sub _drop_temp_index_concurrently {
@@ -2173,25 +2175,25 @@ sub _drop_index {
 	return;
 }
 
-sub _get_drop_index_concurrently_query {
-	my ($self, %arg_hash) = @_;
+# sub _get_drop_index_concurrently_query {
+# 	my ($self, %arg_hash) = @_;
 
-	my $schema_ident = $self->{'_database'}->quote_ident(
-		string => $self->{'_schema_name'});
-	my $index_ident = $self->{'_database'}->quote_ident(
-		string => $arg_hash{'data'}->{'name'});
+# 	my $schema_ident = $self->{'_database'}->quote_ident(
+# 		string => $self->{'_schema_name'});
+# 	my $index_ident = $self->{'_database'}->quote_ident(
+# 		string => $arg_hash{'data'}->{'name'});
 
-	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.'.$index_ident.';';
-}
+# 	return 'DROP INDEX CONCURRENTLY '.$schema_ident.'.'.$index_ident.';';
+# }
 
-sub _drop_index_concurrently {
-	my ($self, %arg_hash) = @_;
+# sub _drop_index_concurrently {
+# 	my ($self, %arg_hash) = @_;
 
-	$self->_execute_and_log(
-		sql => $self->_get_drop_index_concurrently_query(%arg_hash));
+# 	$self->_execute_and_log(
+# 		sql => $self->_get_drop_index_concurrently_query(%arg_hash));
 
-	return;
-}
+# 	return;
+# }
 
 sub _get_rename_temp_index_query {
 	my ($self, %arg_hash) = @_;
@@ -2225,17 +2227,9 @@ sub _get_swap_index_names_query {
 
 	return
 		'ALTER INDEX '.$schema_ident.'.'.$index_ident.
-		' RENAME TO pgcompact_swap_index_'.$$.'; '.
+		' RENAME TO pgcompact_temp_index_'.$$.'; '.
 		'ALTER INDEX '.$schema_ident.'.pgcompact_index_'.$$.
-		' RENAME TO '.$index_ident.';'.
-		'ALTER INDEX '.$schema_ident.'.pgcompact_swap_index_'.$$.
-		' RENAME TO pgcompact_index_'.$$.'; ';
-}
-
-sub _get_vacuum_full_query {
-	my ($self, %arg_hash) = @_;
-
-	return 'VACUUM FULL '.$self->{'_ident'}.';';
+		' RENAME TO '.$index_ident.';';
 }
 
 sub _swap_index_names {
@@ -2245,6 +2239,12 @@ sub _swap_index_names {
 		sql => $self->_get_swap_index_names_query(%arg_hash));
 
 	return;
+}
+
+sub _get_vacuum_full_query {
+	my ($self, %arg_hash) = @_;
+
+	return 'VACUUM FULL '.$self->{'_ident'}.';';
 }
 
 =head1 SEE ALSO

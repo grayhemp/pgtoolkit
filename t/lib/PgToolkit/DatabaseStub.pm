@@ -37,7 +37,7 @@ sub init {
 
 				is($self->call_pos($pos), 'execute');
 				like({'self', $self->call_args($pos)}->{'sql'},
-					 qr/$sql_pattern/);
+					 qr/$sql_pattern/, $name);
 			} else {
 				is($self->call_pos($pos), undef);
 			}
@@ -71,6 +71,7 @@ sub init {
 								$arg_hash{'sql'});
 						}
 					}
+					#print "$key \n";
 					last;
 				}
 			}
@@ -249,17 +250,15 @@ sub init {
 			'row_list' => []},
 		'rename_temp_index2' => {
 			'sql_pattern' =>
-				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
+				qr/^ALTER INDEX schema\.pgcompact_index_$$ /.
 				qr/RENAME TO table_idx2;/,
 			'row_list' => []},
 		'swap_index_names2' => {
 			'sql_pattern' =>
 				qr/ALTER INDEX schema\.table_idx2 /.
-				qr/RENAME TO pgcompact_swap_index_$$; /.
+				qr/RENAME TO pgcompact_temp_index_$$; /.
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
-				qr/RENAME TO table_idx2;/.
-				qr/ALTER INDEX schema\.pgcompact_swap_index_$$ /.
-				qr/RENAME TO pgcompact_index_$$; /,
+				qr/RENAME TO table_idx2;/,
 			'row_list_sequence' => [[[]]]},
 		'drop_temp_index2' => {
 			'sql_pattern' =>
@@ -267,7 +266,7 @@ sub init {
 			'row_list' => []},
 		'drop_temp_index_concurrently2' => {
 			'sql_pattern' =>
-				qr/DROP INDEX CONCURRENTLY schema\.pgcompact_index_$$;/,
+				qr/DROP INDEX CONCURRENTLY schema\.pgcompact_temp_index_$$;/,
 			'row_list' => []},
 		'create_index_concurrently3' => {
 			'sql_pattern' =>
@@ -285,21 +284,19 @@ sub init {
 			'row_list_sequence' => [[[]]]},
 		'rename_temp_index3' => {
 			'sql_pattern' =>
-				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
+				qr/^ALTER INDEX schema\.pgcompact_index_$$ /.
 				qr/RENAME TO table_idx3;/,
 			'row_list' => []},
 		'swap_index_names3' => {
 			'sql_pattern' =>
 				qr/ALTER INDEX schema\.table_idx3 /.
-				qr/RENAME TO pgcompact_swap_index_$$; /.
+				qr/RENAME TO pgcompact_temp_index_$$; /.
 				qr/ALTER INDEX schema\.pgcompact_index_$$ /.
-				qr/RENAME TO table_idx3;/.
-				qr/ALTER INDEX schema\.pgcompact_swap_index_$$ /.
-				qr/RENAME TO pgcompact_index_$$; /,
+				qr/RENAME TO table_idx3;/,
 			'row_list' => []},
 		'drop_temp_index_concurrently3' => {
 			'sql_pattern' =>
-				qr/DROP INDEX CONCURRENTLY schema\.pgcompact_index_$$;/,
+				qr/DROP INDEX CONCURRENTLY schema\.pgcompact_temp_index_$$;/,
 			'row_list' => []},
 		'get_table_data_list1' => {
 			'sql_pattern' =>
