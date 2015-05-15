@@ -4904,7 +4904,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = '#line '.(1+__LINE__).' "'.__FIL
   				'force|f' => 0,
   				'max-pages-per-round|c:i' => 10,
   				'delay-constant|e:i' => 0,
-  				'delay-ratio|E:i' => 2,
+  				'delay-ratio|E:i' => 4,
   				'max-retry-count|o:i' => 10,
   				'min-page-count|x:i' => 10,
   				'min-free-percent|y:i' => 20,
@@ -5570,7 +5570,7 @@ is 0.
 =item B<--delay-ratio> RATIO
 
 A dynamic part of the delay between rounds is calculated as
-previous-round-time * delay-ratio. By default 2.
+previous-round-time * delay-ratio. By default 4.
 
 =item B<-o> COUNT
 

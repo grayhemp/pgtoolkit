@@ -300,7 +300,7 @@ is 0.
 =item B<--delay-ratio> RATIO
 
 A dynamic part of the delay between rounds is calculated as
-previous-round-time * delay-ratio. By default 2.
+previous-round-time * delay-ratio. By default 4.
 
 =item B<-o> COUNT
 

@@ -249,7 +249,7 @@ sub get_options {
 				'force|f' => 0,
 				'max-pages-per-round|c:i' => 10,
 				'delay-constant|e:i' => 0,
-				'delay-ratio|E:i' => 2,
+				'delay-ratio|E:i' => 4,
 				'max-retry-count|o:i' => 10,
 				'min-page-count|x:i' => 10,
 				'min-free-percent|y:i' => 20,
