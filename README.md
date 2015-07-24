@@ -1,5 +1,7 @@
 # PgToolkit - tools for PostgreSQL maintenance
 
+[![Join the chat at https://gitter.im/grayhemp/pgtoolkit](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/grayhemp/pgtoolkit?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Currently the package contains the only tool `pgcompact`, we are
 planning to add much more in the future. Stay tuned.
 
