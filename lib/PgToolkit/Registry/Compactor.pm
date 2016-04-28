@@ -156,6 +156,16 @@ sub get_database_adapter {
 		user => $options->get(name => 'user'),
 		dbname => $arg_hash{'dbname'});
 
+	my $hard_session_params = {
+                        'lc_messages' => '\'C\'',
+                        'synchronous_commit' => 'off',
+                        'session_replication_role' => 'replica',
+                        'statement_timeout' => '\'0\''
+                        };
+
+	my $custom_session_params = $options->get(name => 'custom-session-param');
+	my $session_params = { %$custom_session_params, %$hard_session_params };
+
 	my %param_hash = (
 		password => (
 			$options->get(name => 'password') or
@@ -167,11 +177,7 @@ sub get_database_adapter {
 					($ENV{'HOME'} and -r $ENV{'HOME'}.'/.pgpass') ?
 					$ENV{'HOME'}.'/.pgpass' : undef),
 				%hpud_hash)),
-		set_hash => {
-			'lc_messages' => '\'C\'',
-			'synchronous_commit' => 'off',
-			'session_replication_role' => 'replica',
-			'statement_timeout' => '\'0\''},
+		set_hash => $session_params,
 		%hpud_hash);
 
 	my $constructor_list = [
@@ -254,6 +260,7 @@ sub get_options {
 				'min-page-count|x:i' => 10,
 				'min-free-percent|y:i' => 20,
 				'progress-report-period|z:i' => 60,
+				'custom-session-param|b:s%' => {},
 				# misc
 				'quiet|q' => 0,
 				'verbosity|v:s' => 'notice'},

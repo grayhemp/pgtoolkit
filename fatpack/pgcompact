@@ -4811,6 +4811,16 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = '#line '.(1+__LINE__).' "'.__FIL
   		user => $options->get(name => 'user'),
   		dbname => $arg_hash{'dbname'});
   
+  	my $hard_session_params = {
+                          'lc_messages' => '\'C\'',
+                          'synchronous_commit' => 'off',
+                          'session_replication_role' => 'replica',
+                          'statement_timeout' => '\'0\''
+                          };
+  
+  	my $custom_session_params = $options->get(name => 'custom-session-param');
+  	my $session_params = { %$custom_session_params, %$hard_session_params };
+  
   	my %param_hash = (
   		password => (
   			$options->get(name => 'password') or
@@ -4822,11 +4832,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = '#line '.(1+__LINE__).' "'.__FIL
   					($ENV{'HOME'} and -r $ENV{'HOME'}.'/.pgpass') ?
   					$ENV{'HOME'}.'/.pgpass' : undef),
   				%hpud_hash)),
-  		set_hash => {
-  			'lc_messages' => '\'C\'',
-  			'synchronous_commit' => 'off',
-  			'session_replication_role' => 'replica',
-  			'statement_timeout' => '\'0\''},
+  		set_hash => $session_params,
   		%hpud_hash);
   
   	my $constructor_list = [
@@ -4909,6 +4915,7 @@ $fatpacked{"PgToolkit/Registry/Compactor.pm"} = '#line '.(1+__LINE__).' "'.__FIL
   				'min-page-count|x:i' => 10,
   				'min-free-percent|y:i' => 20,
   				'progress-report-period|z:i' => 60,
+  				'custom-session-param|b:s%' => {},
   				# misc
   				'quiet|q' => 0,
   				'verbosity|v:s' => 'notice'},
@@ -5242,15 +5249,17 @@ no strict 'refs';
 
 if ($] < 5.008) {
   *{"${class}::INC"} = sub {
-     if (my $fat = $_[0]{$_[1]}) {
-       return sub {
-         return 0 unless length $fat;
-         $fat =~ s/^([^\n]*\n?)//;
-         $_ = $1;
-         return 1;
-       };
-     }
-     return;
+    if (my $fat = $_[0]{$_[1]}) {
+      my $pos = 0;
+      my $last = length $fat;
+      return (sub {
+        return 0 if $pos == $last;
+        my $next = (1 + index $fat, "\n", $pos) || $last;
+        $_ .= substr $fat, $pos, $next - $pos;
+        $pos = $next;
+        return 1;
+      });
+    }
   };
 }
 
